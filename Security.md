@@ -7,7 +7,8 @@ funds (or a similarly critical issue) are to be reported via
 [Serai's Bug Bounty Program](https://immunefi.com/bug-bounty/serai/information/).
 Such bugs will be eligible for a good-faith bounty from Serai. The disclosure is
 to be immediately shared by the Serai maintainers with the monero-oxide
-administrators.
+administrators. A goal of monero-oxide is to deploy its own bug bounty program
+when doing so is financially feasible.
 
 All affected projects should be _privately_ disclosed to via their stated
 disclosure method (or any private means of communication upon lack of stated
@@ -35,4 +36,8 @@ highest potential severity.
 
 Any bug within monero-oxide may be publicly disclosed three months after the
 date of its responsible disclosure to the monero-oxide project, regardless of
-its status.
+its status. Prior to this deadline, any disclosed to party may request an
+extension of up to 60 days. If the discloser agrees to that extension, they must
+notify all disclosed-to parties of the new timeline and all must honor it. If
+the discloser does not agree, they must explicitly inform the requester of their
+disagreement.
