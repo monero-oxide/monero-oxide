@@ -38,6 +38,21 @@ jobs:
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-address --lib
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-wallet --lib
 
+      - name: Run Unit Tests With Features
+        run: |
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-io --lib --all-features
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-generators --lib --all-features
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-primitives --lib --all-features
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-mlsag --lib --all-features
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-clsag --lib --all-features
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-borromean --lib --all-features
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-bulletproofs --lib --all-features
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-serai --lib --all-features
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-rpc --lib --all-features
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --lib --all-features
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-address --lib --all-features
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-wallet --lib --all-features
+
       # Doesn't run unit tests with features as the tests workflow will
 
   integration-tests:
@@ -62,8 +77,6 @@ jobs:
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-wallet --test '*'
 
       - name: Run Integration Tests
-        # Don't run if the the tests workflow also will
-        if: ${{ matrix.version != 'v0.18.3.4' }}
         run: |
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-serai --all-features --test '*'
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --test '*'
