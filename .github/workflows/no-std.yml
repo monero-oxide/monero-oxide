@@ -5,16 +5,12 @@ on:
     branches:
       - develop
     paths:
-      - "common/**"
-      - "crypto/**"
-      - "networks/**"
+      - "monero-oxide/**"
       - "tests/no-std/**"
 
   pull_request:
     paths:
-      - "common/**"
-      - "crypto/**"
-      - "networks/**"
+      - "monero-oxide/**"
       - "tests/no-std/**"
 
   workflow_dispatch:

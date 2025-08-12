@@ -1,5 +1,5 @@
 name: monero-wallet-rpc
-description: Spawns a Monero Wallet-RPC.
+description: Spawns a Monero Wallet-RPC
 
 inputs:
   version:

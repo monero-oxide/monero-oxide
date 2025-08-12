@@ -5,13 +5,11 @@ on:
     branches:
       - develop
     paths:
-      - "networks/monero/**"
-      - "processor/**"
+      - "monero-oxide/**"
 
   pull_request:
     paths:
-      - "networks/monero/**"
-      - "processor/**"
+      - "monero-oxide/**"
 
   workflow_dispatch:
 

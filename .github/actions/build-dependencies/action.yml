@@ -1,5 +1,5 @@
 name: build-dependencies
-description: Installs build dependencies for Serai
+description: Installs build dependencies for monero-oxide
 
 runs:
   using: "composite"
@@ -30,19 +30,8 @@ runs:
       shell: bash
       run: |
         if [ "$RUNNER_OS" == "Linux" ]; then
-          sudo apt install -y ca-certificates protobuf-compiler
-        elif [ "$RUNNER_OS" == "Windows" ]; then
-          choco install protoc
-        elif [ "$RUNNER_OS" == "macOS" ]; then
-          brew install protobuf
+          sudo apt install -y ca-certificates
         fi
-
-    - name: Install solc
-      shell: bash
-      run: |
-        cargo +1.89 install svm-rs --version =0.5.18
-        svm install 0.8.25
-        svm use 0.8.25
 
     - name: Remove preinstalled Docker
       shell: bash
