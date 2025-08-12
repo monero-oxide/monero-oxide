@@ -15,7 +15,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 workspace = true
 
 [dependencies]
-std-shims = { path = "../../../common/std-shims", version = "^0.1.1", default-features = false }
+std-shims = { version = "^0.1.1", default-features = false }
 
 subtle = { version = "^2.4", default-features = false }
 
@@ -23,7 +23,7 @@ sha3 = { version = "0.10", default-features = false }
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc", "zeroize"] }
 
 group = { version = "0.13", default-features = false }
-dalek-ff-group = { path = "../../../crypto/dalek-ff-group", version = "0.4", default-features = false }
+dalek-ff-group = { version = "0.4", default-features = false }
 
 monero-io = { path = "../io", version = "0.1", default-features = false }
 
@@ -39,7 +39,6 @@ std = [
   "sha3/std",
 
   "group/alloc",
-  "dalek-ff-group/std",
 
   "monero-io/std"
 ]

@@ -20,7 +20,7 @@ ignored = ["monero-clsag"]
 workspace = true
 
 [dependencies]
-std-shims = { path = "../../../common/std-shims", version = "^0.1.1", default-features = false }
+std-shims = { version = "^0.1.1", default-features = false }
 
 thiserror = { version = "1", default-features = false, optional = true }
 
@@ -36,10 +36,10 @@ rand_distr = { version = "0.4", default-features = false }
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc", "zeroize", "group"] }
 
 # Multisig dependencies
-transcript = { package = "flexible-transcript", path = "../../../crypto/transcript", version = "0.3", default-features = false, features = ["recommended"], optional = true }
+transcript = { package = "flexible-transcript", version = "0.3", default-features = false, features = ["recommended"], optional = true }
 group = { version = "0.13", default-features = false, optional = true }
-dalek-ff-group = { path = "../../../crypto/dalek-ff-group", version = "0.4", default-features = false, optional = true }
-frost = { package = "modular-frost", path = "../../../crypto/frost", default-features = false, features = ["ed25519"], optional = true }
+dalek-ff-group = { version = "0.4", default-features = false, optional = true }
+frost = { package = "modular-frost", version = "0.8", default-features = false, features = ["ed25519"], optional = true }
 
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 
@@ -52,7 +52,7 @@ monero-address = { path = "./address", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive", "alloc", "std"] }
 serde_json = { version = "1", default-features = false, features = ["alloc", "std"] }
 
-frost = { package = "modular-frost", path = "../../../crypto/frost", default-features = false, features = ["ed25519", "tests"] }
+frost = { package = "modular-frost", version = "0.8", default-features = false, features = ["ed25519", "tests"] }
 
 tokio = { version = "1", features = ["sync", "macros"] }
 
