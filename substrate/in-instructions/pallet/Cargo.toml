@@ -1,0 +1,69 @@
+[package]
+name = "serai-in-instructions-pallet"
+version = "0.1.0"
+description = "Execute calls via In Instructions from unsigned transactions"
+license = "AGPL-3.0-only"
+authors = ["Luke Parker <lukeparker5132@gmail.com>"]
+edition = "2021"
+publish = false
+rust-version = "1.74"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.cargo-machete]
+ignored = ["scale", "scale-info"]
+
+[lints]
+workspace = true
+
+[dependencies]
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive", "max-encoded-len"] }
+scale-info = { version = "2", default-features = false, features = ["derive"] }
+
+sp-std = { git = "https://github.com/serai-dex/substrate", default-features = false }
+sp-application-crypto = { git = "https://github.com/serai-dex/substrate", default-features = false }
+sp-io = { git = "https://github.com/serai-dex/substrate", default-features = false }
+sp-runtime = { git = "https://github.com/serai-dex/substrate", default-features = false }
+sp-core = { git = "https://github.com/serai-dex/substrate", default-features = false }
+
+frame-system = { git = "https://github.com/serai-dex/substrate", default-features = false }
+frame-support = { git = "https://github.com/serai-dex/substrate", default-features = false }
+
+serai-primitives = { path = "../../primitives", default-features = false }
+in-instructions-primitives = { package = "serai-in-instructions-primitives", path = "../primitives", default-features = false }
+
+coins-pallet = { package = "serai-coins-pallet", path = "../../coins/pallet", default-features = false }
+dex-pallet = { package = "serai-dex-pallet", path = "../../dex/pallet", default-features = false }
+validator-sets-pallet = { package = "serai-validator-sets-pallet", path = "../../validator-sets/pallet", default-features = false }
+genesis-liquidity-pallet = { package = "serai-genesis-liquidity-pallet", path = "../../genesis-liquidity/pallet", default-features = false }
+emissions-pallet = { package = "serai-emissions-pallet", path = "../../emissions/pallet", default-features = false }
+
+[features]
+std = [
+  "scale/std",
+  "scale-info/std",
+
+  "sp-std/std",
+  "sp-application-crypto/std",
+  "sp-io/std",
+  "sp-runtime/std",
+  "sp-core/std",
+
+  "frame-system/std",
+  "frame-support/std",
+
+  "serai-primitives/std",
+  "in-instructions-primitives/std",
+
+  "coins-pallet/std",
+  "dex-pallet/std",
+  "validator-sets-pallet/std",
+  "genesis-liquidity-pallet/std",
+  "emissions-pallet/std",
+]
+default = ["std"]
+
+# TODO
+try-runtime = []

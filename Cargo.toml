@@ -1,0 +1,210 @@
+[workspace]
+resolver = "2"
+members = [
+  # Version patches
+  "patches/parking_lot_core",
+  "patches/parking_lot",
+  "patches/zstd",
+  "patches/rocksdb",
+
+  # std patches
+  "patches/matches",
+  "patches/is-terminal",
+
+  # Rewrites/redirects
+  "patches/option-ext",
+  "patches/directories-next",
+
+  "common/std-shims",
+  "common/zalloc",
+  "common/patchable-async-sleep",
+  "common/db",
+  "common/env",
+  "common/request",
+
+  "crypto/transcript",
+
+  "crypto/ff-group-tests",
+  "crypto/dalek-ff-group",
+  "crypto/ed448",
+  "crypto/ciphersuite",
+
+  "crypto/multiexp",
+
+  "crypto/schnorr",
+  "crypto/dleq",
+  "crypto/dkg",
+  "crypto/frost",
+  "crypto/schnorrkel",
+
+  "networks/bitcoin",
+
+  "networks/ethereum/alloy-simple-request-transport",
+  "networks/ethereum",
+  "networks/ethereum/relayer",
+
+  "networks/monero/io",
+  "networks/monero/generators",
+  "networks/monero/primitives",
+  "networks/monero/ringct/mlsag",
+  "networks/monero/ringct/clsag",
+  "networks/monero/ringct/borromean",
+  "networks/monero/ringct/bulletproofs",
+  "networks/monero",
+  "networks/monero/rpc",
+  "networks/monero/rpc/simple-request",
+  "networks/monero/wallet/address",
+  "networks/monero/wallet",
+  "networks/monero/verify-chain",
+
+  "message-queue",
+
+  "processor/messages",
+  "processor",
+
+  "coordinator/tributary/tendermint",
+  "coordinator/tributary",
+  "coordinator",
+
+  "substrate/primitives",
+
+  "substrate/coins/primitives",
+  "substrate/coins/pallet",
+
+  "substrate/dex/pallet",
+
+  "substrate/validator-sets/primitives",
+  "substrate/validator-sets/pallet",
+
+  "substrate/genesis-liquidity/primitives",
+  "substrate/genesis-liquidity/pallet",
+
+  "substrate/emissions/primitives",
+  "substrate/emissions/pallet",
+
+  "substrate/economic-security/pallet",
+
+  "substrate/in-instructions/primitives",
+  "substrate/in-instructions/pallet",
+
+  "substrate/signals/primitives",
+  "substrate/signals/pallet",
+
+  "substrate/abi",
+
+  "substrate/runtime",
+  "substrate/node",
+
+  "substrate/client",
+
+  "orchestration",
+
+  "mini",
+
+  "tests/no-std",
+
+  "tests/docker",
+  "tests/message-queue",
+  "tests/processor",
+  "tests/coordinator",
+  "tests/full-stack",
+  "tests/reproducible-runtime",
+]
+
+# Always compile Monero (and a variety of dependencies) with optimizations due
+# to the extensive operations required for Bulletproofs
+[profile.dev.package]
+subtle = { opt-level = 3 }
+curve25519-dalek = { opt-level = 3 }
+
+ff = { opt-level = 3 }
+group = { opt-level = 3 }
+
+crypto-bigint = { opt-level = 3 }
+dalek-ff-group = { opt-level = 3 }
+minimal-ed448 = { opt-level = 3 }
+
+multiexp = { opt-level = 3 }
+
+monero-serai = { opt-level = 3 }
+
+[profile.release]
+panic = "unwind"
+
+[patch.crates-io]
+# https://github.com/rust-lang-nursery/lazy-static.rs/issues/201
+lazy_static = { git = "https://github.com/rust-lang-nursery/lazy-static.rs", rev = "5735630d46572f1e5377c8f2ba0f79d18f53b10c" }
+
+parking_lot_core = { path = "patches/parking_lot_core" }
+parking_lot = { path = "patches/parking_lot" }
+# wasmtime pulls in an old version for this
+zstd = { path = "patches/zstd" }
+# Needed for WAL compression
+rocksdb = { path = "patches/rocksdb" }
+# 1.0.1 was yanked due to a breaking change (an extra field)
+# 2.0 has fewer dependencies and still works within our tree
+tiny-bip39 = { path = "patches/tiny-bip39" }
+
+# is-terminal now has an std-based solution with an equivalent API
+is-terminal = { path = "patches/is-terminal" }
+# So does matches
+matches = { path = "patches/matches" }
+
+# directories-next was created because directories was unmaintained
+# directories-next is now unmaintained while directories is maintained
+# The directories author pulls in ridiculously pointless crates and prefers
+# copyleft licenses
+# The following two patches resolve everything
+option-ext = { path = "patches/option-ext" }
+directories-next = { path = "patches/directories-next" }
+
+[workspace.lints.clippy]
+unwrap_or_default = "allow"
+borrow_as_ptr = "deny"
+cast_lossless = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_precision_loss = "deny"
+cast_ptr_alignment = "deny"
+cast_sign_loss = "deny"
+checked_conversions = "deny"
+cloned_instead_of_copied = "deny"
+enum_glob_use = "deny"
+expl_impl_clone_on_copy = "deny"
+explicit_into_iter_loop = "deny"
+explicit_iter_loop = "deny"
+flat_map_option = "deny"
+float_cmp = "deny"
+fn_params_excessive_bools = "deny"
+ignored_unit_patterns = "deny"
+implicit_clone = "deny"
+inefficient_to_string = "deny"
+invalid_upcast_comparisons = "deny"
+large_stack_arrays = "deny"
+linkedlist = "deny"
+macro_use_imports = "deny"
+manual_instant_elapsed = "deny"
+manual_let_else = "deny"
+manual_ok_or = "deny"
+manual_string_new = "deny"
+map_unwrap_or = "deny"
+match_bool = "deny"
+match_same_arms = "deny"
+missing_fields_in_debug = "deny"
+needless_continue = "deny"
+needless_pass_by_value = "deny"
+ptr_cast_constness = "deny"
+range_minus_one = "deny"
+range_plus_one = "deny"
+redundant_closure_for_method_calls = "deny"
+redundant_else = "deny"
+string_add_assign = "deny"
+unchecked_duration_subtraction = "deny"
+uninlined_format_args = "deny"
+unnecessary_box_returns = "deny"
+unnecessary_join = "deny"
+unnecessary_wraps = "deny"
+unnested_or_patterns = "deny"
+unused_async = "deny"
+unused_self = "deny"
+zero_sized_map_values = "deny"

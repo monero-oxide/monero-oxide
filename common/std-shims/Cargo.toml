@@ -1,0 +1,25 @@
+[package]
+name = "std-shims"
+version = "0.1.1"
+description = "A series of std shims to make alloc more feasible"
+license = "MIT"
+repository = "https://github.com/serai-dex/serai/tree/develop/common/std-shims"
+authors = ["Luke Parker <lukeparker5132@gmail.com>"]
+keywords = ["nostd", "no_std", "alloc", "io"]
+edition = "2021"
+rust-version = "1.70"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
+
+[dependencies]
+spin = { version = "0.9", default-features = false, features = ["use_ticket_mutex", "lazy"] }
+hashbrown = { version = "0.14", default-features = false, features = ["ahash", "inline-more"] }
+
+[features]
+std = []
+default = ["std"]

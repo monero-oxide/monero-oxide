@@ -1,0 +1,86 @@
+[package]
+name = "serai-node"
+version = "0.1.0"
+description = "Serai network node, built over Substrate"
+license = "AGPL-3.0-only"
+repository = "https://github.com/serai-dex/serai/tree/develop/substrate/node"
+authors = ["Luke Parker <lukeparker5132@gmail.com>"]
+edition = "2021"
+publish = false
+rust-version = "1.74"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "serai-node"
+
+[dependencies]
+rand_core = "0.6"
+zeroize = "1"
+hex = "0.4"
+log = "0.4"
+
+schnorrkel = "0.11"
+
+libp2p = "0.52"
+
+sp-core = { git = "https://github.com/serai-dex/substrate" }
+sp-keystore = { git = "https://github.com/serai-dex/substrate" }
+sp-timestamp = { git = "https://github.com/serai-dex/substrate" }
+sp-io = { git = "https://github.com/serai-dex/substrate" }
+sp-blockchain = { git = "https://github.com/serai-dex/substrate" }
+sp-api = { git = "https://github.com/serai-dex/substrate" }
+sp-block-builder = { git = "https://github.com/serai-dex/substrate" }
+sp-consensus-babe = { git = "https://github.com/serai-dex/substrate" }
+
+frame-benchmarking = { git = "https://github.com/serai-dex/substrate" }
+
+serai-runtime = { path = "../runtime", features = ["std"] }
+
+clap = { version = "4", features = ["derive"] }
+
+futures-util = "0.3"
+tokio = { version = "1", features = ["sync", "rt-multi-thread"] }
+jsonrpsee = { version = "0.16", features = ["server"] }
+
+sc-offchain = { git = "https://github.com/serai-dex/substrate" }
+sc-transaction-pool = { git = "https://github.com/serai-dex/substrate" }
+sc-transaction-pool-api = { git = "https://github.com/serai-dex/substrate" }
+sc-basic-authorship = { git = "https://github.com/serai-dex/substrate" }
+sc-executor = { git = "https://github.com/serai-dex/substrate" }
+sc-service = { git = "https://github.com/serai-dex/substrate" }
+sc-client-api = { git = "https://github.com/serai-dex/substrate" }
+sc-network-common = { git = "https://github.com/serai-dex/substrate" }
+sc-network = { git = "https://github.com/serai-dex/substrate" }
+
+sc-consensus = { git = "https://github.com/serai-dex/substrate" }
+sc-consensus-babe = { git = "https://github.com/serai-dex/substrate" }
+sc-consensus-grandpa = { git = "https://github.com/serai-dex/substrate" }
+sc-authority-discovery = { git = "https://github.com/serai-dex/substrate" }
+
+sc-telemetry = { git = "https://github.com/serai-dex/substrate" }
+sc-cli = { git = "https://github.com/serai-dex/substrate" }
+
+sc-rpc-api = { git = "https://github.com/serai-dex/substrate" }
+
+substrate-frame-rpc-system = { git = "https://github.com/serai-dex/substrate" }
+pallet-transaction-payment-rpc = { git = "https://github.com/serai-dex/substrate" }
+
+serai-env = { path = "../../common/env" }
+
+[build-dependencies]
+substrate-build-script-utils = { git = "https://github.com/serai-dex/substrate" }
+
+[features]
+default = []
+fast-epoch = ["serai-runtime/fast-epoch"]
+runtime-benchmarks = [
+  "frame-benchmarking/runtime-benchmarks",
+
+  "serai-runtime/runtime-benchmarks",
+]

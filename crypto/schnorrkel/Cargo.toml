@@ -1,0 +1,34 @@
+[package]
+name = "frost-schnorrkel"
+version = "0.1.2"
+description = "modular-frost Algorithm compatible with Schnorrkel"
+license = "MIT"
+repository = "https://github.com/serai-dex/serai/tree/develop/crypto/schnorrkel"
+authors = ["Luke Parker <lukeparker5132@gmail.com>"]
+keywords = ["frost", "multisig", "threshold", "schnorrkel"]
+edition = "2021"
+rust-version = "1.79"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
+
+[dependencies]
+rand_core = "0.6"
+zeroize = "^1.5"
+
+transcript = { package = "flexible-transcript", path = "../transcript", version = "^0.3.2", features = ["merlin"] }
+
+group = "0.13"
+
+ciphersuite = { path = "../ciphersuite", version = "^0.4.1", features = ["std", "ristretto"] }
+schnorr = { package = "schnorr-signatures", path = "../schnorr", version = "^0.5.1" }
+frost = { path = "../frost", package = "modular-frost", version = "^0.8.1", features = ["ristretto"] }
+
+schnorrkel = { version = "0.11" }
+
+[dev-dependencies]
+frost = { path = "../frost", package = "modular-frost", features = ["tests"] }

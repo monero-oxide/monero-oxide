@@ -1,0 +1,26 @@
+[package]
+name = "serai-reproducible-runtime-tests"
+version = "0.1.0"
+description = "Tests the Serai runtime can be reproducibly built"
+license = "AGPL-3.0-only"
+repository = "https://github.com/serai-dex/serai/tree/develop/tests/reproducible-runtime"
+authors = ["Luke Parker <lukeparker5132@gmail.com>"]
+keywords = []
+edition = "2021"
+publish = false
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
+
+[dependencies]
+rand_core = "0.6"
+hex = "0.4"
+
+dockertest = "0.5"
+serai-docker-tests = { path = "../docker" }
+
+tokio = { version = "1", features = ["time"] }

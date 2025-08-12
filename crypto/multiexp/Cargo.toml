@@ -1,0 +1,42 @@
+[package]
+name = "multiexp"
+version = "0.4.0"
+description = "Multiexponentiation algorithms for ff/group"
+license = "MIT"
+repository = "https://github.com/serai-dex/serai/tree/develop/crypto/multiexp"
+authors = ["Luke Parker <lukeparker5132@gmail.com>"]
+keywords = ["multiexp", "ff", "group"]
+edition = "2021"
+rust-version = "1.79"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
+
+[dependencies]
+rustversion = "1"
+
+std-shims = { path = "../../common/std-shims", version = "^0.1.1", default-features = false }
+
+zeroize = { version = "^1.5", default-features = false, features = ["zeroize_derive"] }
+
+ff = { version = "0.13", default-features = false, features = ["bits"] }
+group = { version = "0.13", default-features = false }
+
+rand_core = { version = "0.6", default-features = false, optional = true }
+
+[dev-dependencies]
+rand_core = { version = "0.6", features = ["std"] }
+
+k256 = { version = "^0.13.1", default-features = false, features = ["arithmetic", "bits"] }
+dalek-ff-group = { path = "../dalek-ff-group" }
+
+[features]
+std = ["std-shims/std", "zeroize/std", "ff/std", "rand_core?/std"]
+
+batch = ["rand_core"]
+
+default = ["std"]

@@ -1,0 +1,44 @@
+[package]
+name = "serai-coordinator-tests"
+version = "0.1.0"
+description = "Tests for Serai's Coordinator"
+license = "AGPL-3.0-only"
+repository = "https://github.com/serai-dex/serai/tree/develop/tests/coordinator"
+authors = ["Luke Parker <lukeparker5132@gmail.com>"]
+keywords = []
+edition = "2021"
+publish = false
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
+
+[dependencies]
+hex = "0.4"
+
+async-trait = "0.1"
+zeroize = { version = "1", default-features = false }
+rand_core = { version = "0.6", default-features = false }
+
+blake2 = "0.10"
+ciphersuite = { path = "../../crypto/ciphersuite", default-features = false, features = ["ristretto", "secp256k1"] }
+schnorrkel = "0.11"
+dkg = { path = "../../crypto/dkg", default-features = false, features = ["tests"] }
+
+messages = { package = "serai-processor-messages", path = "../../processor/messages" }
+
+scale = { package = "parity-scale-codec", version = "3" }
+
+serai-client = { path = "../../substrate/client", features = ["serai"] }
+serai-message-queue = { path = "../../message-queue" }
+
+borsh = { version = "1", features = ["de_strict_order"] }
+
+tokio = { version = "1", features = ["time"] }
+
+dockertest = "0.5"
+serai-docker-tests = { path = "../docker" }
+serai-message-queue-tests = { path = "../message-queue" }
