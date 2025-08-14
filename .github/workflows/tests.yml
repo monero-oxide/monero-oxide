@@ -32,7 +32,7 @@ jobs:
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-clsag --lib
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-borromean --lib
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-bulletproofs --lib
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-serai --lib
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-oxide --lib
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-rpc --lib
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --lib
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-address --lib
@@ -47,7 +47,7 @@ jobs:
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-clsag --lib --all-features
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-borromean --lib --all-features
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-bulletproofs --lib --all-features
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-serai --lib --all-features
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-oxide --lib --all-features
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-rpc --lib --all-features
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --lib --all-features
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-address --lib --all-features
@@ -72,12 +72,12 @@ jobs:
 
       - name: Run Integration Tests Without Features
         run: |
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-serai --test '*'
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-oxide --test '*'
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --test '*'
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-wallet --test '*'
 
       - name: Run Integration Tests
         run: |
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-serai --all-features --test '*'
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-oxide --all-features --test '*'
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --test '*'
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-wallet --all-features --test '*'

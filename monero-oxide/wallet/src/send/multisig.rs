@@ -21,7 +21,7 @@ use frost::{
   },
 };
 
-use monero_serai::{
+use monero_oxide::{
   ringct::{
     clsag::{ClsagContext, ClsagMultisigMaskSender, ClsagAddendum, ClsagMultisig},
     RctPrunable, RctProofs,

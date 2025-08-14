@@ -1,7 +1,7 @@
 [package]
 name = "monero-rpc"
 version = "0.1.0"
-description = "Trait for an RPC connection to a Monero daemon, built around monero-serai"
+description = "Trait for an RPC connection to a Monero daemon, built around monero-oxide"
 license = "MIT"
 repository = "https://github.com/monero-oxide/monero-oxide/tree/develop/monero-oxide/rpc"
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
@@ -27,7 +27,7 @@ serde_json = { version = "1", default-features = false, features = ["alloc"] }
 
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc", "zeroize"] }
 
-monero-serai = { path = "..", default-features = false }
+monero-oxide = { path = "..", default-features = false }
 monero-address = { path = "../wallet/address", default-features = false }
 
 [features]
@@ -41,7 +41,7 @@ std = [
   "serde/std",
   "serde_json/std",
 
-  "monero-serai/std",
+  "monero-oxide/std",
   "monero-address/std",
 ]
 default = ["std"]

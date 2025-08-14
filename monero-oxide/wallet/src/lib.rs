@@ -9,14 +9,14 @@ use zeroize::{Zeroize, Zeroizing};
 
 use curve25519_dalek::{Scalar, EdwardsPoint};
 
-use monero_serai::{
+use monero_oxide::{
   io::write_varint,
   primitives::{Commitment, keccak256, keccak256_to_scalar},
   ringct::EncryptedAmount,
   transaction::Input,
 };
 
-pub use monero_serai::*;
+pub use monero_oxide::*;
 
 pub use monero_rpc as rpc;
 

@@ -6,7 +6,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE, edwards::CompressedEdwardsY};
 
 use monero_rpc::ScannableBlock;
-use monero_serai::{
+use monero_oxide::{
   io::*,
   primitives::Commitment,
   transaction::{Timelock, Pruned, Transaction},

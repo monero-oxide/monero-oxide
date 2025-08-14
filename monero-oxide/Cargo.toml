@@ -1,5 +1,5 @@
 [package]
-name = "monero-serai"
+name = "monero-oxide"
 version = "0.1.4-alpha"
 description = "A modern Monero transaction library"
 license = "MIT"

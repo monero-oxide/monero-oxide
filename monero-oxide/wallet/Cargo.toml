@@ -1,7 +1,7 @@
 [package]
 name = "monero-wallet"
 version = "0.1.0"
-description = "Wallet functionality for the Monero protocol, built around monero-serai"
+description = "Wallet functionality for the Monero protocol, built around monero-oxide"
 license = "MIT"
 repository = "https://github.com/monero-oxide/monero-oxide/tree/develop/monero-oxide/wallet"
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
@@ -44,7 +44,7 @@ frost = { package = "modular-frost", version = "0.9", default-features = false, 
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 
 monero-clsag = { path = "../ringct/clsag", default-features = false }
-monero-serai = { path = "..", default-features = false }
+monero-oxide = { path = "..", default-features = false }
 monero-rpc = { path = "../rpc", default-features = false }
 monero-address = { path = "./address", default-features = false }
 
@@ -72,10 +72,10 @@ std = [
   "rand_distr/std",
 
   "monero-clsag/std",
-  "monero-serai/std",
+  "monero-oxide/std",
   "monero-rpc/std",
   "monero-address/std",
 ]
-compile-time-generators = ["curve25519-dalek/precomputed-tables", "monero-serai/compile-time-generators"]
+compile-time-generators = ["curve25519-dalek/precomputed-tables", "monero-oxide/compile-time-generators"]
 multisig = ["std", "transcript", "group", "dalek-ff-group", "frost", "monero-clsag/multisig"]
 default = ["std", "compile-time-generators"]

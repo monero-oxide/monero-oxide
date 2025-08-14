@@ -127,7 +127,7 @@ pub fn check_weight_and_fee(tx: &Transaction, fee_rate: FeeRate) {
 
 pub async fn rpc() -> SimpleRequestRpc {
   let rpc =
-    SimpleRequestRpc::new("http://serai:seraidex@127.0.0.1:18081".to_string()).await.unwrap();
+    SimpleRequestRpc::new("http://monero:oxide@127.0.0.1:18081".to_string()).await.unwrap();
 
   const BLOCKS_TO_MINE: usize = 110;
 

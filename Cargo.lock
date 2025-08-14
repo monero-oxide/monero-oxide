@@ -731,10 +731,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "monero-oxide"
+version = "0.1.4-alpha"
+dependencies = [
+ "curve25519-dalek",
+ "hex",
+ "hex-literal",
+ "monero-borromean",
+ "monero-bulletproofs",
+ "monero-clsag",
+ "monero-generators",
+ "monero-io",
+ "monero-mlsag",
+ "monero-primitives",
+ "serde",
+ "serde_json",
+ "std-shims",
+ "zeroize",
+]
+
+[[package]]
 name = "monero-oxide-no-std-tests"
 version = "0.1.0"
 dependencies = [
  "monero-wallet",
+]
+
+[[package]]
+name = "monero-oxide-verify-chain"
+version = "0.1.0"
+dependencies = [
+ "curve25519-dalek",
+ "hex",
+ "monero-oxide",
+ "monero-rpc",
+ "monero-simple-request-rpc",
+ "rand_core",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -757,47 +792,12 @@ dependencies = [
  "curve25519-dalek",
  "hex",
  "monero-address",
- "monero-serai",
+ "monero-oxide",
  "serde",
  "serde_json",
  "std-shims",
  "thiserror",
  "zeroize",
-]
-
-[[package]]
-name = "monero-serai"
-version = "0.1.4-alpha"
-dependencies = [
- "curve25519-dalek",
- "hex",
- "hex-literal",
- "monero-borromean",
- "monero-bulletproofs",
- "monero-clsag",
- "monero-generators",
- "monero-io",
- "monero-mlsag",
- "monero-primitives",
- "serde",
- "serde_json",
- "std-shims",
- "zeroize",
-]
-
-[[package]]
-name = "monero-serai-verify-chain"
-version = "0.1.0"
-dependencies = [
- "curve25519-dalek",
- "hex",
- "monero-rpc",
- "monero-serai",
- "monero-simple-request-rpc",
- "rand_core",
- "serde",
- "serde_json",
- "tokio",
 ]
 
 [[package]]
@@ -825,8 +825,8 @@ dependencies = [
  "modular-frost",
  "monero-address",
  "monero-clsag",
+ "monero-oxide",
  "monero-rpc",
- "monero-serai",
  "monero-simple-request-rpc",
  "rand",
  "rand_chacha",

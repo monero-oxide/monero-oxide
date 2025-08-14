@@ -32,7 +32,7 @@ dalek-ff-group = { opt-level = 3 }
 
 multiexp = { opt-level = 3 }
 
-monero-serai = { opt-level = 3 }
+monero-oxide = { opt-level = 3 }
 
 [profile.release]
 panic = "unwind"

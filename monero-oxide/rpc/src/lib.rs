@@ -23,7 +23,7 @@ use curve25519_dalek::edwards::{CompressedEdwardsY, EdwardsPoint};
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
-use monero_serai::{
+use monero_oxide::{
   io::*,
   transaction::{Input, Timelock, Pruned, Transaction},
   block::Block,

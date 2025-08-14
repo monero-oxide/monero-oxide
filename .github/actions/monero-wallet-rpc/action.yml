@@ -43,7 +43,7 @@ runs:
       shell: bash
       run: |
         ./monero-wallet-rpc --allow-mismatched-daemon-version \
-          --daemon-address 0.0.0.0:18081 --daemon-login serai:seraidex \
+          --daemon-address 0.0.0.0:18081 --daemon-login monero:oxide \
           --disable-rpc-login --rpc-bind-port 18082 \
           --wallet-dir ./ \
           --detach

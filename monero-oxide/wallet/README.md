@@ -1,6 +1,6 @@
 # Monero Wallet
 
-Wallet functionality for the Monero protocol, built around monero-serai. This
+Wallet functionality for the Monero protocol, built around monero-oxide. This
 library prides itself on resolving common pit falls developers may face.
 
 monero-wallet also offers a FROST-inspired multisignature protocol orders of
@@ -22,7 +22,7 @@ This library DOES attempt to do the following:
 
 - Create on-chain transactions identical to how wallet2 would (unless told not
   to)
-- Not be detectable as monero-serai when scanning outputs
+- Not be detectable as monero-wallet when scanning outputs
 - Not reveal spent outputs to the connected RPC node
 
 This library DOES NOT attempt to do the following:
@@ -30,19 +30,19 @@ This library DOES NOT attempt to do the following:
 - Have identical RPC behavior when creating transactions
 - Be a wallet
 
-This means that monero-serai shouldn't be fingerprintable on-chain. It also
+This means that monero-wallet shouldn't be fingerprintable on-chain. It also
 shouldn't be fingerprintable if a targeted attack occurs to detect if the
-receiving wallet is monero-serai or wallet2. It also should be generally safe
+receiving wallet is monero-wallet or wallet2. It also should be generally safe
 for usage with remote nodes.
 
-It won't hide from remote nodes it's monero-serai however, potentially
+It won't hide from remote nodes it's monero-wallet however, potentially
 allowing a remote node to profile you. The implications of this are left to the
 user to consider.
 
 It also won't act as a wallet, just as a wallet functionality library. wallet2
 has several *non-transaction-level* policies, such as always attempting to use
 two inputs to create transactions. These are considered out of scope to
-monero-serai.
+monero-wallet.
 
 Finally, this library only supports producing transactions with CLSAG
 signatures. That means this library cannot spend non-RingCT outputs.

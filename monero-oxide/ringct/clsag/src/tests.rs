@@ -103,7 +103,7 @@ fn clsag_multisig() {
   let mask = Scalar::random(&mut OsRng);
   let params = || {
     let (algorithm, mask_send) = ClsagMultisig::new(
-      RecommendedTranscript::new(b"Monero Serai CLSAG Test"),
+      RecommendedTranscript::new(b"monero-oxide CLSAG Test"),
       ClsagContext::new(
         Decoys::new((1 ..= RING_LEN).collect(), RING_INDEX, ring.clone()).unwrap(),
         Commitment::new(randomness, AMOUNT),

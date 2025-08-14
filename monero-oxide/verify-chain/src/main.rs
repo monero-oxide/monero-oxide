@@ -7,7 +7,7 @@ use curve25519_dalek::{scalar::Scalar, edwards::EdwardsPoint};
 use serde::Deserialize;
 use serde_json::json;
 
-use monero_serai::{
+use monero_oxide::{
   io::decompress_point,
   primitives::Commitment,
   ringct::{RctPrunable, bulletproofs::BatchVerifier},

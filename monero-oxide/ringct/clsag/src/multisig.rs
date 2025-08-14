@@ -356,7 +356,7 @@ impl Algorithm<Ed25519> for ClsagMultisig {
 
     // Hash every variable relevant here, using the hash output as the random weight
     let mut weight_transcript =
-      RecommendedTranscript::new(b"monero-serai v0.1 ClsagMultisig::verify_share");
+      RecommendedTranscript::new(b"monero-oxide v0.1 ClsagMultisig::verify_share");
     weight_transcript.append_message(b"G", dfg::EdwardsPoint::generator().to_bytes());
     weight_transcript.append_message(b"H", self.key_image_generator.to_bytes());
     weight_transcript.append_message(b"xG", verification_share.to_bytes());

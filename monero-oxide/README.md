@@ -1,4 +1,4 @@
-# monero-serai
+# monero-oxide
 
 A modern Monero transaction library. It provides a modern, Rust-friendly view of
 the Monero protocol.
@@ -8,18 +8,6 @@ disabled.
 
 Recommended usage of the library is with `overflow-checks = true`, even for
 release builds.
-
-### Wallet Functionality
-
-monero-serai originally included wallet functionality. That has been moved to
-monero-wallet.
-
-### Purpose and Support
-
-monero-serai was written for Serai, a decentralized exchange aiming to support
-Monero. Despite this, monero-serai is intended to be a widely usable library,
-accurate to Monero. monero-serai guarantees the functionality needed for Serai,
-yet does not include any functionality specific to Serai.
 
 ### Cargo Features
 
