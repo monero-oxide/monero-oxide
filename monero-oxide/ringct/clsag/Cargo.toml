@@ -16,7 +16,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 workspace = true
 
 [dependencies]
-std-shims = { version = "^0.1.1", default-features = false }
+std-shims = { version = "^0.1.2", default-features = false }
 
 thiserror = { version = "1", default-features = false, optional = true }
 
@@ -32,7 +32,7 @@ rand_chacha = { version = "0.3", default-features = false, optional = true }
 transcript = { package = "flexible-transcript", version = "0.3", default-features = false, features = ["recommended"], optional = true }
 group = { version = "0.13", default-features = false, optional = true }
 dalek-ff-group = { version = "0.4", default-features = false, optional = true }
-frost = { package = "modular-frost", version = "0.8", default-features = false, features = ["ed25519"], optional = true }
+frost = { package = "modular-frost", version = "0.9", default-features = false, features = ["ed25519"], optional = true }
 
 # Other Monero dependencies
 monero-io = { path = "../../io", version = "0.1", default-features = false }
@@ -40,7 +40,7 @@ monero-generators = { path = "../../generators", version = "0.4", default-featur
 monero-primitives = { path = "../../primitives", version = "0.1", default-features = false }
 
 [dev-dependencies]
-frost = { package = "modular-frost", version = "0.8", default-features = false, features = ["ed25519", "tests"] }
+frost = { package = "modular-frost", version = "0.9", default-features = false, features = ["ed25519", "tests"] }
 
 [features]
 std = [
