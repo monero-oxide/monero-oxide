@@ -639,7 +639,6 @@ dependencies = [
  "hex-literal",
  "monero-base58",
  "monero-io",
- "monero-primitives",
  "rand_core",
  "serde",
  "serde_json",
