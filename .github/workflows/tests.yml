@@ -70,14 +70,14 @@ jobs:
         with:
           monero-version: ${{ matrix.version }}
 
-      - name: Run Integration Tests Without Features
+      - name: Run Integration Tests
         run: |
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-oxide --test '*'
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --test '*'
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-wallet --test '*'
 
-      - name: Run Integration Tests
+      - name: Run Integration Tests With All Features
         run: |
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-oxide --all-features --test '*'
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --test '*'
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --all-features --test '*'
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-wallet --all-features --test '*'
