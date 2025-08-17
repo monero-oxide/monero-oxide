@@ -1,10 +1,11 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(test), no_std)]
 
 use core::fmt::{self, Write};
-use std_shims::{
+extern crate alloc;
+use alloc::{
   vec,
   string::{String, ToString},
 };
@@ -15,8 +16,7 @@ use curve25519_dalek::EdwardsPoint;
 
 use monero_io::*;
 
-mod base58check;
-use base58check::{encode_check, decode_check};
+use monero_base58::{encode_check, decode_check};
 
 #[cfg(test)]
 mod tests;

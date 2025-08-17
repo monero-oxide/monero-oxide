@@ -9,10 +9,14 @@ members = [
   "monero-oxide/ringct/borromean",
   "monero-oxide/ringct/bulletproofs",
   "monero-oxide",
+
   "monero-oxide/rpc",
   "monero-oxide/rpc/simple-request",
+
+  "monero-oxide/wallet/base58",
   "monero-oxide/wallet/address",
   "monero-oxide/wallet",
+
   "monero-oxide/verify-chain",
 
   "tests/no-std",

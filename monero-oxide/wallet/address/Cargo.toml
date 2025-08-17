@@ -16,8 +16,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 workspace = true
 
 [dependencies]
-std-shims = { version = "^0.1.2", default-features = false }
-
 thiserror = { version = "2", default-features = false }
 
 zeroize = { version = "^1.5", default-features = false, features = ["zeroize_derive"] }
@@ -26,6 +24,7 @@ curve25519-dalek = { version = "4", default-features = false, features = ["alloc
 
 monero-io = { path = "../../io", default-features = false }
 monero-primitives = { path = "../../primitives", default-features = false }
+monero-base58 = { path = "../base58", default-features = false }
 
 [dev-dependencies]
 rand_core = { version = "0.6", default-features = false, features = ["std"] }
@@ -38,12 +37,12 @@ serde_json = { version = "1", default-features = false, features = ["alloc"] }
 
 [features]
 std = [
-  "std-shims/std",
-
   "thiserror/std",
 
   "zeroize/std",
 
   "monero-io/std",
+  "monero-primitives/std",
+  "monero-base58/std",
 ]
 default = ["std"]

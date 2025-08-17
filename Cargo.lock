@@ -637,14 +637,22 @@ dependencies = [
  "curve25519-dalek",
  "hex",
  "hex-literal",
+ "monero-base58",
  "monero-io",
  "monero-primitives",
  "rand_core",
  "serde",
  "serde_json",
- "std-shims",
  "thiserror 2.0.14",
  "zeroize",
+]
+
+[[package]]
+name = "monero-base58"
+version = "0.1.0"
+dependencies = [
+ "monero-primitives",
+ "rand_core",
 ]
 
 [[package]]

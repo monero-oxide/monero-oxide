@@ -1,9 +1,18 @@
-use std_shims::{vec::Vec, string::String};
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc = include_str!("../README.md")]
+#![deny(missing_docs)]
+#![cfg_attr(not(test), no_std)]
+
+extern crate alloc;
+use alloc::{vec::Vec, string::String};
 
 use monero_primitives::keccak256;
 
+#[cfg(test)]
+mod tests;
+
 const ALPHABET_LEN: u64 = 58;
-const ALPHABET: &[u8] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+pub(crate) const ALPHABET: &[u8] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 pub(crate) const BLOCK_LEN: usize = 8;
 const ENCODED_BLOCK_LEN: usize = 11;
@@ -25,8 +34,8 @@ pub(crate) fn encoded_len_for_bytes(bytes: usize) -> usize {
   i
 }
 
-// Encode an arbitrary-length stream of data
-pub(crate) fn encode(bytes: &[u8]) -> String {
+/// Encode an arbitrary-length stream of data.
+pub fn encode(bytes: &[u8]) -> String {
   let mut res = String::with_capacity(bytes.len().div_ceil(BLOCK_LEN) * ENCODED_BLOCK_LEN);
 
   for chunk in bytes.chunks(BLOCK_LEN) {
@@ -55,8 +64,8 @@ pub(crate) fn encode(bytes: &[u8]) -> String {
   res
 }
 
-// Decode an arbitrary-length stream of data
-pub(crate) fn decode(data: &str) -> Option<Vec<u8>> {
+/// Decode an arbitrary-length stream of data.
+pub fn decode(data: &str) -> Option<Vec<u8>> {
   let mut res = Vec::with_capacity((data.len() / ENCODED_BLOCK_LEN) * BLOCK_LEN);
 
   for chunk in data.as_bytes().chunks(ENCODED_BLOCK_LEN) {
@@ -76,8 +85,7 @@ pub(crate) fn decode(data: &str) -> Option<Vec<u8>> {
         break;
       }
     }
-    let used_bytes = used_bytes
-      .expect("chunk of bounded length exhaustively searched but couldn't find matching length");
+    let used_bytes = used_bytes?;
     // Only push on the used bytes
     res.extend(&sum.to_be_bytes()[(BLOCK_LEN - used_bytes) ..]);
   }
@@ -85,15 +93,15 @@ pub(crate) fn decode(data: &str) -> Option<Vec<u8>> {
   Some(res)
 }
 
-// Encode an arbitrary-length stream of data, with a checksum
-pub(crate) fn encode_check(mut data: Vec<u8>) -> String {
+/// Encode an arbitrary-length stream of data, with a checksum.
+pub fn encode_check(mut data: Vec<u8>) -> String {
   let checksum = keccak256(&data);
   data.extend(&checksum[.. CHECKSUM_LEN]);
   encode(&data)
 }
 
-// Decode an arbitrary-length stream of data, with a checksum
-pub(crate) fn decode_check(data: &str) -> Option<Vec<u8>> {
+/// Decode an arbitrary-length stream of data, with a checksum.
+pub fn decode_check(data: &str) -> Option<Vec<u8>> {
   let mut res = decode(data)?;
   if res.len() < CHECKSUM_LEN {
     None?;

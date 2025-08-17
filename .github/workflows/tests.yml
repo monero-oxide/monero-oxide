@@ -35,6 +35,7 @@ jobs:
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-oxide --lib
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-rpc --lib
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --lib
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-base58 --lib
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-address --lib
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-wallet --lib
 
@@ -50,6 +51,7 @@ jobs:
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-oxide --lib --all-features
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-rpc --lib --all-features
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --lib --all-features
+          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-base58 --lib --all-features
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-address --lib --all-features
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-wallet --lib --all-features
 

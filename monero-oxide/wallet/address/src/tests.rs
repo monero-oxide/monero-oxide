@@ -28,41 +28,6 @@ const SUBADDRESS: &str =
 const FEATURED_JSON: &str = include_str!("vectors/featured_addresses.json");
 
 #[test]
-fn test_encoded_len_for_bytes() {
-  // For an encoding of length `l`, we prune to the amount of bytes which encodes with length `l`
-  // This assumes length `l` -> amount of bytes has a singular answer, which is tested here
-  use crate::base58check::*;
-  let mut set = std::collections::HashSet::new();
-  for i in 0 .. BLOCK_LEN {
-    set.insert(encoded_len_for_bytes(i));
-  }
-  assert_eq!(set.len(), BLOCK_LEN);
-}
-
-#[test]
-fn base58check() {
-  use crate::base58check::*;
-
-  assert_eq!(encode(&[]), String::new());
-  assert!(decode("").unwrap().is_empty());
-
-  let full_block = &[1, 2, 3, 4, 5, 6, 7, 8];
-  assert_eq!(&decode(&encode(full_block)).unwrap(), full_block);
-
-  let partial_block = &[1, 2, 3];
-  assert_eq!(&decode(&encode(partial_block)).unwrap(), partial_block);
-
-  let max_encoded_block = &[u8::MAX; 8];
-  assert_eq!(&decode(&encode(max_encoded_block)).unwrap(), max_encoded_block);
-
-  let max_decoded_block = "zzzzzzzzzzz";
-  assert!(decode(max_decoded_block).is_none());
-
-  let full_and_partial_block = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-  assert_eq!(&decode(&encode(full_and_partial_block)).unwrap(), full_and_partial_block);
-}
-
-#[test]
 fn standard_address() {
   let addr = MoneroAddress::from_str(Network::Mainnet, STANDARD).unwrap();
   assert_eq!(addr.network(), Network::Mainnet);
