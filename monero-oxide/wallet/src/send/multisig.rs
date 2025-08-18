@@ -40,6 +40,8 @@ pub struct TransactionMachine {
 }
 
 /// Second FROST machine to produce a signed transaction.
+///
+/// Panics if a non-empty message is provided, or if `cache`, `from_cache` are called.
 pub struct TransactionSignMachine {
   signable: SignableTransaction,
 
@@ -59,6 +61,10 @@ pub struct TransactionSignatureMachine {
 
 impl SignableTransaction {
   /// Create a FROST signing machine out of this signable transaction.
+  ///
+  /// The created machine is expected to be called with an empty message, as it will generate its
+  /// own, and may panic if a message is provided. The created machine DOES NOT support caching and
+  /// may panic if `cache`, `from_cache` are called.
   pub fn multisig(self, keys: ThresholdKeys<Ed25519>) -> Result<TransactionMachine, SendError> {
     let mut clsags = vec![];
 
