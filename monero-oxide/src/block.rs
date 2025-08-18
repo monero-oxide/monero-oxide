@@ -121,14 +121,17 @@ impl Block {
   /// use the [`Block::hash`] function.
   pub fn serialize_pow_hash(&self) -> Vec<u8> {
     let mut blob = self.header.serialize();
-    blob.extend_from_slice(&merkle_root(self.miner_transaction.hash(), &self.transactions));
-    write_varint(
-      &(1 +
-        u64::try_from(self.transactions.len())
-          .expect("amount of transactions in block exceeded u64::MAX")),
-      &mut blob,
-    )
-    .expect("write failed but <Vec as io::Write> doesn't fail");
+
+    let mut transactions = Vec::with_capacity(self.transactions.len() + 1);
+    transactions.push(self.miner_transaction.hash());
+    transactions.extend_from_slice(&self.transactions);
+
+    blob.extend_from_slice(
+      &merkle_root(transactions)
+        .expect("the tree will not be empty, the miner tx is always present"),
+    );
+    write_varint(&(1 + self.transactions.len()), &mut blob)
+      .expect("write failed but <Vec as io::Write> doesn't fail");
     blob
   }
 
