@@ -23,39 +23,37 @@ jobs:
       - name: Test Dependencies
         uses: ./.github/actions/test-dependencies
 
-      - name: Run Unit Tests Without Features
+      - name: Run Unit Tests With and Without `--all-features`
         run: |
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-io --lib
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-generators --lib
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-primitives --lib
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-mlsag --lib
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-clsag --lib
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-borromean --lib
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-bulletproofs --lib
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-oxide --lib
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-rpc --lib
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --lib
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-base58 --lib
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-address --lib
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-wallet --lib
+          function check_workspace {
+            # Get the members array from the workspace's `Cargo.toml`
+            cargo_toml_lines=$(cat ./Cargo.toml | wc -l)
+            members=$(cat Cargo.toml | grep "members\ \=\ \[" -m1 -A$cargo_toml_lines | grep "]" -m1 -B$cargo_toml_lines)
+            # Prune `members = [` to `[` by replacing the first line with just `[`
+            members=$(echo "$members" | sed "1s/.*/\[/")
+            # Remove the trailing comma by replacing the last line's "," with ""
+            members=$(echo "$members" | sed "$(($(echo "$members" | wc -l) - 1))s/\,//")
 
-      - name: Run Unit Tests With Features
-        run: |
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-io --lib --all-features
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-generators --lib --all-features
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-primitives --lib --all-features
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-mlsag --lib --all-features
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-clsag --lib --all-features
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-borromean --lib --all-features
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-bulletproofs --lib --all-features
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-oxide --lib --all-features
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-rpc --lib --all-features
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --lib --all-features
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-base58 --lib --all-features
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-address --lib --all-features
-          GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-wallet --lib --all-features
+            # Remove monero-oxide-verify-chain which isn't a lib and can't be tested as a lib
+            members=$(echo "$members" | grep -v "verify-chain")
 
-      # Doesn't run unit tests with features as the tests workflow will
+            echo $members | jq -r ".[]" | while read -r member; do
+              echo Testing $member
+
+              GITHUB_CI=true RUST_BACKTRACE=1 cargo test --manifest-path $member/Cargo.toml --lib
+              correct=$?
+              if [ $correct -ne 0 ]; then
+                return $correct
+              fi
+
+              GITHUB_CI=true RUST_BACKTRACE=1 cargo test --manifest-path $member/Cargo.toml --lib --all-features
+              correct=$?
+              if [ $correct -ne 0 ]; then
+                return $correct
+              fi
+            done
+          }
+          check_workspace
 
   integration-tests:
     runs-on: ubuntu-latest
