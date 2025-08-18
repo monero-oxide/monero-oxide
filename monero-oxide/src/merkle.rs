@@ -2,7 +2,9 @@ use std_shims::vec::Vec;
 
 use crate::primitives::keccak256;
 
-/// Calculates the Merkle root of the given tree. Equivalent to `tree_hash` in monero-core:
+/// Calculates the Merkle root of the given tree.
+///
+/// Equivalent to `tree_hash` in monero-core:
 /// https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a
 ///   /src/crypto/tree-hash.c#L62
 ///
