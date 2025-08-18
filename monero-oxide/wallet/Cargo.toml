@@ -36,7 +36,6 @@ curve25519-dalek = { version = "4", default-features = false, features = ["alloc
 
 # Multisig dependencies
 transcript = { package = "flexible-transcript", version = "0.3", default-features = false, features = ["recommended"], optional = true }
-group = { version = "0.13", default-features = false, optional = true }
 dalek-ff-group = { version = "0.4", default-features = false, optional = true }
 frost = { package = "modular-frost", version = "0.10.1", default-features = false, features = ["ed25519"], optional = true }
 
@@ -76,5 +75,5 @@ std = [
   "monero-address/std",
 ]
 compile-time-generators = ["curve25519-dalek/precomputed-tables", "monero-oxide/compile-time-generators"]
-multisig = ["std", "transcript", "group", "dalek-ff-group", "frost", "monero-clsag/multisig"]
+multisig = ["std", "transcript", "dalek-ff-group", "frost", "monero-clsag/multisig"]
 default = ["std", "compile-time-generators"]

@@ -880,7 +880,6 @@ dependencies = [
  "curve25519-dalek",
  "dalek-ff-group",
  "flexible-transcript",
- "group",
  "hex",
  "modular-frost",
  "monero-address",
