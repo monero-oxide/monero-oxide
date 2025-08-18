@@ -6,7 +6,6 @@ use std_shims::{
 
 use rand_core::{RngCore, CryptoRng};
 
-use group::ff::Field;
 use curve25519_dalek::{traits::Identity, Scalar, EdwardsPoint};
 use dalek_ff_group as dfg;
 
@@ -14,7 +13,6 @@ use transcript::{Transcript, RecommendedTranscript};
 use frost::{
   curve::Ed25519,
   Participant, FrostError, ThresholdKeys,
-  dkg::lagrange,
   sign::{
     Preprocess, CachedPreprocess, SignatureShare, PreprocessMachine, SignMachine, SignatureMachine,
     AlgorithmMachine, AlgorithmSignMachine, AlgorithmSignatureMachine,
@@ -34,10 +32,10 @@ use crate::send::{SendError, SignableTransaction, key_image_sort};
 pub struct TransactionMachine {
   signable: SignableTransaction,
 
-  i: Participant,
+  keys: ThresholdKeys<Ed25519>,
 
-  // The key image generator, and the scalar offset from the spend key
-  key_image_generators_and_offsets: Vec<(EdwardsPoint, Scalar)>,
+  // The key image generator, and the (scalar, offset) linear combination from the spend key
+  key_image_generators_and_lincombs: Vec<(EdwardsPoint, (Scalar, Scalar))>,
   clsags: Vec<(ClsagMultisigMaskSender, AlgorithmMachine<Ed25519, ClsagMultisig>)>,
 }
 
@@ -45,9 +43,9 @@ pub struct TransactionMachine {
 pub struct TransactionSignMachine {
   signable: SignableTransaction,
 
-  i: Participant,
+  keys: ThresholdKeys<Ed25519>,
 
-  key_image_generators_and_offsets: Vec<(EdwardsPoint, Scalar)>,
+  key_image_generators_and_lincombs: Vec<(EdwardsPoint, (Scalar, Scalar))>,
   clsags: Vec<(ClsagMultisigMaskSender, AlgorithmSignMachine<Ed25519, ClsagMultisig>)>,
 
   our_preprocess: Vec<Preprocess<Ed25519, ClsagAddendum>>,
@@ -61,13 +59,20 @@ pub struct TransactionSignatureMachine {
 
 impl SignableTransaction {
   /// Create a FROST signing machine out of this signable transaction.
-  pub fn multisig(self, keys: &ThresholdKeys<Ed25519>) -> Result<TransactionMachine, SendError> {
+  pub fn multisig(self, keys: ThresholdKeys<Ed25519>) -> Result<TransactionMachine, SendError> {
     let mut clsags = vec![];
 
-    let mut key_image_generators_and_offsets = vec![];
+    let mut key_image_generators_and_lincombs = vec![];
     for input in &self.inputs {
       // Check this is the right set of keys
-      let offset = keys.offset(dfg::Scalar(input.key_offset()));
+      let key_scalar = Scalar::ONE;
+      let key_offset = input.key_offset();
+
+      let offset = keys
+        .clone()
+        .scale(dfg::Scalar(key_scalar))
+        .expect("non-zero scalar (1) was zero")
+        .offset(dfg::Scalar(key_offset));
       if offset.group_key().0 != input.key() {
         Err(SendError::WrongPrivateKey)?;
       }
@@ -78,19 +83,14 @@ impl SignableTransaction {
         RecommendedTranscript::new(b"Monero Multisignature Transaction"),
         context,
       );
-      key_image_generators_and_offsets.push((
+      key_image_generators_and_lincombs.push((
         clsag.key_image_generator(),
-        keys.current_offset().unwrap_or(dfg::Scalar::ZERO).0 + input.key_offset(),
+        (offset.current_scalar().0, offset.current_offset().0),
       ));
       clsags.push((clsag_mask_send, AlgorithmMachine::new(clsag, offset)));
     }
 
-    Ok(TransactionMachine {
-      signable: self,
-      i: keys.params().i(),
-      key_image_generators_and_offsets,
-      clsags,
-    })
+    Ok(TransactionMachine { signable: self, keys, key_image_generators_and_lincombs, clsags })
   }
 }
 
@@ -120,9 +120,9 @@ impl PreprocessMachine for TransactionMachine {
       TransactionSignMachine {
         signable: self.signable,
 
-        i: self.i,
+        keys: self.keys,
 
-        key_image_generators_and_offsets: self.key_image_generators_and_offsets,
+        key_image_generators_and_lincombs: self.key_image_generators_and_lincombs,
         clsags,
 
         our_preprocess,
@@ -173,31 +173,29 @@ impl SignMachine<Transaction> for TransactionSignMachine {
     // We do not need to be included here, yet this set of signers has yet to be validated
     // We explicitly remove ourselves to ensure we aren't included twice, if we were redundantly
     // included
-    commitments.remove(&self.i);
+    commitments.remove(&self.keys.params().i());
 
     // Find out who's included
     let mut included = commitments.keys().copied().collect::<Vec<_>>();
     // This push won't duplicate due to the above removal
-    included.push(self.i);
+    included.push(self.keys.params().i());
     // unstable sort may reorder elements of equal order
     // Given our lack of duplicates, we should have no elements of equal order
     included.sort_unstable();
 
     // Start calculating the key images, as needed on the TX level
     let mut key_images = vec![EdwardsPoint::identity(); self.clsags.len()];
-    for (image, (generator, offset)) in
-      key_images.iter_mut().zip(&self.key_image_generators_and_offsets)
-    {
-      *image = generator * offset;
-    }
 
     // Convert the serialized nonces commitments to a parallelized Vec
+    let view = self.keys.view(included.clone()).map_err(|_| {
+      FrostError::InvalidSigningSet("couldn't form an interpolated view of the key")
+    })?;
     let mut commitments = (0 .. self.clsags.len())
       .map(|c| {
         included
           .iter()
           .map(|l| {
-            let preprocess = if *l == self.i {
+            let preprocess = if *l == self.keys.params().i() {
               self.our_preprocess[c].clone()
             } else {
               commitments.get_mut(l).ok_or(FrostError::MissingParticipant(*l))?[c].clone()
@@ -205,8 +203,13 @@ impl SignMachine<Transaction> for TransactionSignMachine {
 
             // While here, calculate the key image as needed to call sign
             // The CLSAG algorithm will independently calculate the key image/verify these shares
-            key_images[c] +=
-              preprocess.addendum.key_image_share().0 * lagrange::<dfg::Scalar>(*l, &included).0;
+            key_images[c] += preprocess.addendum.key_image_share().0 *
+              view
+                .interpolation_factor(*l)
+                .ok_or(FrostError::InternalError(
+                  "view successfully formed with participant without an interpolation factor",
+                ))?
+                .0;
 
             Ok((*l, preprocess))
           })
@@ -214,10 +217,17 @@ impl SignMachine<Transaction> for TransactionSignMachine {
       })
       .collect::<Result<Vec<_>, _>>()?;
 
+    for (key_image, (generator, (scalar, offset))) in
+      key_images.iter_mut().zip(&self.key_image_generators_and_lincombs)
+    {
+      *key_image *= scalar;
+      *key_image += generator * offset;
+    }
+
     // The above inserted our own preprocess into these maps (which is unnecessary)
     // Remove it now
     for map in &mut commitments {
-      map.remove(&self.i);
+      map.remove(&self.keys.params().i());
     }
 
     // The actual TX will have sorted its inputs by key image

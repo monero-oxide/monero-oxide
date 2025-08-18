@@ -20,7 +20,6 @@ use group::{
 use transcript::{Transcript, RecommendedTranscript};
 use dalek_ff_group as dfg;
 use frost::{
-  dkg::lagrange,
   curve::Ed25519,
   Participant, FrostError, ThresholdKeys, ThresholdView,
   algorithm::{WriteAddendum, Algorithm},
@@ -115,7 +114,10 @@ struct Interim {
 
 /// FROST-inspired algorithm for producing a CLSAG signature.
 ///
-/// Before this has its `process_addendum` called, a mask must be set.
+/// Before this has its `process_addendum` called, a mask must be set. Before this has its
+/// `sign_share` called, all addendums (a non-zero amount) must be processed with
+/// `process_addendum`. Before `verify`, `verify_share` are called, `sign_share` must be called.
+/// Violation of this timeline is fundamentally incorrect and may cause panics.
 ///
 /// The message signed is expected to be a 32-byte value. Per Monero, it's the keccak256 hash of
 /// the transaction data which is signed. This will panic if the message is not a 32-byte value.
@@ -126,7 +128,7 @@ pub struct ClsagMultisig {
 
   key_image_generator: EdwardsPoint,
   key_image_shares: HashMap<[u8; 32], dfg::EdwardsPoint>,
-  image: Option<dfg::EdwardsPoint>,
+  image: dfg::EdwardsPoint,
 
   context: ClsagContext,
 
@@ -150,7 +152,7 @@ impl ClsagMultisig {
 
         key_image_generator: hash_to_point(context.decoys.signer_ring_members()[0].compress().0),
         key_image_shares: HashMap::new(),
-        image: None,
+        image: dfg::EdwardsPoint::identity(),
 
         context,
 
@@ -188,7 +190,8 @@ impl Algorithm<Ed25519> for ClsagMultisig {
     keys: &ThresholdKeys<Ed25519>,
   ) -> ClsagAddendum {
     ClsagAddendum {
-      key_image_share: dfg::EdwardsPoint(self.key_image_generator) * keys.secret_share().deref(),
+      key_image_share: dfg::EdwardsPoint(self.key_image_generator) *
+        keys.original_secret_share().deref(),
     }
   }
 
@@ -212,26 +215,19 @@ impl Algorithm<Ed25519> for ClsagMultisig {
     l: Participant,
     addendum: ClsagAddendum,
   ) -> Result<(), FrostError> {
-    if self.image.is_none() {
+    if let Some(mask_recv) = self.mask_recv.take() {
       self.transcript.domain_separate(b"CLSAG");
       // Transcript the ring
       self.context.transcript(&mut self.transcript);
       // Fetch the mask from the Mutex
       // We set it to a variable to ensure our view of it is consistent
       // It was this or a mpsc channel... std doesn't have oneshot :/
-      self.mask = Some(
-        self
-          .mask_recv
-          .take()
-          .expect("image was none multiple times, despite setting to Some on first iteration")
-          .recv()
-          .ok_or(FrostError::InternalError("CLSAG mask was not provided"))?,
-      );
+      let mask = mask_recv
+        .recv()
+        .ok_or(FrostError::InternalError("CLSAG mask was not provided before process_addendum"))?;
+      self.mask = Some(mask);
       // Transcript the mask
-      self.transcript.append_message(b"mask", self.mask.expect("mask wasn't set").to_bytes());
-
-      // Init the image to the offset
-      self.image = Some(dfg::EdwardsPoint(self.key_image_generator) * view.offset());
+      self.transcript.append_message(b"mask", mask.to_bytes());
     }
 
     // Transcript this participant's contribution
@@ -241,10 +237,11 @@ impl Algorithm<Ed25519> for ClsagMultisig {
       .append_message(b"key_image_share", addendum.key_image_share.compress().to_bytes());
 
     // Accumulate the interpolated share
-    let interpolated_key_image_share =
-      addendum.key_image_share * lagrange::<dfg::Scalar>(l, view.included());
-    *self.image.as_mut().expect("image populated on first iteration wasn't Some") +=
-      interpolated_key_image_share;
+    let interpolated_key_image_share = addendum.key_image_share *
+      view
+        .interpolation_factor(l)
+        .ok_or(FrostError::InternalError("processing addendum for non-participant"))?;
+    self.image += interpolated_key_image_share;
 
     self
       .key_image_shares
@@ -264,6 +261,9 @@ impl Algorithm<Ed25519> for ClsagMultisig {
     nonces: Vec<Zeroizing<dfg::Scalar>>,
     msg_hash: &[u8],
   ) -> dfg::Scalar {
+    self.image =
+      (self.image * view.scalar()) + (dfg::EdwardsPoint(self.key_image_generator) * view.offset());
+
     // Use the transcript to get a seeded random number generator
     //
     // The transcript contains private data, preventing passive adversaries from recreating this
@@ -278,9 +278,9 @@ impl Algorithm<Ed25519> for ClsagMultisig {
 
     let sign_core = Clsag::sign_core(
       &mut rng,
-      &self.image.expect("verifying a share despite never processing any addendums").0,
+      &self.image,
       &self.context,
-      self.mask.expect("mask wasn't set"),
+      self.mask.expect("mask wasn't set within process_addendum"),
       &msg_hash,
       nonce_sums[0][0].0,
       nonce_sums[0][1].0,
@@ -310,7 +310,7 @@ impl Algorithm<Ed25519> for ClsagMultisig {
     if clsag
       .verify(
         self.context.decoys.ring(),
-        &self.image.expect("verifying a signature despite never processing any addendums").0,
+        &self.image.0,
         &interim.pseudo_out,
         self.msg_hash.as_ref().expect("verify called before sign_share"),
       )
