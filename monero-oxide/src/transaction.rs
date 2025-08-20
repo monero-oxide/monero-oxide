@@ -1,4 +1,6 @@
 use core::cmp::Ordering;
+#[allow(unused_imports)]
+use std_shims::prelude::*;
 use std_shims::{
   vec,
   vec::Vec,

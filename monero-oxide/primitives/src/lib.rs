@@ -3,6 +3,8 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[allow(unused_imports)]
+use std_shims::prelude::*;
 use std_shims::{io, vec::Vec};
 #[cfg(feature = "std")]
 use std_shims::sync::LazyLock;

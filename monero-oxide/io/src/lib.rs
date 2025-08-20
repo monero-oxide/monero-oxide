@@ -4,6 +4,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::fmt::Debug;
+#[allow(unused_imports)]
+use std_shims::prelude::*;
 use std_shims::{
   vec,
   vec::Vec,
@@ -18,23 +20,31 @@ use curve25519_dalek::{
 const VARINT_CONTINUATION_MASK: u8 = 0b1000_0000;
 
 mod sealed {
-  use core::fmt::Debug;
-
   /// A trait for a number readable/writable as a VarInt.
   ///
   /// This is sealed to prevent unintended implementations.
-  pub trait VarInt: TryInto<u64, Error: Debug> + TryFrom<u64, Error: Debug> + Copy {
+  pub trait VarInt: TryFrom<u64> + Copy {
     const BITS: usize;
+    fn into_u64(self) -> u64;
   }
 
   impl VarInt for u8 {
     const BITS: usize = 8;
+    fn into_u64(self) -> u64 {
+      self.into()
+    }
   }
   impl VarInt for u32 {
     const BITS: usize = 32;
+    fn into_u64(self) -> u64 {
+      self.into()
+    }
   }
   impl VarInt for u64 {
     const BITS: usize = 64;
+    fn into_u64(self) -> u64 {
+      self
+    }
   }
   // Don't compile for platforms where `usize` exceeds `u64`, preventing various possible runtime
   // exceptions
@@ -42,6 +52,9 @@ mod sealed {
     [(); (u64::BITS - usize::BITS) as usize];
   impl VarInt for usize {
     const BITS: usize = core::mem::size_of::<usize>() * 8;
+    fn into_u64(self) -> u64 {
+      self.try_into().unwrap()
+    }
   }
 }
 
@@ -49,7 +62,7 @@ mod sealed {
 ///
 /// This function will panic if the VarInt exceeds u64::MAX.
 pub fn varint_len<V: sealed::VarInt>(varint: V) -> usize {
-  let varint_u64: u64 = varint.try_into().expect("varint exceeded u64");
+  let varint_u64 = varint.into_u64();
   ((usize::try_from(u64::BITS - varint_u64.leading_zeros())
     .expect("64 > usize::MAX")
     .saturating_sub(1)) /
@@ -68,7 +81,7 @@ pub fn write_byte<W: Write>(byte: &u8, w: &mut W) -> io::Result<()> {
 ///
 /// This will panic if the VarInt exceeds u64::MAX.
 pub fn write_varint<W: Write, U: sealed::VarInt>(varint: &U, w: &mut W) -> io::Result<()> {
-  let mut varint: u64 = (*varint).try_into().expect("varint exceeded u64");
+  let mut varint: u64 = varint.into_u64();
   while {
     let mut b = u8::try_from(varint & u64::from(!VARINT_CONTINUATION_MASK))
       .expect("& eight_bit_mask left more than 8 bits set");

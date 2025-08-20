@@ -43,6 +43,7 @@ panic = "unwind"
 overflow-checks = true
 
 [workspace.lints.clippy]
+incompatible_msrv = "allow" # Manually checked with a GitHub workflow
 unwrap_or_default = "allow"
 borrow_as_ptr = "deny"
 cast_lossless = "deny"

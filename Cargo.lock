@@ -706,6 +706,7 @@ version = "0.1.0"
 dependencies = [
  "monero-primitives",
  "rand_core",
+ "std-shims",
 ]
 
 [[package]]
@@ -1274,17 +1275,18 @@ dependencies = [
 
 [[package]]
 name = "spin"
-version = "0.9.8"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
+checksum = "d5fe4ccb98d9c292d56fec89a5e07da7fc4cf0dc11e156b41793132775d3e591"
 
 [[package]]
 name = "std-shims"
-version = "0.1.2"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30ade0decb9133b9d3cc0e7d99129c3bedabc92553736545cc4979800eaf8c21"
+checksum = "6fbb9ed849fede2765386134c64bc8984081e8c8408bc9201b99c6e3143ec5e7"
 dependencies = [
  "hashbrown 0.14.5",
+ "rustversion",
  "spin",
 ]
 

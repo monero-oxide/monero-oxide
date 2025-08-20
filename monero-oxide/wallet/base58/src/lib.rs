@@ -3,8 +3,9 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(test), no_std)]
 
-extern crate alloc;
-use alloc::{vec::Vec, string::String};
+#[allow(unused)]
+use std_shims::prelude::*;
+use std_shims::{vec::Vec, string::String};
 
 use monero_primitives::keccak256;
 
