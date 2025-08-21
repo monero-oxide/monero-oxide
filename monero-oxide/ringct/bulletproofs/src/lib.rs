@@ -15,7 +15,7 @@ use zeroize::Zeroizing;
 use curve25519_dalek::edwards::EdwardsPoint;
 
 use monero_io::*;
-pub use monero_generators::MAX_COMMITMENTS;
+pub use monero_generators::MAX_BULLETPROOF_COMMITMENTS as MAX_COMMITMENTS;
 use monero_generators::COMMITMENT_BITS;
 use monero_primitives::Commitment;
 

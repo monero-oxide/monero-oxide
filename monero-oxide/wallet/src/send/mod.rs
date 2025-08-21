@@ -16,7 +16,7 @@ use frost::FrostError;
 
 use crate::{
   io::*,
-  generators::{MAX_COMMITMENTS, hash_to_point},
+  generators::{MAX_BULLETPROOF_COMMITMENTS, hash_to_point},
   ringct::{
     clsag::{ClsagError, ClsagContext, Clsag},
     RctType, RctPrunable, RctProofs,
@@ -282,7 +282,7 @@ impl SignableTransaction {
       }
     }
 
-    if self.payments.len() > MAX_COMMITMENTS {
+    if self.payments.len() > MAX_BULLETPROOF_COMMITMENTS {
       Err(SendError::TooManyOutputs)?;
     }
 
