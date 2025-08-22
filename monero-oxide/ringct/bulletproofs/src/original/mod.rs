@@ -5,7 +5,7 @@ use rand_core::{RngCore, CryptoRng};
 use zeroize::Zeroize;
 
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar, EdwardsPoint};
-
+use curve25519_dalek::edwards::CompressedEdwardsY;
 use monero_generators::{H as MONERO_H, Generators, MAX_COMMITMENTS, COMMITMENT_BITS};
 use monero_primitives::{Commitment, INV_EIGHT, keccak256_to_scalar};
 use crate::{core::multiexp, scalar_vector::ScalarVector, BulletproofsBatchVerifier};
@@ -13,6 +13,7 @@ use crate::{core::multiexp, scalar_vector::ScalarVector, BulletproofsBatchVerifi
 pub(crate) mod inner_product;
 use inner_product::*;
 pub(crate) use inner_product::IpProof;
+use monero_io::decompress_point;
 
 include!(concat!(env!("OUT_DIR"), "/generators.rs"));
 
@@ -28,10 +29,10 @@ pub(crate) struct AggregateRangeWitness {
 
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub struct AggregateRangeProof {
-  pub(crate) A: EdwardsPoint,
-  pub(crate) S: EdwardsPoint,
-  pub(crate) T1: EdwardsPoint,
-  pub(crate) T2: EdwardsPoint,
+  pub(crate) A: CompressedEdwardsY,
+  pub(crate) S: CompressedEdwardsY,
+  pub(crate) T1: CompressedEdwardsY,
+  pub(crate) T2: CompressedEdwardsY,
   pub(crate) tau_x: Scalar,
   pub(crate) mu: Scalar,
   pub(crate) t_hat: Scalar,
@@ -62,22 +63,26 @@ impl<'a> AggregateRangeStatement<'a> {
     (keccak256_to_scalar(V.iter().flat_map(|V| V.compress().to_bytes()).collect::<Vec<_>>()), V)
   }
 
-  fn transcript_A_S(transcript: Scalar, A: EdwardsPoint, S: EdwardsPoint) -> (Scalar, Scalar) {
+  fn transcript_A_S(
+    transcript: Scalar,
+    A: CompressedEdwardsY,
+    S: CompressedEdwardsY,
+  ) -> (Scalar, Scalar) {
     let mut buf = Vec::with_capacity(96);
     buf.extend(transcript.to_bytes());
-    buf.extend(A.compress().to_bytes());
-    buf.extend(S.compress().to_bytes());
+    buf.extend_from_slice(A.as_bytes());
+    buf.extend_from_slice(S.as_bytes());
     let y = keccak256_to_scalar(buf);
     let z = keccak256_to_scalar(y.to_bytes());
     (y, z)
   }
 
-  fn transcript_T12(transcript: Scalar, T1: EdwardsPoint, T2: EdwardsPoint) -> Scalar {
+  fn transcript_T12(transcript: Scalar, T1: CompressedEdwardsY, T2: CompressedEdwardsY) -> Scalar {
     let mut buf = Vec::with_capacity(128);
-    buf.extend(transcript.to_bytes());
-    buf.extend(transcript.to_bytes());
-    buf.extend(T1.compress().to_bytes());
-    buf.extend(T2.compress().to_bytes());
+    buf.extend_from_slice(transcript.as_bytes());
+    buf.extend_from_slice(transcript.as_bytes());
+    buf.extend_from_slice(T1.as_bytes());
+    buf.extend_from_slice(T2.as_bytes());
     keccak256_to_scalar(buf)
   }
 
@@ -141,7 +146,8 @@ impl<'a> AggregateRangeStatement<'a> {
       let res = multiexp(&terms) * INV_EIGHT();
       terms.zeroize();
       res
-    };
+    }
+    .compress();
 
     let mut sL = ScalarVector::new(padded_pow_of_2 * COMMITMENT_BITS);
     let mut sR = ScalarVector::new(padded_pow_of_2 * COMMITMENT_BITS);
@@ -163,7 +169,8 @@ impl<'a> AggregateRangeStatement<'a> {
       let res = multiexp(&terms) * INV_EIGHT();
       terms.zeroize();
       res
-    };
+    }
+    .compress();
 
     let (y, z) = Self::transcript_A_S(transcript, A, S);
     transcript = z;
@@ -193,7 +200,8 @@ impl<'a> AggregateRangeStatement<'a> {
       let T1 = multiexp(&T1_terms);
       T1_terms.zeroize();
       T1
-    };
+    }
+    .compress();
     let tau_2 = Scalar::random(&mut *rng);
     let T2 = {
       let mut T2_terms = [(t2, *MONERO_H), (tau_2, ED25519_BASEPOINT_POINT)];
@@ -203,7 +211,8 @@ impl<'a> AggregateRangeStatement<'a> {
       let T2 = multiexp(&T2_terms);
       T2_terms.zeroize();
       T2
-    };
+    }
+    .compress();
 
     transcript = Self::transcript_T12(transcript, T1, T2);
     let x = transcript;
@@ -227,11 +236,8 @@ impl<'a> AggregateRangeStatement<'a> {
     let x_ip = transcript;
 
     let ip = IpStatement::new_without_P_transcript(y_inv_pow_n, x_ip)
-      .prove(
-        transcript,
-        IpWitness::new(l, r).expect("Bulletproofs::Original created an invalid IpWitness"),
-      )
-      .expect("Bulletproofs::Original failed to prove the inner-product");
+      .prove(transcript, IpWitness::new(l, r).unwrap())
+      .unwrap();
 
     let res = AggregateRangeProof { A, S, T1, T2, tau_x, mu, t_hat, ip };
     #[cfg(debug_assertions)]
@@ -248,7 +254,7 @@ impl<'a> AggregateRangeStatement<'a> {
     self,
     rng: &mut (impl RngCore + CryptoRng),
     verifier: &mut BulletproofsBatchVerifier,
-    mut proof: AggregateRangeProof,
+    proof: AggregateRangeProof,
   ) -> bool {
     let mut padded_pow_of_2 = 1;
     while padded_pow_of_2 < self.commitments.len() {
@@ -274,10 +280,18 @@ impl<'a> AggregateRangeStatement<'a> {
     transcript = Self::transcript_tau_x_mu_t_hat(transcript, proof.tau_x, proof.mu, proof.t_hat);
     let x_ip = transcript;
 
-    proof.A = proof.A.mul_by_cofactor();
-    proof.S = proof.S.mul_by_cofactor();
-    proof.T1 = proof.T1.mul_by_cofactor();
-    proof.T2 = proof.T2.mul_by_cofactor();
+    let Some(A) = decompress_point(proof.A).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
+      return false;
+    };
+    let Some(S) = decompress_point(proof.S).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
+      return false;
+    };
+    let Some(T1) = decompress_point(proof.T1).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
+      return false;
+    };
+    let Some(T2) = decompress_point(proof.T2).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
+      return false;
+    };
 
     let y_pow_n = ScalarVector::powers(y, ip_rows);
     let y_inv_pow_n = ScalarVector::powers(y.invert(), ip_rows);
@@ -303,15 +317,15 @@ impl<'a> AggregateRangeStatement<'a> {
       for i in 0 .. padded_pow_of_2 {
         verifier.0.h -= weight * z[3 + i] * twos.clone().sum();
       }
-      verifier.0.other.push((weight * x, proof.T1));
-      verifier.0.other.push((weight * (x * x), proof.T2));
+      verifier.0.other.push((weight * x, T1));
+      verifier.0.other.push((weight * (x * x), T2));
     }
 
     let ip_weight = Scalar::random(&mut *rng);
 
     // 66
-    verifier.0.other.push((ip_weight, proof.A));
-    verifier.0.other.push((ip_weight * x, proof.S));
+    verifier.0.other.push((ip_weight, A));
+    verifier.0.other.push((ip_weight * x, S));
     // We can replace these with a g_sum, h_sum scalar in the batch verifier
     // It'd trade `2 * ip_rows` scalar additions (per proof) for one scalar addition and an
     // additional term in the MSM

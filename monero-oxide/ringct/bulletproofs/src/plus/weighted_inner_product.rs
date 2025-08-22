@@ -4,7 +4,8 @@ use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use curve25519_dalek::{scalar::Scalar, edwards::EdwardsPoint};
-
+use curve25519_dalek::edwards::CompressedEdwardsY;
+use monero_io::decompress_point;
 use monero_primitives::{INV_EIGHT, keccak256_to_scalar};
 use crate::{
   core::{multiexp, multiexp_vartime, challenge_products},
@@ -55,10 +56,10 @@ impl WipWitness {
 
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub(crate) struct WipProof {
-  pub(crate) L: Vec<EdwardsPoint>,
-  pub(crate) R: Vec<EdwardsPoint>,
-  pub(crate) A: EdwardsPoint,
-  pub(crate) B: EdwardsPoint,
+  pub(crate) L: Vec<CompressedEdwardsY>,
+  pub(crate) R: Vec<CompressedEdwardsY>,
+  pub(crate) A: CompressedEdwardsY,
+  pub(crate) B: CompressedEdwardsY,
   pub(crate) r_answer: Scalar,
   pub(crate) s_answer: Scalar,
   pub(crate) delta_answer: Scalar,
@@ -78,27 +79,25 @@ impl WipStatement {
     Self { generators, P, y: y_vec }
   }
 
-  fn transcript_L_R(transcript: &mut Scalar, L: EdwardsPoint, R: EdwardsPoint) -> Scalar {
+  fn transcript_L_R(
+    transcript: &mut Scalar,
+    L: CompressedEdwardsY,
+    R: CompressedEdwardsY,
+  ) -> Scalar {
     let e = keccak256_to_scalar(
-      [
-        transcript.to_bytes().as_ref(),
-        L.compress().to_bytes().as_ref(),
-        R.compress().to_bytes().as_ref(),
-      ]
-      .concat(),
+      [transcript.as_bytes().as_ref(), L.as_bytes().as_ref(), R.as_bytes().as_ref()].concat(),
     );
     *transcript = e;
     e
   }
 
-  fn transcript_A_B(transcript: &mut Scalar, A: EdwardsPoint, B: EdwardsPoint) -> Scalar {
+  fn transcript_A_B(
+    transcript: &mut Scalar,
+    A: CompressedEdwardsY,
+    B: CompressedEdwardsY,
+  ) -> Scalar {
     let e = keccak256_to_scalar(
-      [
-        transcript.to_bytes().as_ref(),
-        A.compress().to_bytes().as_ref(),
-        B.compress().to_bytes().as_ref(),
-      ]
-      .concat(),
+      [transcript.as_bytes().as_ref(), A.as_bytes().as_ref(), B.as_bytes().as_ref()].concat(),
     );
     *transcript = e;
     e
@@ -114,8 +113,8 @@ impl WipStatement {
     mut g_bold2: PointVector,
     mut h_bold1: PointVector,
     mut h_bold2: PointVector,
-    L: EdwardsPoint,
-    R: EdwardsPoint,
+    L: CompressedEdwardsY,
+    R: CompressedEdwardsY,
     y_inv_n_hat: Scalar,
   ) -> (Scalar, Scalar, Scalar, Scalar, PointVector, PointVector) {
     debug_assert_eq!(g_bold1.len(), g_bold2.len());
@@ -242,7 +241,7 @@ impl WipStatement {
         .collect::<Vec<_>>();
       L_terms.push((c_l, g));
       L_terms.push((d_l, h));
-      let L = multiexp(&L_terms) * INV_EIGHT();
+      let L = (multiexp(&L_terms) * INV_EIGHT()).compress();
       L_vec.push(L);
       L_terms.zeroize();
 
@@ -254,7 +253,7 @@ impl WipStatement {
         .collect::<Vec<_>>();
       R_terms.push((c_r, g));
       R_terms.push((d_r, h));
-      let R = multiexp(&R_terms) * INV_EIGHT();
+      let R = (multiexp(&R_terms) * INV_EIGHT()).compress();
       R_vec.push(R);
       R_terms.zeroize();
 
@@ -287,11 +286,11 @@ impl WipStatement {
 
     let mut A_terms =
       vec![(r, g_bold[0]), (s, h_bold[0]), ((ry * b[0]) + (s * y[0] * a[0]), g), (delta, h)];
-    let A = multiexp(&A_terms) * INV_EIGHT();
+    let A = (multiexp(&A_terms) * INV_EIGHT()).compress();
     A_terms.zeroize();
 
     let mut B_terms = vec![(ry * s, g), (eta, h)];
-    let B = multiexp(&B_terms) * INV_EIGHT();
+    let B = (multiexp(&B_terms) * INV_EIGHT()).compress();
     B_terms.zeroize();
 
     let e = Self::transcript_A_B(&mut transcript, A, B);
@@ -308,7 +307,7 @@ impl WipStatement {
     rng: &mut R,
     verifier: &mut BulletproofsPlusBatchVerifier,
     mut transcript: Scalar,
-    mut proof: WipProof,
+    proof: WipProof,
   ) -> bool {
     let verifier_weight = Scalar::random(rng);
 
@@ -341,29 +340,44 @@ impl WipStatement {
     };
 
     let mut e_is = Vec::with_capacity(proof.L.len());
-    for (L, R) in proof.L.iter_mut().zip(proof.R.iter_mut()) {
-      e_is.push(Self::transcript_L_R(&mut transcript, *L, *R));
-      *L = L.mul_by_cofactor();
-      *R = R.mul_by_cofactor();
+    let mut L = Vec::with_capacity(proof.L.len());
+    let mut R = Vec::with_capacity(proof.R.len());
+
+    for (L_i, R_i) in proof.L.into_iter().zip(proof.R.into_iter()) {
+      e_is.push(Self::transcript_L_R(&mut transcript, L_i, R_i));
+
+      let Some(L_i) = decompress_point(L_i).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
+        return false;
+      };
+      let Some(R_i) = decompress_point(R_i).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
+        return false;
+      };
+
+      L.push(L_i);
+      R.push(R_i);
     }
 
     let e = Self::transcript_A_B(&mut transcript, proof.A, proof.B);
-    proof.A = proof.A.mul_by_cofactor();
-    proof.B = proof.B.mul_by_cofactor();
+    let Some(A) = decompress_point(proof.A).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
+      return false;
+    };
+    let Some(B) = decompress_point(proof.B).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
+      return false;
+    };
     let neg_e_square = verifier_weight * -(e * e);
 
     verifier.0.other.push((neg_e_square, P));
 
-    let mut challenges = Vec::with_capacity(proof.L.len());
+    let mut challenges = Vec::with_capacity(L.len());
     let product_cache = {
       let mut inv_e_is = e_is.clone();
       Scalar::batch_invert(&mut inv_e_is);
 
       debug_assert_eq!(e_is.len(), inv_e_is.len());
-      debug_assert_eq!(e_is.len(), proof.L.len());
-      debug_assert_eq!(e_is.len(), proof.R.len());
+      debug_assert_eq!(e_is.len(), L.len());
+      debug_assert_eq!(e_is.len(), R.len());
       for ((e_i, inv_e_i), (L, R)) in
-        e_is.drain(..).zip(inv_e_is.drain(..)).zip(proof.L.iter().zip(proof.R.iter()))
+        e_is.drain(..).zip(inv_e_is.drain(..)).zip(L.iter().zip(R.iter()))
       {
         debug_assert_eq!(e_i.invert(), inv_e_i);
 
@@ -399,10 +413,10 @@ impl WipStatement {
       verifier.0.h_bold[i] += verifier_weight * (se * product_cache[product_cache.len() - 1 - i]);
     }
 
-    verifier.0.other.push((verifier_weight * -e, proof.A));
+    verifier.0.other.push((verifier_weight * -e, A));
     verifier.0.g += verifier_weight * (proof.r_answer * y[0] * proof.s_answer);
     verifier.0.h += verifier_weight * proof.delta_answer;
-    verifier.0.other.push((-verifier_weight, proof.B));
+    verifier.0.other.push((-verifier_weight, B));
 
     true
   }

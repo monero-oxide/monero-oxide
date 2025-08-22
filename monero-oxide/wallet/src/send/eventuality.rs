@@ -97,7 +97,7 @@ impl Eventuality {
     if base.commitments !=
       commitments_and_encrypted_amounts
         .iter()
-        .map(|(commitment, _)| commitment.calculate())
+        .map(|(commitment, _)| commitment.calculate().compress())
         .collect::<Vec<_>>()
     {
       return false;

@@ -6,7 +6,7 @@ use std_shims::{
 
 use zeroize::Zeroize;
 
-use curve25519_dalek::edwards::EdwardsPoint;
+use curve25519_dalek::edwards::CompressedEdwardsY;
 
 pub use monero_mlsag as mlsag;
 pub use monero_clsag as clsag;
@@ -166,11 +166,11 @@ pub struct RctBase {
   /// The re-randomized amount commitments used within inputs.
   ///
   /// This field was deprecated and is empty for modern RctTypes.
-  pub pseudo_outs: Vec<EdwardsPoint>,
+  pub pseudo_outs: Vec<CompressedEdwardsY>,
   /// The encrypted amounts for the recipients to decrypt.
   pub encrypted_amounts: Vec<EncryptedAmount>,
   /// The output commitments.
-  pub commitments: Vec<EdwardsPoint>,
+  pub commitments: Vec<CompressedEdwardsY>,
 }
 
 impl RctBase {
@@ -180,12 +180,12 @@ impl RctBase {
 
     write_varint(&self.fee, w)?;
     if rct_type == RctType::MlsagBorromean {
-      write_raw_vec(write_point, &self.pseudo_outs, w)?;
+      write_raw_vec(write_compressed_point, &self.pseudo_outs, w)?;
     }
     for encrypted_amount in &self.encrypted_amounts {
       encrypted_amount.write(w)?;
     }
-    write_raw_vec(write_point, &self.commitments, w)
+    write_raw_vec(write_compressed_point, &self.commitments, w)
   }
 
   /// Read a RctBase.
@@ -227,14 +227,14 @@ impl RctBase {
         // AggregateMlsagBorromean doesn't use pseudo_outs due to using the sum of the output
         // commitments directly as the effective singular pseudo-out
         pseudo_outs: if rct_type == RctType::MlsagBorromean {
-          read_raw_vec(read_point, inputs, r)?
+          read_raw_vec(read_compressed_point, inputs, r)?
         } else {
           vec![]
         },
         encrypted_amounts: (0 .. outputs)
           .map(|_| EncryptedAmount::read(rct_type.compact_encrypted_amounts(), r))
           .collect::<Result<_, _>>()?,
-        commitments: read_raw_vec(read_point, outputs, r)?,
+        commitments: read_raw_vec(read_compressed_point, outputs, r)?,
       },
     )))
   }
@@ -262,7 +262,7 @@ pub enum RctPrunable {
     /// The MLSAG ring signatures for each input.
     mlsags: Vec<Mlsag>,
     /// The re-blinded commitments for the outputs being spent.
-    pseudo_outs: Vec<EdwardsPoint>,
+    pseudo_outs: Vec<CompressedEdwardsY>,
     /// The aggregate Bulletproof, proving the outputs are within range.
     bulletproof: Bulletproof,
   },
@@ -274,7 +274,7 @@ pub enum RctPrunable {
     /// The MLSAG ring signatures for each input.
     mlsags: Vec<Mlsag>,
     /// The re-blinded commitments for the outputs being spent.
-    pseudo_outs: Vec<EdwardsPoint>,
+    pseudo_outs: Vec<CompressedEdwardsY>,
     /// The aggregate Bulletproof, proving the outputs are within range.
     bulletproof: Bulletproof,
   },
@@ -283,7 +283,7 @@ pub enum RctPrunable {
     /// The CLSAGs for each input.
     clsags: Vec<Clsag>,
     /// The re-blinded commitments for the outputs being spent.
-    pseudo_outs: Vec<EdwardsPoint>,
+    pseudo_outs: Vec<CompressedEdwardsY>,
     /// The aggregate Bulletproof(+), proving the outputs are within range.
     bulletproof: Bulletproof,
   },
@@ -311,14 +311,14 @@ impl RctPrunable {
         bulletproof.write(w)?;
 
         write_raw_vec(Mlsag::write, mlsags, w)?;
-        write_raw_vec(write_point, pseudo_outs, w)
+        write_raw_vec(write_compressed_point, pseudo_outs, w)
       }
       RctPrunable::Clsag { bulletproof, clsags, pseudo_outs } => {
         w.write_all(&[1])?;
         bulletproof.write(w)?;
 
         write_raw_vec(Clsag::write, clsags, w)?;
-        write_raw_vec(write_point, pseudo_outs, w)
+        write_raw_vec(write_compressed_point, pseudo_outs, w)
       }
     }
   }
@@ -369,7 +369,7 @@ impl RctPrunable {
         };
         let mlsags =
           (0 .. inputs).map(|_| Mlsag::read(ring_length, 2, r)).collect::<Result<_, _>>()?;
-        let pseudo_outs = read_raw_vec(read_point, inputs, r)?;
+        let pseudo_outs = read_raw_vec(read_compressed_point, inputs, r)?;
         if rct_type == RctType::MlsagBulletproofs {
           RctPrunable::MlsagBulletproofs { bulletproof, mlsags, pseudo_outs }
         } else {
@@ -389,7 +389,7 @@ impl RctPrunable {
           })(r)?
         },
         clsags: (0 .. inputs).map(|_| Clsag::read(ring_length, r)).collect::<Result<_, _>>()?,
-        pseudo_outs: read_raw_vec(read_point, inputs, r)?,
+        pseudo_outs: read_raw_vec(read_compressed_point, inputs, r)?,
       },
     })
   }

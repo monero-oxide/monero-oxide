@@ -10,7 +10,7 @@ use zeroize::{Zeroize, Zeroizing};
 use rand_core::{RngCore, CryptoRng};
 use rand::seq::SliceRandom;
 
-use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE, Scalar, EdwardsPoint};
+use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE, Scalar, edwards::CompressedEdwardsY};
 #[cfg(feature = "multisig")]
 use frost::FrostError;
 
@@ -39,8 +39,11 @@ mod multisig;
 #[cfg(feature = "multisig")]
 pub use multisig::{TransactionMachine, TransactionSignMachine, TransactionSignatureMachine};
 
-pub(crate) fn key_image_sort(x: &EdwardsPoint, y: &EdwardsPoint) -> core::cmp::Ordering {
-  x.compress().to_bytes().cmp(&y.compress().to_bytes()).reverse()
+pub(crate) fn key_image_sort(
+  x: &CompressedEdwardsY,
+  y: &CompressedEdwardsY,
+) -> core::cmp::Ordering {
+  x.to_bytes().cmp(&y.to_bytes()).reverse()
 }
 
 #[derive(Clone, PartialEq, Eq, Zeroize)]
@@ -141,52 +144,48 @@ impl InternalPayment {
 }
 
 /// An error while sending Monero.
-#[derive(Clone, PartialEq, Eq, Debug, thiserror::Error)]
+#[derive(Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum SendError {
   /// The RingCT type to produce proofs for this transaction with weren't supported.
-  #[error("this library doesn't yet support that RctType")]
+  #[cfg_attr(feature = "std", error("this library doesn't yet support that RctType"))]
   UnsupportedRctType,
   /// The transaction had no inputs specified.
-  #[error("no inputs")]
+  #[cfg_attr(feature = "std", error("no inputs"))]
   NoInputs,
   /// The decoy quantity was invalid for the specified RingCT type.
-  #[error("invalid number of decoys")]
+  #[cfg_attr(feature = "std", error("invalid number of decoys"))]
   InvalidDecoyQuantity,
   /// The transaction had no outputs specified.
-  #[error("no outputs")]
+  #[cfg_attr(feature = "std", error("no outputs"))]
   NoOutputs,
   /// The transaction had too many outputs specified.
-  #[error("too many outputs")]
+  #[cfg_attr(feature = "std", error("too many outputs"))]
   TooManyOutputs,
   /// The transaction did not have a change output, and did not have two outputs.
   ///
   /// Monero requires all transactions have at least two outputs, assuming one payment and one
   /// change (or at least one dummy and one change). Accordingly, specifying no change and only
   /// one payment prevents creating a valid transaction
-  #[error("only one output and no change address")]
+  #[cfg_attr(feature = "std", error("only one output and no change address"))]
   NoChange,
   /// Multiple addresses had payment IDs specified.
   ///
   /// Only one payment ID is allowed per transaction.
-  #[error("multiple addresses with payment IDs")]
+  #[cfg_attr(feature = "std", error("multiple addresses with payment IDs"))]
   MultiplePaymentIds,
   /// Too much arbitrary data was specified.
-  #[error("too much data")]
+  #[cfg_attr(feature = "std", error("too much data"))]
   TooMuchArbitraryData,
   /// The created transaction was too large.
-  #[error("too large of a transaction")]
+  #[cfg_attr(feature = "std", error("too large of a transaction"))]
   TooLargeTransaction,
-  /// The transactions' amounts could not be represented within a `u64`.
-  #[error("transaction amounts exceed u64::MAX (in {in_amount}, out {out_amount})")]
-  AmountsUnrepresentable {
-    /// The amount in (via inputs).
-    in_amount: u128,
-    /// The amount which would be out (between outputs and the fee).
-    out_amount: u128,
-  },
   /// This transaction could not pay for itself.
-  #[error(
-    "not enough funds (inputs {inputs}, outputs {outputs}, necessary_fee {necessary_fee:?})"
+  #[cfg_attr(
+    feature = "std",
+    error(
+      "not enough funds (inputs {inputs}, outputs {outputs}, necessary_fee {necessary_fee:?})"
+    )
   )]
   NotEnoughFunds {
     /// The amount of funds the inputs contributed.
@@ -200,17 +199,20 @@ pub enum SendError {
     necessary_fee: Option<u64>,
   },
   /// This transaction is being signed with the wrong private key.
-  #[error("wrong spend private key")]
+  #[cfg_attr(feature = "std", error("wrong spend private key"))]
   WrongPrivateKey,
   /// This transaction was read from a bytestream which was malicious.
-  #[error("this SignableTransaction was created by deserializing a malicious serialization")]
+  #[cfg_attr(
+    feature = "std",
+    error("this SignableTransaction was created by deserializing a malicious serialization")
+  )]
   MaliciousSerialization,
   /// There was an error when working with the CLSAGs.
-  #[error("clsag error ({0})")]
+  #[cfg_attr(feature = "std", error("clsag error ({0})"))]
   ClsagError(ClsagError),
   /// There was an error when working with FROST.
   #[cfg(feature = "multisig")]
-  #[error("frost error {0}")]
+  #[cfg_attr(feature = "std", error("frost error {0}"))]
   FrostError(FrostError),
 }
 
@@ -227,7 +229,7 @@ pub struct SignableTransaction {
 
 struct SignableTransactionWithKeyImages {
   intent: SignableTransaction,
-  key_images: Vec<EdwardsPoint>,
+  key_images: Vec<CompressedEdwardsY>,
 }
 
 impl SignableTransaction {
@@ -301,39 +303,27 @@ impl SignableTransaction {
     }
 
     // Make sure we have enough funds
-    let weight;
-    {
-      let in_amount: u128 =
-        self.inputs.iter().map(|input| u128::from(input.commitment().amount)).sum();
-      let payments_amount: u128 = self
-        .payments
-        .iter()
-        .filter_map(|payment| match payment {
-          InternalPayment::Payment(_, amount) => Some(u128::from(*amount)),
-          InternalPayment::Change(_) => None,
-        })
-        .sum();
-      let necessary_fee;
-      (weight, necessary_fee) = self.weight_and_necessary_fee();
-      let out_amount = payments_amount + u128::from(necessary_fee);
-      let in_out_amount = u64::try_from(in_amount)
-        .and_then(|in_amount| u64::try_from(out_amount).map(|out_amount| (in_amount, out_amount)));
-      let Ok((in_amount, out_amount)) = in_out_amount else {
-        Err(SendError::AmountsUnrepresentable { in_amount, out_amount })?
-      };
-      if in_amount < out_amount {
-        Err(SendError::NotEnoughFunds {
-          inputs: in_amount,
-          outputs: u64::try_from(payments_amount)
-            .expect("total out fit within u64 but not part of total out"),
-          necessary_fee: Some(necessary_fee),
-        })?;
-      }
+    let in_amount = self.inputs.iter().map(|input| input.commitment().amount).sum::<u64>();
+    let payments_amount = self
+      .payments
+      .iter()
+      .filter_map(|payment| match payment {
+        InternalPayment::Payment(_, amount) => Some(amount),
+        InternalPayment::Change(_) => None,
+      })
+      .sum::<u64>();
+    let (weight, necessary_fee) = self.weight_and_necessary_fee();
+    if in_amount < (payments_amount + necessary_fee) {
+      Err(SendError::NotEnoughFunds {
+        inputs: in_amount,
+        outputs: payments_amount,
+        necessary_fee: Some(necessary_fee),
+      })?;
     }
 
     // The limit is half the no-penalty block size
     // https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454
-    //   /src/wallet/wallet2.cpp#L11076-L11085
+    //   /src/wallet/wallet2.cpp#L110766-L11085
     // https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454
     //   /src/cryptonote_config.h#L61
     // https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454
@@ -459,7 +449,7 @@ impl SignableTransaction {
   /// defined serialization.
   pub fn serialize(&self) -> Vec<u8> {
     let mut buf = Vec::with_capacity(256);
-    self.write(&mut buf).expect("write failed but <Vec as io::Write> doesn't fail");
+    self.write(&mut buf).unwrap();
     buf
   }
 
@@ -509,7 +499,10 @@ impl SignableTransaction {
     Ok(res)
   }
 
-  fn with_key_images(mut self, key_images: Vec<EdwardsPoint>) -> SignableTransactionWithKeyImages {
+  fn with_key_images(
+    mut self,
+    key_images: Vec<CompressedEdwardsY>,
+  ) -> SignableTransactionWithKeyImages {
     debug_assert_eq!(self.inputs.len(), key_images.len());
 
     // Sort the inputs by their key images
@@ -541,7 +534,7 @@ impl SignableTransaction {
         Err(SendError::WrongPrivateKey)?;
       }
       let key_image = input_key.deref() * hash_to_point(input.key().compress().to_bytes());
-      key_images.push(key_image);
+      key_images.push(key_image.compress());
     }
 
     // Convert to a SignableTransactionWithKeyImages
@@ -566,13 +559,9 @@ impl SignableTransaction {
     let mut tx = tx.transaction_without_signatures();
 
     // Sign the CLSAGs
-    let clsags_and_pseudo_outs = Clsag::sign(
-      rng,
-      clsag_signs,
-      mask_sum,
-      tx.signature_hash().expect("signing a transaction which isn't signed?"),
-    )
-    .map_err(SendError::ClsagError)?;
+    let clsags_and_pseudo_outs =
+      Clsag::sign(rng, clsag_signs, mask_sum, tx.signature_hash().unwrap())
+        .map_err(SendError::ClsagError)?;
 
     // Fill in the CLSAGs/pseudo-outs
     let inputs_len = tx.prefix().inputs.len();
@@ -591,7 +580,7 @@ impl SignableTransaction {
     *pseudo_outs = Vec::with_capacity(inputs_len);
     for (clsag, pseudo_out) in clsags_and_pseudo_outs {
       clsags.push(clsag);
-      pseudo_outs.push(pseudo_out);
+      pseudo_outs.push(pseudo_out.compress());
     }
 
     // Return the signed TX

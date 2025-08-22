@@ -4,7 +4,8 @@ use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use curve25519_dalek::{traits::Identity, scalar::Scalar, edwards::EdwardsPoint};
-
+use curve25519_dalek::edwards::CompressedEdwardsY;
+use monero_io::decompress_point;
 use monero_primitives::{INV_EIGHT, Commitment, keccak256_to_scalar};
 
 use crate::{
@@ -42,7 +43,7 @@ impl AggregateRangeWitness {
 #[doc(hidden)]
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub struct AggregateRangeProof {
-  pub(crate) A: EdwardsPoint,
+  pub(crate) A: CompressedEdwardsY,
   pub(crate) wip: WipProof,
 }
 
@@ -229,7 +230,7 @@ impl<'a> AggregateRangeStatement<'a> {
     }
 
     Some(AggregateRangeProof {
-      A,
+      A: A.compress(),
       wip: WipStatement::new(generators, A_hat, y)
         .prove(
           rng,
@@ -257,8 +258,10 @@ impl<'a> AggregateRangeStatement<'a> {
 
     let generators = generators.reduce(V.len() * COMMITMENT_BITS);
 
+    let Some(A) = decompress_point(proof.A) else { return false };
+
     let AHatComputation { y, A_hat, .. } =
-      Self::compute_A_hat(PointVector(V), &generators, &mut transcript, proof.A);
+      Self::compute_A_hat(PointVector(V), &generators, &mut transcript, A);
     WipStatement::new(generators, A_hat, y).verify(rng, verifier, transcript, proof.wip)
   }
 }

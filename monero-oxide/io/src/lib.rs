@@ -92,6 +92,11 @@ pub fn write_point<W: Write>(point: &EdwardsPoint, w: &mut W) -> io::Result<()> 
   w.write_all(&point.compress().to_bytes())
 }
 
+/// Write a point.
+pub fn write_compressed_point<W: Write>(point: &CompressedEdwardsY, w: &mut W) -> io::Result<()> {
+  w.write_all(&point.0)
+}
+
 /// Write a list of elements, without length-prefixing.
 pub fn write_raw_vec<T, W: Write, F: Fn(&T, &mut W) -> io::Result<()>>(
   f: F,
@@ -179,11 +184,11 @@ pub fn read_scalar<R: Read>(r: &mut R) -> io::Result<Scalar> {
 /// Since this decodes an Ed25519 point, it does not check the point is in the prime-order
 /// subgroup. Torsioned points do have a canonical encoding, and only aren't canonical when
 /// considered in relation to the prime-order subgroup.
-pub fn decompress_point(bytes: [u8; 32]) -> Option<EdwardsPoint> {
-  CompressedEdwardsY(bytes)
+pub fn decompress_point(compressed: CompressedEdwardsY) -> Option<EdwardsPoint> {
+  compressed
     .decompress()
     // Ban points which are either unreduced or -0
-    .filter(|point| point.compress().to_bytes() == bytes)
+    .filter(|point| point.compress().to_bytes() == compressed.to_bytes())
 }
 
 /// Read a canonically-encoded Ed25519 point.
@@ -192,7 +197,7 @@ pub fn decompress_point(bytes: [u8; 32]) -> Option<EdwardsPoint> {
 /// function does not check the resulting point is within the prime-order subgroup.
 pub fn read_point<R: Read>(r: &mut R) -> io::Result<EdwardsPoint> {
   let bytes = read_bytes(r)?;
-  decompress_point(bytes).ok_or_else(|| io::Error::other("invalid point"))
+  decompress_point(CompressedEdwardsY(bytes)).ok_or_else(|| io::Error::other("invalid point"))
 }
 
 /// Read a canonically-encoded Ed25519 point, within the prime-order subgroup.
@@ -201,6 +206,11 @@ pub fn read_torsion_free_point<R: Read>(r: &mut R) -> io::Result<EdwardsPoint> {
     .ok()
     .filter(EdwardsPoint::is_torsion_free)
     .ok_or_else(|| io::Error::other("invalid point"))
+}
+
+/// Read a [`CompressedEdwardsY`] without checking if this point can be decompressed.
+pub fn read_compressed_point<R: Read>(r: &mut R) -> io::Result<CompressedEdwardsY> {
+  Ok(CompressedEdwardsY(read_bytes(r)?))
 }
 
 /// Read a variable-length list of elements, without length-prefixing.

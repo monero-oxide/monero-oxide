@@ -139,7 +139,7 @@ impl InternalScanner {
 
     let mut res = vec![];
     for (o, output) in tx.prefix().outputs.iter().enumerate() {
-      let Some(output_key) = decompress_point(output.key.to_bytes()) else { continue };
+      let Some(output_key) = decompress_point(output.key) else { continue };
 
       // Monero checks with each TX key and with the additional key for this output
 
@@ -219,7 +219,7 @@ impl InternalScanner {
           };
 
           // Rebuild the commitment to verify it
-          if Some(&commitment.calculate()) != proofs.base.commitments.get(o) {
+          if Some(&commitment.calculate().compress()) != proofs.base.commitments.get(o) {
             continue;
           }
         }

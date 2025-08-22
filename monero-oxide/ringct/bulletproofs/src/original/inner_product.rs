@@ -3,8 +3,9 @@ use std_shims::{vec, vec::Vec};
 use zeroize::Zeroize;
 
 use curve25519_dalek::{Scalar, EdwardsPoint};
-
+use curve25519_dalek::edwards::CompressedEdwardsY;
 use monero_generators::H;
+use monero_io::decompress_point;
 use monero_primitives::{INV_EIGHT, keccak256_to_scalar};
 use crate::{
   core::{multiexp_vartime, challenge_products},
@@ -65,8 +66,8 @@ impl IpWitness {
 /// A proof for the Bulletproofs Inner-Product statement.
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub(crate) struct IpProof {
-  pub(crate) L: Vec<EdwardsPoint>,
-  pub(crate) R: Vec<EdwardsPoint>,
+  pub(crate) L: Vec<CompressedEdwardsY>,
+  pub(crate) R: Vec<CompressedEdwardsY>,
   pub(crate) a: Scalar,
   pub(crate) b: Scalar,
 }
@@ -80,10 +81,10 @@ impl IpStatement {
   }
 
   // Transcript a round of the protocol
-  fn transcript_L_R(transcript: Scalar, L: EdwardsPoint, R: EdwardsPoint) -> Scalar {
+  fn transcript_L_R(transcript: Scalar, L: CompressedEdwardsY, R: CompressedEdwardsY) -> Scalar {
     let mut transcript = transcript.to_bytes().to_vec();
-    transcript.extend(L.compress().to_bytes());
-    transcript.extend(R.compress().to_bytes());
+    transcript.extend_from_slice(L.as_bytes());
+    transcript.extend_from_slice(R.as_bytes());
     keccak256_to_scalar(transcript)
   }
 
@@ -158,7 +159,7 @@ impl IpStatement {
         // Uses vartime since this isn't a ZK proof
         multiexp_vartime(&L_terms)
       };
-      L_vec.push(L * INV_EIGHT());
+      L_vec.push((L * INV_EIGHT()).compress());
 
       let R = {
         let mut R_terms = Vec::with_capacity(1 + (2 * g_bold1.len()));
@@ -171,7 +172,7 @@ impl IpStatement {
         R_terms.push((cr, u));
         multiexp_vartime(&R_terms)
       };
-      R_vec.push(R * INV_EIGHT());
+      R_vec.push((R * INV_EIGHT()).compress());
 
       // Now that we've calculate L, R, transcript them to receive x (26-27)
       transcript = Self::transcript_L_R(
@@ -275,8 +276,17 @@ impl IpStatement {
       let lr_iter = proof.L.into_iter().zip(proof.R);
       for ((x, x_inv), (L, R)) in x_iter.zip(lr_iter) {
         challenges.push((x, x_inv));
-        verifier.0.other.push((verifier_weight * (x * x), L.mul_by_cofactor()));
-        verifier.0.other.push((verifier_weight * (x_inv * x_inv), R.mul_by_cofactor()));
+
+        // TODO: create proper error
+        let L = decompress_point(L)
+          .map(|p| EdwardsPoint::mul_by_cofactor(&p))
+          .ok_or(IpError::DifferingLrLengths)?;
+        let R = decompress_point(R)
+          .map(|p| EdwardsPoint::mul_by_cofactor(&p))
+          .ok_or(IpError::DifferingLrLengths)?;
+
+        verifier.0.other.push((verifier_weight * (x * x), L));
+        verifier.0.other.push((verifier_weight * (x_inv * x_inv), R));
       }
 
       challenge_products(&challenges)

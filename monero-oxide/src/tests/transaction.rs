@@ -26,10 +26,12 @@ fn tx_vectors() -> Vec<Vector> {
   serde_json::from_str(TRANSACTIONS).unwrap()
 }
 
-fn point(hex: &Value) -> EdwardsPoint {
+fn compressed_point(hex: &Value) -> CompressedEdwardsY {
   CompressedEdwardsY(hex::decode(hex.as_str().unwrap()).unwrap().try_into().unwrap())
-    .decompress()
-    .unwrap()
+}
+
+fn point(hex: &Value) -> EdwardsPoint {
+  compressed_point(hex).decompress().unwrap()
 }
 
 fn scalar(hex: &Value) -> Scalar {
@@ -37,10 +39,10 @@ fn scalar(hex: &Value) -> Scalar {
     .unwrap()
 }
 
-fn point_vector(val: &Value) -> Vec<EdwardsPoint> {
+fn compressed_point_vector(val: &Value) -> Vec<CompressedEdwardsY> {
   let mut v = vec![];
   for hex in val.as_array().unwrap() {
-    v.push(point(hex));
+    v.push(compressed_point(hex));
   }
   v
 }
@@ -78,7 +80,7 @@ fn parse() {
         Input::ToKey { amount, key_offsets, key_image } => {
           let key = &inputs[i]["key"];
           assert_eq!(amount.unwrap_or(0), key["amount"]);
-          assert_eq!(*key_image, point(&key["k_image"]));
+          assert_eq!(*key_image, compressed_point(&key["k_image"]));
           assert_eq!(key_offsets, key["key_offsets"].as_array().unwrap());
         }
       }
@@ -125,7 +127,7 @@ fn parse() {
         assert_eq!(u8::from(proofs.rct_type()), rct["type"]);
 
         assert_eq!(proofs.base.fee, rct["txnFee"]);
-        assert_eq!(proofs.base.commitments, point_vector(&rct["outPk"]));
+        assert_eq!(proofs.base.commitments, compressed_point_vector(&rct["outPk"]));
         let ecdh_info = rct["ecdhInfo"].as_array().unwrap();
         assert_eq!(proofs.base.encrypted_amounts.len(), ecdh_info.len());
         for (i, ecdh) in proofs.base.encrypted_amounts.iter().enumerate() {
@@ -175,13 +177,16 @@ fn parse() {
             // check clsags
             let cls = v.tx["rctsig_prunable"]["CLSAGs"].as_array().unwrap();
             for (i, cl) in clsags.iter().enumerate() {
-              assert_eq!(cl.D, point(&cls[i]["D"]));
+              assert_eq!(cl.D, compressed_point(&cls[i]["D"]));
               assert_eq!(cl.c1, scalar(&cls[i]["c1"]));
               assert_eq!(cl.s, scalar_vector(&cls[i]["s"]));
             }
 
             // check pseudo outs
-            assert_eq!(pseudo_outs, &point_vector(&v.tx["rctsig_prunable"]["pseudoOuts"]));
+            assert_eq!(
+              pseudo_outs,
+              &compressed_point_vector(&v.tx["rctsig_prunable"]["pseudoOuts"])
+            );
           }
           // TODO: Add
           _ => panic!("non-null/CLSAG test vector"),
@@ -249,7 +254,7 @@ fn clsag() {
   for data in out_data {
     let mut ring = vec![];
     for out in &data {
-      ring.push([point(&out.key), point(&out.mask)]);
+      ring.push([compressed_point(&out.key), compressed_point(&out.mask)]);
     }
     rings.push(ring)
   }
@@ -258,14 +263,14 @@ fn clsag() {
   let mut key_images = vec![];
   let inputs = tx_data.tx["vin"].as_array().unwrap();
   for input in inputs {
-    key_images.push(point(&input["key"]["k_image"]));
+    key_images.push(compressed_point(&input["key"]["k_image"]));
   }
 
   // gather pseudo_outs
   let mut pseudo_outs = vec![];
   let pouts = tx_data.tx["rctsig_prunable"]["pseudoOuts"].as_array().unwrap();
   for po in pouts {
-    pseudo_outs.push(point(po));
+    pseudo_outs.push(compressed_point(po));
   }
 
   // verify clsags
@@ -274,7 +279,12 @@ fn clsag() {
       RctPrunable::Clsag { bulletproof: _, clsags, .. } => {
         for (i, cls) in clsags.iter().enumerate() {
           cls
-            .verify(&rings[i], &key_images[i], &pseudo_outs[i], &tx.signature_hash().unwrap())
+            .verify(
+              rings[i].clone(),
+              &key_images[i],
+              &pseudo_outs[i],
+              &tx.signature_hash().unwrap(),
+            )
             .unwrap();
         }
       }

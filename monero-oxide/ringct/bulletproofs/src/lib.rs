@@ -12,7 +12,7 @@ use std_shims::{
 use rand_core::{RngCore, CryptoRng};
 use zeroize::Zeroizing;
 
-use curve25519_dalek::edwards::EdwardsPoint;
+use curve25519_dalek::edwards::CompressedEdwardsY;
 
 use monero_io::*;
 pub use monero_generators::MAX_COMMITMENTS;
@@ -165,11 +165,21 @@ impl Bulletproof {
 
   /// Verify the given Bulletproof(+).
   #[must_use]
-  pub fn verify<R: RngCore + CryptoRng>(&self, rng: &mut R, commitments: &[EdwardsPoint]) -> bool {
+  pub fn verify<R: RngCore + CryptoRng>(
+    &self,
+    rng: &mut R,
+    commitments: &[CompressedEdwardsY],
+  ) -> bool {
+    let Some(commitments) =
+      commitments.iter().map(|p| decompress_point(*p)).collect::<Option<Vec<_>>>()
+    else {
+      return false;
+    };
+
     match self {
       Bulletproof::Original(bp) => {
         let mut verifier = BulletproofsBatchVerifier::default();
-        let Some(statement) = OriginalStatement::new(commitments) else {
+        let Some(statement) = OriginalStatement::new(&commitments) else {
           return false;
         };
         if !statement.verify(rng, &mut verifier, bp.clone()) {
@@ -179,7 +189,7 @@ impl Bulletproof {
       }
       Bulletproof::Plus(bp) => {
         let mut verifier = BulletproofsPlusBatchVerifier::default();
-        let Some(statement) = PlusStatement::new(commitments) else {
+        let Some(statement) = PlusStatement::new(&commitments) else {
           return false;
         };
         if !statement.verify(rng, &mut verifier, bp.clone()) {
@@ -203,17 +213,23 @@ impl Bulletproof {
     &self,
     rng: &mut R,
     verifier: &mut BatchVerifier,
-    commitments: &[EdwardsPoint],
+    commitments: &[CompressedEdwardsY],
   ) -> bool {
+    let Some(commitments) =
+      commitments.iter().map(|p| decompress_point(*p)).collect::<Option<Vec<_>>>()
+    else {
+      return false;
+    };
+
     match self {
       Bulletproof::Original(bp) => {
-        let Some(statement) = OriginalStatement::new(commitments) else {
+        let Some(statement) = OriginalStatement::new(&commitments) else {
           return false;
         };
         statement.verify(rng, &mut verifier.original, bp.clone())
       }
       Bulletproof::Plus(bp) => {
-        let Some(statement) = PlusStatement::new(commitments) else {
+        let Some(statement) = PlusStatement::new(&commitments) else {
           return false;
         };
         statement.verify(rng, &mut verifier.plus, bp.clone())
@@ -221,17 +237,17 @@ impl Bulletproof {
     }
   }
 
-  fn write_core<W: Write, F: Fn(&[EdwardsPoint], &mut W) -> io::Result<()>>(
+  fn write_core<W: Write, F: Fn(&[CompressedEdwardsY], &mut W) -> io::Result<()>>(
     &self,
     w: &mut W,
     specific_write_vec: F,
   ) -> io::Result<()> {
     match self {
       Bulletproof::Original(bp) => {
-        write_point(&bp.A, w)?;
-        write_point(&bp.S, w)?;
-        write_point(&bp.T1, w)?;
-        write_point(&bp.T2, w)?;
+        write_compressed_point(&bp.A, w)?;
+        write_compressed_point(&bp.S, w)?;
+        write_compressed_point(&bp.T1, w)?;
+        write_compressed_point(&bp.T2, w)?;
         write_scalar(&bp.tau_x, w)?;
         write_scalar(&bp.mu, w)?;
         specific_write_vec(&bp.ip.L, w)?;
@@ -242,9 +258,9 @@ impl Bulletproof {
       }
 
       Bulletproof::Plus(bp) => {
-        write_point(&bp.A, w)?;
-        write_point(&bp.wip.A, w)?;
-        write_point(&bp.wip.B, w)?;
+        write_compressed_point(&bp.A, w)?;
+        write_compressed_point(&bp.wip.A, w)?;
+        write_compressed_point(&bp.wip.B, w)?;
         write_scalar(&bp.wip.r_answer, w)?;
         write_scalar(&bp.wip.s_answer, w)?;
         write_scalar(&bp.wip.delta_answer, w)?;
@@ -258,12 +274,12 @@ impl Bulletproof {
   ///
   /// This has a distinct encoding from the standard encoding.
   pub fn signature_write<W: Write>(&self, w: &mut W) -> io::Result<()> {
-    self.write_core(w, |points, w| write_raw_vec(write_point, points, w))
+    self.write_core(w, |points, w| write_raw_vec(write_compressed_point, points, w))
   }
 
   /// Write a Bulletproof(+).
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
-    self.write_core(w, |points, w| write_vec(write_point, points, w))
+    self.write_core(w, |points, w| write_vec(write_compressed_point, points, w))
   }
 
   /// Serialize a Bulletproof(+) to a `Vec<u8>`.
@@ -276,15 +292,15 @@ impl Bulletproof {
   /// Read a Bulletproof.
   pub fn read<R: Read>(r: &mut R) -> io::Result<Bulletproof> {
     Ok(Bulletproof::Original(OriginalProof {
-      A: read_point(r)?,
-      S: read_point(r)?,
-      T1: read_point(r)?,
-      T2: read_point(r)?,
+      A: read_compressed_point(r)?,
+      S: read_compressed_point(r)?,
+      T1: read_compressed_point(r)?,
+      T2: read_compressed_point(r)?,
       tau_x: read_scalar(r)?,
       mu: read_scalar(r)?,
       ip: IpProof {
-        L: read_vec(read_point, Some(MAX_LR), r)?,
-        R: read_vec(read_point, Some(MAX_LR), r)?,
+        L: read_vec(read_compressed_point, Some(MAX_LR), r)?,
+        R: read_vec(read_compressed_point, Some(MAX_LR), r)?,
         a: read_scalar(r)?,
         b: read_scalar(r)?,
       },
@@ -295,15 +311,15 @@ impl Bulletproof {
   /// Read a Bulletproof+.
   pub fn read_plus<R: Read>(r: &mut R) -> io::Result<Bulletproof> {
     Ok(Bulletproof::Plus(PlusProof {
-      A: read_point(r)?,
+      A: read_compressed_point(r)?,
       wip: WipProof {
-        A: read_point(r)?,
-        B: read_point(r)?,
+        A: read_compressed_point(r)?,
+        B: read_compressed_point(r)?,
         r_answer: read_scalar(r)?,
         s_answer: read_scalar(r)?,
         delta_answer: read_scalar(r)?,
-        L: read_vec(read_point, Some(MAX_LR), r)?.into_iter().collect(),
-        R: read_vec(read_point, Some(MAX_LR), r)?.into_iter().collect(),
+        L: read_vec(read_compressed_point, Some(MAX_LR), r)?,
+        R: read_vec(read_compressed_point, Some(MAX_LR), r)?,
       },
     }))
   }

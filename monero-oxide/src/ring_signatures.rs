@@ -5,7 +5,7 @@ use std_shims::{
 
 use zeroize::Zeroize;
 
-use curve25519_dalek::{EdwardsPoint, Scalar};
+use curve25519_dalek::{EdwardsPoint, Scalar, edwards::CompressedEdwardsY};
 
 use crate::{io::*, generators::hash_to_point, primitives::keccak256_to_scalar};
 
@@ -59,10 +59,19 @@ impl RingSignature {
   }
 
   /// Verify the ring signature.
-  pub fn verify(&self, msg: &[u8; 32], ring: &[EdwardsPoint], key_image: &EdwardsPoint) -> bool {
+  pub fn verify(
+    &self,
+    msg: &[u8; 32],
+    ring: &[CompressedEdwardsY],
+    key_image: &CompressedEdwardsY,
+  ) -> bool {
     if ring.len() != self.sigs.len() {
       return false;
     }
+
+    let Some(key_image) = decompress_point(*key_image) else {
+      return false;
+    };
 
     let mut buf = Vec::with_capacity(32 + (2 * 32 * ring.len()));
     buf.extend_from_slice(msg);
@@ -87,11 +96,16 @@ impl RingSignature {
         modified to cause the intended sum, if and only if a corresponding `s` value is known.
       */
 
+      let Some(decomp_ring_member) = decompress_point(*ring_member) else {
+        return false;
+      };
+
       #[allow(non_snake_case)]
-      let Li = EdwardsPoint::vartime_double_scalar_mul_basepoint(&sig.c, ring_member, &sig.s);
+      let Li =
+        EdwardsPoint::vartime_double_scalar_mul_basepoint(&sig.c, &decomp_ring_member, &sig.s);
       buf.extend_from_slice(Li.compress().as_bytes());
       #[allow(non_snake_case)]
-      let Ri = (sig.s * hash_to_point(ring_member.compress().to_bytes())) + (sig.c * key_image);
+      let Ri = (sig.s * hash_to_point(ring_member.to_bytes())) + (sig.c * key_image);
       buf.extend_from_slice(Ri.compress().as_bytes());
 
       sum += sig.c;

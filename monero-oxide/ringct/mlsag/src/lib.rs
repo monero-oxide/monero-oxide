@@ -12,8 +12,7 @@ use std_shims::{
 
 use zeroize::Zeroize;
 
-use curve25519_dalek::{traits::IsIdentity, Scalar, EdwardsPoint};
-
+use curve25519_dalek::{traits::IsIdentity, Scalar, EdwardsPoint, edwards::CompressedEdwardsY};
 use monero_io::*;
 use monero_generators::{H, hash_to_point};
 use monero_primitives::keccak256_to_scalar;
@@ -34,7 +33,7 @@ pub enum MlsagError {
   #[error("invalid key image")]
   InvalidKeyImage,
   /// Invalid ci vector.
-  #[error("invalid ci")]
+  #[cfg_attr(feature = "std", error("invalid ci"))]
   InvalidCi,
 }
 
@@ -64,13 +63,16 @@ impl RingMatrix {
 
   /// Construct a ring matrix for an individual output.
   pub fn individual(
-    ring: &[[EdwardsPoint; 2]],
-    pseudo_out: EdwardsPoint,
+    ring: &[[CompressedEdwardsY; 2]],
+    pseudo_out: CompressedEdwardsY,
   ) -> Result<Self, MlsagError> {
     let mut matrix = Vec::with_capacity(ring.len());
     for ring_member in ring {
-      matrix.push(vec![ring_member[0], ring_member[1] - pseudo_out]);
+      let decomp = |p| decompress_point(p).ok_or(MlsagError::InvalidRing);
+
+      matrix.push(vec![decomp(ring_member[0])?, decomp(ring_member[1])? - decomp(pseudo_out)?]);
     }
+
     RingMatrix::new(matrix)
   }
 
@@ -129,7 +131,7 @@ impl Mlsag {
     &self,
     msg: &[u8; 32],
     ring: &RingMatrix,
-    key_images: &[EdwardsPoint],
+    key_images: &[CompressedEdwardsY],
   ) -> Result<(), MlsagError> {
     // Mlsag allows for layers to not need linkability, hence they don't need key images
     // Monero requires that there is always only 1 non-linkable layer - the amount commitments.
@@ -142,9 +144,15 @@ impl Mlsag {
 
     let mut ci = self.cc;
 
+    let Some(key_images) =
+      key_images.into_iter().map(|p| decompress_point(*p)).collect::<Option<Vec<_>>>()
+    else {
+      return Err(MlsagError::InvalidKeyImage);
+    };
+
     // This is an iterator over the key images as options with an added entry of `None` at the
     // end for the non-linkable layer
-    let key_images_iter = key_images.iter().map(|ki| Some(*ki)).chain(core::iter::once(None));
+    let key_images_iter = key_images.iter().map(Some).chain(core::iter::once(None));
 
     if ring.matrix.len() != self.ss.len() {
       Err(MlsagError::InvalidSs)?;
@@ -202,16 +210,22 @@ impl AggregateRingMatrixBuilder {
   /// Create a new AggregateRingMatrixBuilder.
   ///
   /// This takes in the transaction's outputs' commitments and fee used.
-  pub fn new(commitments: &[EdwardsPoint], fee: u64) -> Self {
-    AggregateRingMatrixBuilder {
+  pub fn new(commitments: &[CompressedEdwardsY], fee: u64) -> Result<Self, MlsagError> {
+    Ok(AggregateRingMatrixBuilder {
       key_ring: vec![],
       amounts_ring: vec![],
-      sum_out: commitments.iter().sum::<EdwardsPoint>() + (*H * Scalar::from(fee)),
-    }
+      sum_out: commitments
+        .iter()
+        .copied()
+        .map(decompress_point)
+        .sum::<Option<EdwardsPoint>>()
+        .ok_or(MlsagError::InvalidRing)? +
+        (*H * Scalar::from(fee)),
+    })
   }
 
   /// Push a ring of [output key, commitment] to the matrix.
-  pub fn push_ring(&mut self, ring: &[[EdwardsPoint; 2]]) -> Result<(), MlsagError> {
+  pub fn push_ring(&mut self, ring: &[[CompressedEdwardsY; 2]]) -> Result<(), MlsagError> {
     if self.key_ring.is_empty() {
       self.key_ring = vec![vec![]; ring.len()];
       // Now that we know the length of the ring, fill the `amounts_ring`.
@@ -224,8 +238,8 @@ impl AggregateRingMatrixBuilder {
     }
 
     for (i, ring_member) in ring.iter().enumerate() {
-      self.key_ring[i].push(ring_member[0]);
-      self.amounts_ring[i] += ring_member[1]
+      self.key_ring[i].push(decompress_point(ring_member[0]).ok_or(MlsagError::InvalidRing)?);
+      self.amounts_ring[i] += decompress_point(ring_member[1]).ok_or(MlsagError::InvalidRing)?;
     }
 
     Ok(())

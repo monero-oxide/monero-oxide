@@ -239,11 +239,11 @@ fn hash_hex(hash: &str) -> Result<[u8; 32], RpcError> {
 }
 
 fn rpc_point(point: &str) -> Result<EdwardsPoint, RpcError> {
-  decompress_point(
+  decompress_point(CompressedEdwardsY(
     rpc_hex(point)?
       .try_into()
       .map_err(|_| RpcError::InvalidNode(format!("invalid point: {point}")))?,
-  )
+  ))
   .ok_or_else(|| RpcError::InvalidNode(format!("invalid point: {point}")))
 }
 

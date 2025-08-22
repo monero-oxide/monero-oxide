@@ -72,7 +72,8 @@ test!(
       let Transaction::V2 { proofs: Some(ref mut proofs), .. } = tx else {
         panic!("TX wasn't RingCT")
       };
-      proofs.base.commitments[0] += ED25519_BASEPOINT_POINT;
+      proofs.base.commitments[0] =
+        (proofs.base.commitments[0].decompress().unwrap() + ED25519_BASEPOINT_POINT).compress();
       // Verify it no longer matches
       assert!(!eventuality.matches(&tx.clone().into()));
     },

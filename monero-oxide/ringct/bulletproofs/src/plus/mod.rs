@@ -65,10 +65,7 @@ impl BpPlusGenerators {
   pub(crate) fn reduce(&self, generators: usize) -> Self {
     // Round to the nearest power of 2
     let generators = padded_pow_of_2(generators);
-    assert!(
-      generators <= self.g_bold.len(),
-      "instantiated with less generators than application required"
-    );
+    assert!(generators <= self.g_bold.len());
 
     BpPlusGenerators { g_bold: &self.g_bold[.. generators], h_bold: &self.h_bold[.. generators] }
   }

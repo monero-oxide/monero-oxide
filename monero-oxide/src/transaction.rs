@@ -7,7 +7,7 @@ use std_shims::{
 
 use zeroize::Zeroize;
 
-use curve25519_dalek::edwards::{EdwardsPoint, CompressedEdwardsY};
+use curve25519_dalek::edwards::CompressedEdwardsY;
 
 use crate::{
   io::*,
@@ -28,7 +28,7 @@ pub enum Input {
     /// The decoys used by this input's ring, specified as their offset distance from each other.
     key_offsets: Vec<u64>,
     /// The key image (linking tag, nullifer) for the spent output.
-    key_image: EdwardsPoint,
+    key_image: CompressedEdwardsY,
   },
 }
 
@@ -45,7 +45,7 @@ impl Input {
         w.write_all(&[2])?;
         write_varint(&amount.unwrap_or(0), w)?;
         write_vec(write_varint, key_offsets, w)?;
-        write_point(key_image, w)
+        w.write_all(&key_image.0)
       }
     }
   }
@@ -72,7 +72,7 @@ impl Input {
         Input::ToKey {
           amount,
           key_offsets: read_vec(read_varint, None, r)?,
-          key_image: read_torsion_free_point(r)?,
+          key_image: read_compressed_point(r)?,
         }
       }
       _ => Err(io::Error::other("Tried to deserialize unknown/unused input type"))?,

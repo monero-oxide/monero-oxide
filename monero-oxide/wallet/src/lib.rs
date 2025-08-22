@@ -63,7 +63,7 @@ impl SharedKeyDerivations {
         Input::Gen(height) => {
           write_varint(height, &mut u).expect("write failed but <Vec as io::Write> doesn't fail");
         }
-        Input::ToKey { key_image, .. } => u.extend(key_image.compress().to_bytes()),
+        Input::ToKey { key_image, .. } => u.extend(key_image.to_bytes()),
       }
     }
     keccak256(u)
