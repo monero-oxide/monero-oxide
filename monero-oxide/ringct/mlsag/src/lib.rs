@@ -14,7 +14,7 @@ use zeroize::Zeroize;
 
 use curve25519_dalek::{traits::IsIdentity, Scalar, EdwardsPoint, edwards::CompressedEdwardsY};
 use monero_io::*;
-use monero_generators::{H, hash_to_point};
+use monero_generators::{H, biased_hash_to_point};
 use monero_primitives::keccak256_to_scalar;
 
 /// Errors when working with MLSAGs.
@@ -179,7 +179,7 @@ impl Mlsag {
           }
 
           #[allow(non_snake_case)]
-          let R = (s * hash_to_point(compressed_ring_member_entry.to_bytes())) + (ci * ki);
+          let R = (s * biased_hash_to_point(compressed_ring_member_entry.to_bytes())) + (ci * ki);
           buf.extend_from_slice(R.compress().as_bytes());
         }
       }

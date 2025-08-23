@@ -1,5 +1,4 @@
-use curve25519_dalek::edwards::CompressedEdwardsY;
-use crate::{decompress_point, hash_to_point};
+use crate::{decompress_point, biased_hash_to_point};
 
 #[test]
 fn test_vectors() {
@@ -21,15 +20,14 @@ fn test_vectors() {
           _ => unreachable!("invalid result"),
         };
 
-        let actual =
-          decompress_point(CompressedEdwardsY(hex::decode(key).unwrap().try_into().unwrap()));
+        let actual = decompress_point(hex::decode(key).unwrap().try_into().unwrap());
         assert_eq!(actual.is_some(), expected);
       }
       "hash_to_ec" => {
         let bytes = words.next().unwrap();
         let expected = words.next().unwrap();
 
-        let actual = hash_to_point(hex::decode(bytes).unwrap().try_into().unwrap());
+        let actual = biased_hash_to_point(hex::decode(bytes).unwrap().try_into().unwrap());
         assert_eq!(hex::encode(actual.compress().to_bytes()), expected);
       }
       _ => unreachable!("unknown command"),

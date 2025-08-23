@@ -24,7 +24,7 @@ use curve25519_dalek::{
 };
 use curve25519_dalek::edwards::CompressedEdwardsY;
 use monero_io::*;
-use monero_generators::hash_to_point;
+use monero_generators::biased_hash_to_point;
 use monero_primitives::{INV_EIGHT, G_PRECOMP, Commitment, Decoys, keccak256_to_scalar};
 
 #[cfg(feature = "multisig")]
@@ -201,7 +201,7 @@ fn core(
       }
     };
 
-    let PH = hash_to_point(P[i].compress().0);
+    let PH = biased_hash_to_point(P[i].compress().0);
 
     // (c_p * I) + (c_c * D) + (s_i * PH)
     let R = match A_c1 {
@@ -264,7 +264,7 @@ impl Clsag {
     let pseudo_out = Commitment::new(mask, input.commitment.amount).calculate();
     let mask_delta = input.commitment.mask - mask;
 
-    let H = hash_to_point(input.decoys.ring()[usize::from(signer_index)][0].compress().0);
+    let H = biased_hash_to_point(input.decoys.ring()[usize::from(signer_index)][0].compress().0);
     let D = H * mask_delta;
     let mut s = Vec::with_capacity(input.decoys.ring().len());
     for _ in 0 .. input.decoys.ring().len() {
@@ -326,7 +326,7 @@ impl Clsag {
         Err(ClsagError::InvalidKey)?;
       }
 
-      let key_image_generator = hash_to_point(key.compress().0);
+      let key_image_generator = biased_hash_to_point(key.compress().0);
       key_image_generators.push(key_image_generator);
       key_images.push(key_image_generator * input.0.deref());
     }

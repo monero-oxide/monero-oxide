@@ -26,7 +26,7 @@ use frost::{
   algorithm::{WriteAddendum, Algorithm},
 };
 
-use monero_generators::hash_to_point;
+use monero_generators::biased_hash_to_point;
 
 use crate::{ClsagContext, Clsag};
 
@@ -147,7 +147,9 @@ impl ClsagMultisig {
       ClsagMultisig {
         transcript,
 
-        key_image_generator: hash_to_point(context.decoys.signer_ring_members()[0].compress().0),
+        key_image_generator: biased_hash_to_point(
+          context.decoys.signer_ring_members()[0].compress().0,
+        ),
         key_image_shares: HashMap::new(),
         image: None,
 

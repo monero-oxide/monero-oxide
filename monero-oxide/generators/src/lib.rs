@@ -12,7 +12,7 @@ use curve25519_dalek::edwards::CompressedEdwardsY;
 use monero_io::{write_varint, decompress_point};
 
 mod hash_to_point;
-pub use hash_to_point::hash_to_point;
+pub use hash_to_point::biased_hash_to_point;
 
 #[cfg(test)]
 mod tests;
@@ -47,8 +47,8 @@ pub fn H_pow_2() -> &'static [EdwardsPoint; 64] {
   &H_POW_2_CELL
 }
 
-/// The maximum amount of commitments provable for within a single range proof.
-pub const MAX_COMMITMENTS: usize = 16;
+/// The maximum amount of commitments provable for within a single Bulletproof(+).
+pub const MAX_BULLETPROOF_COMMITMENTS: usize = 16;
 /// The amount of bits a value within a commitment may use.
 pub const COMMITMENT_BITS: usize = 64;
 
@@ -67,7 +67,7 @@ pub struct Generators {
 /// once-initialized static.
 pub fn bulletproofs_generators(dst: &'static [u8]) -> Generators {
   // The maximum amount of bits used within a single range proof.
-  const MAX_MN: usize = MAX_COMMITMENTS * COMMITMENT_BITS;
+  const MAX_MN: usize = MAX_BULLETPROOF_COMMITMENTS * COMMITMENT_BITS;
 
   let mut preimage = H.compress().to_bytes().to_vec();
   preimage.extend(dst);
@@ -79,11 +79,11 @@ pub fn bulletproofs_generators(dst: &'static [u8]) -> Generators {
 
     let mut even = preimage.clone();
     write_varint(&i, &mut even).expect("write failed but <Vec as io::Write> doesn't fail");
-    res.H.push(hash_to_point(keccak256(&even)));
+    res.H.push(biased_hash_to_point(keccak256(&even)));
 
     let mut odd = preimage.clone();
     write_varint(&(i + 1), &mut odd).expect("write failed but <Vec as io::Write> doesn't fail");
-    res.G.push(hash_to_point(keccak256(&odd)));
+    res.G.push(biased_hash_to_point(keccak256(&odd)));
   }
   res
 }
