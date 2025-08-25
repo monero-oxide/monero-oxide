@@ -53,7 +53,7 @@ mod sealed {
   impl VarInt for usize {
     const BITS: usize = core::mem::size_of::<usize>() * 8;
     fn into_u64(self) -> u64 {
-      self.try_into().unwrap()
+      self.try_into().expect("compiling on platform with <64-bit usize yet value didn't fit in u64")
     }
   }
 }
