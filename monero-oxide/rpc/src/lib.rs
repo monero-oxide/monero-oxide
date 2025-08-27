@@ -253,7 +253,7 @@ fn rpc_point(point: &str) -> Result<EdwardsPoint, RpcError> {
 /// Tor/i2p-based transport, or even a memory buffer an external service somehow routes.
 ///
 /// While no implementors are directly provided, [monero-simple-request-rpc](
-///   https://github.com/monero-oxide/monero-oxide/tree/develop/monero-oxide/rpc/simple-request
+///   https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/rpc/simple-request
 /// ) is recommended.
 pub trait Rpc: Sync + Clone {
   /// Perform a POST request to the specified route with the specified body.
