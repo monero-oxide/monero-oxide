@@ -21,7 +21,7 @@ use monero_wallet::{
 mod builder;
 pub use builder::SignableTransactionBuilder;
 
-pub fn ring_len(rct_type: RctType) -> usize {
+pub fn ring_len(rct_type: RctType) -> u8 {
   match rct_type {
     RctType::ClsagBulletproof => 11,
     RctType::ClsagBulletproofPlus => 16,
@@ -118,7 +118,7 @@ pub fn check_weight_and_fee(tx: &Transaction, fee_rate: FeeRate) {
   let fee = proofs.base.fee;
 
   let weight = tx.weight();
-  let expected_weight = fee_rate.calculate_weight_from_fee(fee);
+  let expected_weight = fee_rate.calculate_weight_from_fee(fee).unwrap();
   assert_eq!(weight, expected_weight);
 
   let expected_fee = fee_rate.calculate_fee_from_weight(weight);
@@ -126,8 +126,7 @@ pub fn check_weight_and_fee(tx: &Transaction, fee_rate: FeeRate) {
 }
 
 pub async fn rpc() -> SimpleRequestRpc {
-  let rpc =
-    SimpleRequestRpc::new("http://serai:seraidex@127.0.0.1:18081".to_string()).await.unwrap();
+  let rpc = SimpleRequestRpc::new("http://monero:oxide@127.0.0.1:18081".to_string()).await.unwrap();
 
   const BLOCKS_TO_MINE: usize = 110;
 

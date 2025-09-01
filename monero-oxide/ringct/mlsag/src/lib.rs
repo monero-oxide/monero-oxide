@@ -145,7 +145,7 @@ impl Mlsag {
     let mut ci = self.cc;
 
     let Some(key_images) =
-      key_images.into_iter().map(|p| decompress_point(*p)).collect::<Option<Vec<_>>>()
+      key_images.iter().map(|p| decompress_point(*p)).collect::<Option<Vec<_>>>()
     else {
       return Err(MlsagError::InvalidKeyImage);
     };
