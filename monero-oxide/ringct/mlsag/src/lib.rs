@@ -33,7 +33,7 @@ pub enum MlsagError {
   #[error("invalid key image")]
   InvalidKeyImage,
   /// Invalid ci vector.
-  #[cfg_attr(feature = "std", error("invalid ci"))]
+  #[error("invalid ci")]
   InvalidCi,
 }
 
