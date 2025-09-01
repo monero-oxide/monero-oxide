@@ -10,7 +10,7 @@ use transcript::{Transcript, RecommendedTranscript};
 #[cfg(feature = "multisig")]
 use frost::curve::Ed25519;
 
-use monero_generators::hash_to_point;
+use monero_generators::biased_hash_to_point;
 use monero_primitives::{Commitment, Decoys};
 use crate::{ClsagContext, Clsag};
 #[cfg(feature = "multisig")]
@@ -69,7 +69,7 @@ fn clsag() {
 
     let pseudo_out = pseudo_out.compress();
 
-    let image = (hash_to_point((ED25519_BASEPOINT_TABLE * secrets.0.deref()).compress().0) *
+    let image = (biased_hash_to_point((ED25519_BASEPOINT_TABLE * secrets.0.deref()).compress().0) *
       secrets.0.deref())
     .compress();
 

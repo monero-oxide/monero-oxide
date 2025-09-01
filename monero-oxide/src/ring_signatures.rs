@@ -6,8 +6,7 @@ use std_shims::{
 use zeroize::Zeroize;
 
 use curve25519_dalek::{EdwardsPoint, Scalar, edwards::CompressedEdwardsY};
-
-use crate::{io::*, generators::hash_to_point, primitives::keccak256_to_scalar};
+use crate::{io::*, generators::biased_hash_to_point, primitives::keccak256_to_scalar};
 
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub(crate) struct Signature {
@@ -105,7 +104,7 @@ impl RingSignature {
         EdwardsPoint::vartime_double_scalar_mul_basepoint(&sig.c, &decomp_ring_member, &sig.s);
       buf.extend_from_slice(Li.compress().as_bytes());
       #[allow(non_snake_case)]
-      let Ri = (sig.s * hash_to_point(ring_member.to_bytes())) + (sig.c * key_image);
+      let Ri = (sig.s * biased_hash_to_point(ring_member.to_bytes())) + (sig.c * key_image);
       buf.extend_from_slice(Ri.compress().as_bytes());
 
       sum += sig.c;

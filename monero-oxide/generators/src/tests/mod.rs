@@ -20,7 +20,8 @@ fn test_vectors() {
           _ => unreachable!("invalid result"),
         };
 
-        let actual = decompress_point(hex::decode(key).unwrap().try_into().unwrap());
+        let actual = decompress_point(hex::decode(key).unwrap().
+            try_into().unwrap());
         assert_eq!(actual.is_some(), expected);
       }
       "hash_to_ec" => {

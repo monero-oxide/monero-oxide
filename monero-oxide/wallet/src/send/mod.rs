@@ -16,7 +16,7 @@ use frost::FrostError;
 
 use crate::{
   io::*,
-  generators::{MAX_COMMITMENTS, hash_to_point},
+  generators::{MAX_BULLETPROOF_COMMITMENTS, biased_hash_to_point},
   ringct::{
     clsag::{ClsagError, ClsagContext, Clsag},
     RctType, RctPrunable, RctProofs,
@@ -284,7 +284,7 @@ impl SignableTransaction {
       }
     }
 
-    if self.payments.len() > MAX_COMMITMENTS {
+    if self.payments.len() > MAX_BULLETPROOF_COMMITMENTS {
       Err(SendError::TooManyOutputs)?;
     }
 
@@ -533,7 +533,7 @@ impl SignableTransaction {
       if (input_key.deref() * ED25519_BASEPOINT_TABLE) != input.key() {
         Err(SendError::WrongPrivateKey)?;
       }
-      let key_image = input_key.deref() * hash_to_point(input.key().compress().to_bytes());
+      let key_image = input_key.deref() * biased_hash_to_point(input.key().compress().to_bytes());
       key_images.push(key_image.compress());
     }
 

@@ -6,7 +6,7 @@ use zeroize::Zeroize;
 
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar, EdwardsPoint};
 use curve25519_dalek::edwards::CompressedEdwardsY;
-use monero_generators::{H as MONERO_H, Generators, MAX_COMMITMENTS, COMMITMENT_BITS};
+use monero_generators::{H as MONERO_H, Generators, MAX_BULLETPROOF_COMMITMENTS as MAX_COMMITMENTS, COMMITMENT_BITS};
 use monero_primitives::{Commitment, INV_EIGHT, keccak256_to_scalar};
 use crate::{core::multiexp, scalar_vector::ScalarVector, BulletproofsBatchVerifier};
 
