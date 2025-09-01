@@ -194,9 +194,17 @@ impl Metadata {
       w.write_all(&[0])?;
     }
 
-    w.write_all(&u32::try_from(self.arbitrary_data.len()).unwrap().to_le_bytes())?;
+    w.write_all(
+      &u64::try_from(self.arbitrary_data.len())
+        .expect("amount of arbitrary data chunks exceeded u64::MAX")
+        .to_le_bytes(),
+    )?;
     for part in &self.arbitrary_data {
-      w.write_all(&[u8::try_from(part.len()).unwrap()])?;
+      // TODO: Define our own collection whose `len` function returns `u8` to ensure this bound
+      // with types
+      w.write_all(&[
+        u8::try_from(part.len()).expect("piece of arbitrary data exceeded max length of u8::MAX")
+      ])?;
       w.write_all(part)?;
     }
     Ok(())
@@ -224,7 +232,7 @@ impl Metadata {
       payment_id: if read_byte(r)? == 1 { PaymentId::read(r).ok() } else { None },
       arbitrary_data: {
         let mut data = vec![];
-        for _ in 0 .. read_u32(r)? {
+        for _ in 0 .. read_u64(r)? {
           let len = read_byte(r)?;
           data.push(read_raw_vec(read_byte, usize::from(len), r)?);
         }
@@ -349,7 +357,7 @@ impl WalletOutput {
   /// defined serialization.
   pub fn serialize(&self) -> Vec<u8> {
     let mut serialized = Vec::with_capacity(128);
-    self.write(&mut serialized).unwrap();
+    self.write(&mut serialized).expect("write failed but <Vec as io::Write> doesn't fail");
     serialized
   }
 

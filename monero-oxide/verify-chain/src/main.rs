@@ -3,6 +3,7 @@
 #![deny(missing_docs)]
 
 use curve25519_dalek::{edwards::CompressedEdwardsY, scalar::Scalar};
+
 use serde::Deserialize;
 use serde_json::json;
 

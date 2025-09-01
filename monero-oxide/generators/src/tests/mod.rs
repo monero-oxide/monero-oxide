@@ -1,4 +1,5 @@
 use curve25519_dalek::edwards::CompressedEdwardsY;
+
 use crate::{decompress_point, biased_hash_to_point};
 
 #[test]

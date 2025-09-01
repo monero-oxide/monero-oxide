@@ -6,6 +6,7 @@ use std_shims::{
 use zeroize::Zeroize;
 
 use curve25519_dalek::{EdwardsPoint, Scalar, edwards::CompressedEdwardsY};
+
 use crate::{io::*, generators::biased_hash_to_point, primitives::keccak256_to_scalar};
 
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
@@ -71,6 +72,10 @@ impl RingSignature {
     let Some(key_image) = decompress_point(*key_image) else {
       return false;
     };
+
+    if !key_image.is_torsion_free() {
+      return false;
+    }
 
     let mut buf = Vec::with_capacity(32 + (2 * 32 * ring.len()));
     buf.extend_from_slice(msg);

@@ -3,8 +3,11 @@ use std_shims::{vec, vec::Vec};
 use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use curve25519_dalek::{traits::Identity, scalar::Scalar, edwards::EdwardsPoint};
-use curve25519_dalek::edwards::CompressedEdwardsY;
+use curve25519_dalek::{
+  traits::Identity,
+  scalar::Scalar,
+  edwards::{EdwardsPoint, CompressedEdwardsY},
+};
 use monero_io::decompress_point;
 use monero_primitives::{INV_EIGHT, Commitment, keccak256_to_scalar};
 
@@ -65,10 +68,8 @@ impl<'a> AggregateRangeStatement<'a> {
     Some(Self { generators: BpPlusGenerators::new(), V })
   }
 
-  fn transcript_A(transcript: &mut Scalar, A: EdwardsPoint) -> (Scalar, Scalar) {
-    let y = keccak256_to_scalar(
-      [transcript.to_bytes().as_ref(), A.compress().to_bytes().as_ref()].concat(),
-    );
+  fn transcript_A(transcript: &mut Scalar, A: CompressedEdwardsY) -> (Scalar, Scalar) {
+    let y = keccak256_to_scalar([transcript.to_bytes().as_ref(), A.to_bytes().as_ref()].concat());
     let z = keccak256_to_scalar(y.to_bytes().as_ref());
     *transcript = z;
     (y, z)
@@ -90,10 +91,11 @@ impl<'a> AggregateRangeStatement<'a> {
     mut V: PointVector,
     generators: &BpPlusGenerators,
     transcript: &mut Scalar,
-    mut A: EdwardsPoint,
-  ) -> AHatComputation {
+    A: CompressedEdwardsY,
+  ) -> Option<AHatComputation> {
     let (y, z) = Self::transcript_A(transcript, A);
-    A = A.mul_by_cofactor();
+
+    let A = decompress_point(A).as_ref().map(EdwardsPoint::mul_by_cofactor)?;
 
     while V.len() < padded_pow_of_2(V.len()) {
       V.0.push(EdwardsPoint::identity());
@@ -144,14 +146,14 @@ impl<'a> AggregateRangeStatement<'a> {
       BpPlusGenerators::g(),
     ));
 
-    AHatComputation {
+    Some(AHatComputation {
       y,
       d_descending_y_plus_z,
       y_mn_plus_one,
       z,
       z_pow: ScalarVector(z_pow),
       A_hat: A + multiexp_vartime(&A_terms),
-    }
+    })
   }
 
   pub(crate) fn prove<R: RngCore + CryptoRng>(
@@ -220,7 +222,8 @@ impl<'a> AggregateRangeStatement<'a> {
     A *= INV_EIGHT();
 
     let AHatComputation { y, d_descending_y_plus_z, y_mn_plus_one, z, z_pow, A_hat } =
-      Self::compute_A_hat(PointVector(V), &generators, &mut transcript, A);
+      Self::compute_A_hat(PointVector(V), &generators, &mut transcript, A.compress())
+        .expect("A is a valid point as we just compressed it");
 
     let a_l = a_l - z;
     let a_r = a_r + &d_descending_y_plus_z;
@@ -258,10 +261,11 @@ impl<'a> AggregateRangeStatement<'a> {
 
     let generators = generators.reduce(V.len() * COMMITMENT_BITS);
 
-    let Some(A) = decompress_point(proof.A) else { return false };
-
-    let AHatComputation { y, A_hat, .. } =
-      Self::compute_A_hat(PointVector(V), &generators, &mut transcript, A);
+    let Some(AHatComputation { y, A_hat, .. }) =
+      Self::compute_A_hat(PointVector(V), &generators, &mut transcript, proof.A)
+    else {
+      return false;
+    };
     WipStatement::new(generators, A_hat, y).verify(rng, verifier, transcript, proof.wip)
   }
 }

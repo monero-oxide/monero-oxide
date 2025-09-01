@@ -7,8 +7,11 @@ use std_shims::{sync::LazyLock, vec::Vec};
 
 use sha3::{Digest, Keccak256};
 
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::EdwardsPoint};
-use curve25519_dalek::edwards::CompressedEdwardsY;
+use curve25519_dalek::{
+  constants::ED25519_BASEPOINT_POINT,
+  edwards::{EdwardsPoint, CompressedEdwardsY},
+};
+
 use monero_io::{write_varint, decompress_point};
 
 mod hash_to_point;

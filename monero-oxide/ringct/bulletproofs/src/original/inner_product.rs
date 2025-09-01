@@ -2,8 +2,7 @@ use std_shims::{vec, vec::Vec};
 
 use zeroize::Zeroize;
 
-use curve25519_dalek::{Scalar, EdwardsPoint};
-use curve25519_dalek::edwards::CompressedEdwardsY;
+use curve25519_dalek::{Scalar, EdwardsPoint, edwards::CompressedEdwardsY};
 use monero_generators::H;
 use monero_io::decompress_point;
 use monero_primitives::{INV_EIGHT, keccak256_to_scalar};
@@ -19,6 +18,7 @@ use crate::{
 pub(crate) enum IpError {
   IncorrectAmountOfGenerators,
   DifferingLrLengths,
+  InvalidPoint,
 }
 
 /// The Bulletproofs Inner-Product statement.
@@ -277,13 +277,12 @@ impl IpStatement {
       for ((x, x_inv), (L, R)) in x_iter.zip(lr_iter) {
         challenges.push((x, x_inv));
 
-        // TODO: create proper error
         let L = decompress_point(L)
           .map(|p| EdwardsPoint::mul_by_cofactor(&p))
-          .ok_or(IpError::DifferingLrLengths)?;
+          .ok_or(IpError::InvalidPoint)?;
         let R = decompress_point(R)
           .map(|p| EdwardsPoint::mul_by_cofactor(&p))
-          .ok_or(IpError::DifferingLrLengths)?;
+          .ok_or(IpError::InvalidPoint)?;
 
         verifier.0.other.push((verifier_weight * (x * x), L));
         verifier.0.other.push((verifier_weight * (x_inv * x_inv), R));

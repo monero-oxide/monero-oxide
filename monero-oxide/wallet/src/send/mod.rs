@@ -144,48 +144,52 @@ impl InternalPayment {
 }
 
 /// An error while sending Monero.
-#[derive(Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(Clone, PartialEq, Eq, Debug, thiserror::Error)]
 pub enum SendError {
   /// The RingCT type to produce proofs for this transaction with weren't supported.
-  #[cfg_attr(feature = "std", error("this library doesn't yet support that RctType"))]
+  #[error("this library doesn't yet support that RctType")]
   UnsupportedRctType,
   /// The transaction had no inputs specified.
-  #[cfg_attr(feature = "std", error("no inputs"))]
+  #[error("no inputs")]
   NoInputs,
   /// The decoy quantity was invalid for the specified RingCT type.
-  #[cfg_attr(feature = "std", error("invalid number of decoys"))]
+  #[error("invalid number of decoys")]
   InvalidDecoyQuantity,
   /// The transaction had no outputs specified.
-  #[cfg_attr(feature = "std", error("no outputs"))]
+  #[error("no outputs")]
   NoOutputs,
   /// The transaction had too many outputs specified.
-  #[cfg_attr(feature = "std", error("too many outputs"))]
+  #[error("too many outputs")]
   TooManyOutputs,
   /// The transaction did not have a change output, and did not have two outputs.
   ///
   /// Monero requires all transactions have at least two outputs, assuming one payment and one
   /// change (or at least one dummy and one change). Accordingly, specifying no change and only
   /// one payment prevents creating a valid transaction
-  #[cfg_attr(feature = "std", error("only one output and no change address"))]
+  #[error("only one output and no change address")]
   NoChange,
   /// Multiple addresses had payment IDs specified.
   ///
   /// Only one payment ID is allowed per transaction.
-  #[cfg_attr(feature = "std", error("multiple addresses with payment IDs"))]
+  #[error("multiple addresses with payment IDs")]
   MultiplePaymentIds,
   /// Too much arbitrary data was specified.
-  #[cfg_attr(feature = "std", error("too much data"))]
+  #[error("too much data")]
   TooMuchArbitraryData,
   /// The created transaction was too large.
-  #[cfg_attr(feature = "std", error("too large of a transaction"))]
+  #[error("too large of a transaction")]
   TooLargeTransaction,
+  /// The transactions' amounts could not be represented within a `u64`.
+  #[error("transaction amounts exceed u64::MAX (in {in_amount}, out {out_amount})")]
+  AmountsUnrepresentable {
+    /// The amount in (via inputs).
+    in_amount: u128,
+    /// The amount which would be out (between outputs and the fee).
+    out_amount: u128,
+  },
   /// This transaction could not pay for itself.
-  #[cfg_attr(
-    feature = "std",
-    error(
-      "not enough funds (inputs {inputs}, outputs {outputs}, necessary_fee {necessary_fee:?})"
-    )
+  #[error(
+    "not enough funds (inputs {inputs}, outputs {outputs}, necessary_fee {necessary_fee:?})"
   )]
   NotEnoughFunds {
     /// The amount of funds the inputs contributed.
@@ -199,20 +203,17 @@ pub enum SendError {
     necessary_fee: Option<u64>,
   },
   /// This transaction is being signed with the wrong private key.
-  #[cfg_attr(feature = "std", error("wrong spend private key"))]
+  #[error("wrong spend private key")]
   WrongPrivateKey,
   /// This transaction was read from a bytestream which was malicious.
-  #[cfg_attr(
-    feature = "std",
-    error("this SignableTransaction was created by deserializing a malicious serialization")
-  )]
+  #[error("this SignableTransaction was created by deserializing a malicious serialization")]
   MaliciousSerialization,
   /// There was an error when working with the CLSAGs.
-  #[cfg_attr(feature = "std", error("clsag error ({0})"))]
+  #[error("clsag error ({0})")]
   ClsagError(ClsagError),
   /// There was an error when working with FROST.
   #[cfg(feature = "multisig")]
-  #[cfg_attr(feature = "std", error("frost error {0}"))]
+  #[error("frost error {0}")]
   FrostError(FrostError),
 }
 
@@ -303,27 +304,39 @@ impl SignableTransaction {
     }
 
     // Make sure we have enough funds
-    let in_amount = self.inputs.iter().map(|input| input.commitment().amount).sum::<u64>();
-    let payments_amount = self
-      .payments
-      .iter()
-      .filter_map(|payment| match payment {
-        InternalPayment::Payment(_, amount) => Some(amount),
-        InternalPayment::Change(_) => None,
-      })
-      .sum::<u64>();
-    let (weight, necessary_fee) = self.weight_and_necessary_fee();
-    if in_amount < (payments_amount + necessary_fee) {
-      Err(SendError::NotEnoughFunds {
-        inputs: in_amount,
-        outputs: payments_amount,
-        necessary_fee: Some(necessary_fee),
-      })?;
+    let weight;
+    {
+      let in_amount: u128 =
+        self.inputs.iter().map(|input| u128::from(input.commitment().amount)).sum();
+      let payments_amount: u128 = self
+        .payments
+        .iter()
+        .filter_map(|payment| match payment {
+          InternalPayment::Payment(_, amount) => Some(u128::from(*amount)),
+          InternalPayment::Change(_) => None,
+        })
+        .sum();
+      let necessary_fee;
+      (weight, necessary_fee) = self.weight_and_necessary_fee();
+      let out_amount = payments_amount + u128::from(necessary_fee);
+      let in_out_amount = u64::try_from(in_amount)
+        .and_then(|in_amount| u64::try_from(out_amount).map(|out_amount| (in_amount, out_amount)));
+      let Ok((in_amount, out_amount)) = in_out_amount else {
+        Err(SendError::AmountsUnrepresentable { in_amount, out_amount })?
+      };
+      if in_amount < out_amount {
+        Err(SendError::NotEnoughFunds {
+          inputs: in_amount,
+          outputs: u64::try_from(payments_amount)
+            .expect("total out fit within u64 but not part of total out"),
+          necessary_fee: Some(necessary_fee),
+        })?;
+      }
     }
 
     // The limit is half the no-penalty block size
     // https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454
-    //   /src/wallet/wallet2.cpp#L110766-L11085
+    //   /src/wallet/wallet2.cpp#L11076-L11085
     // https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454
     //   /src/cryptonote_config.h#L61
     // https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454
@@ -449,7 +462,7 @@ impl SignableTransaction {
   /// defined serialization.
   pub fn serialize(&self) -> Vec<u8> {
     let mut buf = Vec::with_capacity(256);
-    self.write(&mut buf).unwrap();
+    self.write(&mut buf).expect("write failed but <Vec as io::Write> doesn't fail");
     buf
   }
 
@@ -559,9 +572,13 @@ impl SignableTransaction {
     let mut tx = tx.transaction_without_signatures();
 
     // Sign the CLSAGs
-    let clsags_and_pseudo_outs =
-      Clsag::sign(rng, clsag_signs, mask_sum, tx.signature_hash().unwrap())
-        .map_err(SendError::ClsagError)?;
+    let clsags_and_pseudo_outs = Clsag::sign(
+      rng,
+      clsag_signs,
+      mask_sum,
+      tx.signature_hash().expect("signing a transaction which isn't signed?"),
+    )
+    .map_err(SendError::ClsagError)?;
 
     // Fill in the CLSAGs/pseudo-outs
     let inputs_len = tx.prefix().inputs.len();

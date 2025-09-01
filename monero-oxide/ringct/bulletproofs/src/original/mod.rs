@@ -4,18 +4,23 @@ use rand_core::{RngCore, CryptoRng};
 
 use zeroize::Zeroize;
 
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar, EdwardsPoint};
-use curve25519_dalek::edwards::CompressedEdwardsY;
-use monero_generators::{
-  H as MONERO_H, Generators, MAX_BULLETPROOF_COMMITMENTS as MAX_COMMITMENTS, COMMITMENT_BITS,
+use curve25519_dalek::{
+  constants::ED25519_BASEPOINT_POINT, Scalar, EdwardsPoint, edwards::CompressedEdwardsY,
 };
+
+use monero_generators::{H as MONERO_H, Generators, COMMITMENT_BITS};
 use monero_primitives::{Commitment, INV_EIGHT, keccak256_to_scalar};
-use crate::{core::multiexp, scalar_vector::ScalarVector, BulletproofsBatchVerifier};
+use monero_io::decompress_point;
+
+use crate::{
+  core::{MAX_COMMITMENTS, multiexp},
+  scalar_vector::ScalarVector,
+  BulletproofsBatchVerifier,
+};
 
 pub(crate) mod inner_product;
 use inner_product::*;
 pub(crate) use inner_product::IpProof;
-use monero_io::decompress_point;
 
 include!(concat!(env!("OUT_DIR"), "/generators.rs"));
 
@@ -238,8 +243,11 @@ impl<'a> AggregateRangeStatement<'a> {
     let x_ip = transcript;
 
     let ip = IpStatement::new_without_P_transcript(y_inv_pow_n, x_ip)
-      .prove(transcript, IpWitness::new(l, r).unwrap())
-      .unwrap();
+      .prove(
+        transcript,
+        IpWitness::new(l, r).expect("Bulletproofs::Original created an invalid IpWitness"),
+      )
+      .expect("Bulletproofs::Original failed to prove the inner-product");
 
     let res = AggregateRangeProof { A, S, T1, T2, tau_x, mu, t_hat, ip };
     #[cfg(debug_assertions)]
@@ -282,16 +290,14 @@ impl<'a> AggregateRangeStatement<'a> {
     transcript = Self::transcript_tau_x_mu_t_hat(transcript, proof.tau_x, proof.mu, proof.t_hat);
     let x_ip = transcript;
 
-    let Some(A) = decompress_point(proof.A).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
-      return false;
-    };
-    let Some(S) = decompress_point(proof.S).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
-      return false;
-    };
-    let Some(T1) = decompress_point(proof.T1).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
-      return false;
-    };
-    let Some(T2) = decompress_point(proof.T2).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
+    let decomp_mul_cofactor = |p| decompress_point(p).map(|p| EdwardsPoint::mul_by_cofactor(&p));
+
+    let (Some(A), Some(S), Some(T1), Some(T2)) = (
+      decomp_mul_cofactor(proof.A),
+      decomp_mul_cofactor(proof.S),
+      decomp_mul_cofactor(proof.T1),
+      decomp_mul_cofactor(proof.T2),
+    ) else {
       return false;
     };
 

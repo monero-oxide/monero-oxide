@@ -223,12 +223,15 @@ impl SignMachine<Transaction> for TransactionSignMachine {
       })
       .collect::<Result<Vec<_>, _>>()?;
 
-    for (key_image, (generator, (scalar, offset))) in
-      key_images.iter_mut().zip(&self.key_image_generators_and_lincombs)
-    {
-      *key_image *= scalar;
-      *key_image += generator * offset;
-    }
+    let key_images: Vec<_> = key_images
+      .into_iter()
+      .zip(&self.key_image_generators_and_lincombs)
+      .map(|(mut key_image, (generator, (scalar, offset)))| {
+        key_image *= scalar;
+        key_image += generator * offset;
+        key_image.compress()
+      })
+      .collect();
 
     // The above inserted our own preprocess into these maps (which is unnecessary)
     // Remove it now
@@ -242,12 +245,12 @@ impl SignMachine<Transaction> for TransactionSignMachine {
     for ((key_image, clsag), commitments) in key_images.iter().zip(self.clsags).zip(commitments) {
       clsags.push((key_image, clsag, commitments));
     }
-    clsags.sort_by(|x, y| key_image_sort(&x.0.compress(), &y.0.compress()));
+    clsags.sort_by(|x, y| key_image_sort(x.0, y.0));
     let clsags =
       clsags.into_iter().map(|(_, clsag, commitments)| (clsag, commitments)).collect::<Vec<_>>();
 
     // Specify the TX's key images
-    let tx = self.signable.with_key_images(key_images.into_iter().map(|k| k.compress()).collect());
+    let tx = self.signable.with_key_images(key_images);
 
     // We now need to decide the masks for each CLSAG
     let clsag_len = clsags.len();

@@ -92,7 +92,7 @@ pub fn write_point<W: Write>(point: &EdwardsPoint, w: &mut W) -> io::Result<()> 
   w.write_all(&point.compress().to_bytes())
 }
 
-/// Write a point.
+/// Write a compressed point.
 pub fn write_compressed_point<W: Write>(point: &CompressedEdwardsY, w: &mut W) -> io::Result<()> {
   w.write_all(&point.0)
 }

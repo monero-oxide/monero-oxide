@@ -2,8 +2,10 @@ use hex_literal::hex;
 
 use rand_core::{RngCore, OsRng};
 
-use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE, scalar::Scalar};
-use curve25519_dalek::edwards::CompressedEdwardsY;
+use curve25519_dalek::{
+  constants::ED25519_BASEPOINT_TABLE, scalar::Scalar, edwards::CompressedEdwardsY,
+};
+
 use monero_io::decompress_point;
 
 use crate::{Network, AddressType, MoneroAddress};

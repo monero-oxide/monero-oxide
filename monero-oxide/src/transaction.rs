@@ -45,7 +45,7 @@ impl Input {
         w.write_all(&[2])?;
         write_varint(&amount.unwrap_or(0), w)?;
         write_vec(write_varint, key_offsets, w)?;
-        w.write_all(&key_image.0)
+        write_compressed_point(key_image, w)
       }
     }
   }

@@ -3,8 +3,10 @@ use std_shims::{vec, vec::Vec};
 use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use curve25519_dalek::{scalar::Scalar, edwards::EdwardsPoint};
-use curve25519_dalek::edwards::CompressedEdwardsY;
+use curve25519_dalek::{
+  scalar::Scalar,
+  edwards::{EdwardsPoint, CompressedEdwardsY},
+};
 use monero_io::decompress_point;
 use monero_primitives::{INV_EIGHT, keccak256_to_scalar};
 use crate::{
@@ -343,13 +345,12 @@ impl WipStatement {
     let mut L = Vec::with_capacity(proof.L.len());
     let mut R = Vec::with_capacity(proof.R.len());
 
+    let decomp_mul_cofactor = |p| decompress_point(p).map(|p| EdwardsPoint::mul_by_cofactor(&p));
+
     for (L_i, R_i) in proof.L.into_iter().zip(proof.R.into_iter()) {
       e_is.push(Self::transcript_L_R(&mut transcript, L_i, R_i));
 
-      let Some(L_i) = decompress_point(L_i).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
-        return false;
-      };
-      let Some(R_i) = decompress_point(R_i).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
+      let (Some(L_i), Some(R_i)) = (decomp_mul_cofactor(L_i), decomp_mul_cofactor(R_i)) else {
         return false;
       };
 
@@ -358,12 +359,11 @@ impl WipStatement {
     }
 
     let e = Self::transcript_A_B(&mut transcript, proof.A, proof.B);
-    let Some(A) = decompress_point(proof.A).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
+
+    let (Some(A), Some(B)) = (decomp_mul_cofactor(proof.A), decomp_mul_cofactor(proof.B)) else {
       return false;
     };
-    let Some(B) = decompress_point(proof.B).map(|p| EdwardsPoint::mul_by_cofactor(&p)) else {
-      return false;
-    };
+
     let neg_e_square = verifier_weight * -(e * e);
 
     verifier.0.other.push((neg_e_square, P));

@@ -20,9 +20,9 @@ use curve25519_dalek::{
   constants::{ED25519_BASEPOINT_TABLE, ED25519_BASEPOINT_POINT},
   scalar::Scalar,
   traits::{IsIdentity, MultiscalarMul, VartimePrecomputedMultiscalarMul},
-  edwards::{EdwardsPoint, VartimeEdwardsPrecomputation},
+  edwards::{EdwardsPoint, VartimeEdwardsPrecomputation, CompressedEdwardsY},
 };
-use curve25519_dalek::edwards::CompressedEdwardsY;
+
 use monero_io::*;
 use monero_generators::biased_hash_to_point;
 use monero_primitives::{INV_EIGHT, G_PRECOMP, Commitment, Decoys, keccak256_to_scalar};
@@ -410,7 +410,7 @@ impl Clsag {
       return Err(ClsagError::InvalidCommitment);
     };
     let Some(D) = decompress_point(self.D) else {
-      return Err(ClsagError::InvalidCommitment);
+      return Err(ClsagError::InvalidD);
     };
     let D_torsion_free = D.mul_by_cofactor();
     if D_torsion_free.is_identity() {

@@ -6,8 +6,10 @@ use zeroize::{Zeroize, Zeroizing};
 use rand_core::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 
-use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE, Scalar, EdwardsPoint};
-use curve25519_dalek::edwards::CompressedEdwardsY;
+use curve25519_dalek::{
+  constants::ED25519_BASEPOINT_TABLE, Scalar, EdwardsPoint, edwards::CompressedEdwardsY,
+};
+
 use crate::{
   primitives::{keccak256, Commitment},
   ringct::EncryptedAmount,
