@@ -14,5 +14,5 @@ pub(crate) static TRANSCRIPT: LazyLock<[u8; 32]> = LazyLock::new(|| {
 pub(crate) fn initial_transcript(commitments: core::slice::Iter<'_, EdwardsPoint>) -> Scalar {
   let commitments_hash =
     keccak256_to_scalar(commitments.flat_map(|V| V.compress().to_bytes()).collect::<Vec<_>>());
-  keccak256_to_scalar([TRANSCRIPT.as_ref(), &commitments_hash.to_bytes()].concat())
+  keccak256_to_scalar([*TRANSCRIPT, commitments_hash.to_bytes()].concat())
 }

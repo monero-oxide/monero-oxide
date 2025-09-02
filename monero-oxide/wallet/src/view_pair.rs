@@ -54,8 +54,8 @@ impl ViewPair {
   pub(crate) fn subaddress_derivation(&self, index: SubaddressIndex) -> Scalar {
     keccak256_to_scalar(Zeroizing::new(
       [
-        b"SubAddr\0".as_ref(),
-        Zeroizing::new(self.view.to_bytes()).as_ref(),
+        b"SubAddr\0".as_slice(),
+        Zeroizing::new(self.view.to_bytes()).as_slice(),
         &index.account().to_le_bytes(),
         &index.address().to_le_bytes(),
       ]

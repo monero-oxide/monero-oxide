@@ -233,12 +233,7 @@ test!(
       assert_eq!(transfer.transfer.payment_id, hex::encode([0u8; 8]));
 
       // Make sure only one R was included in TX extra
-      assert!(Extra::read::<&[u8]>(&mut tx.prefix().extra.as_ref())
-        .unwrap()
-        .keys()
-        .unwrap()
-        .1
-        .is_none());
+      assert!(Extra::read(&mut tx.prefix().extra.as_slice()).unwrap().keys().unwrap().1.is_none());
     },
   ),
 );
@@ -291,8 +286,7 @@ test!(
       }
 
       // Make sure 3 additional pub keys are included in TX extra
-      let keys =
-        Extra::read::<&[u8]>(&mut tx.prefix().extra.as_ref()).unwrap().keys().unwrap().1.unwrap();
+      let keys = Extra::read(&mut tx.prefix().extra.as_slice()).unwrap().keys().unwrap().1.unwrap();
 
       assert_eq!(keys.len(), 3);
     },

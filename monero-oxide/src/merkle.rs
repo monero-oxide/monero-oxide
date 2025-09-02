@@ -33,7 +33,7 @@ pub fn merkle_root(mut leafs: Vec<[u8; 32]>) -> Option<[u8; 32]> {
         let mut paired_hashes = Vec::with_capacity(overage);
         while let Some(left) = rightmost.next() {
           let right = rightmost.next().expect("rightmost is of even length");
-          paired_hashes.push(keccak256([left.as_ref(), &right].concat()));
+          paired_hashes.push(keccak256([left, right].concat()));
         }
         drop(rightmost);
 

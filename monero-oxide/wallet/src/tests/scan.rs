@@ -127,10 +127,10 @@ fn scan_long_encrypted_amount() {
     Zeroizing::new(Scalar::from_canonical_bytes(view_key_buf.try_into().unwrap()).unwrap());
 
   let tx_buf = hex::decode(PRUNED_TX_WITH_LONG_ENCRYPTED_AMOUNT).unwrap();
-  let tx = Transaction::<Pruned>::read::<&[u8]>(&mut tx_buf.as_ref()).unwrap();
+  let tx = Transaction::<Pruned>::read(&mut tx_buf.as_slice()).unwrap();
 
   let block_buf = hex::decode(BLOCK).unwrap();
-  let block = Block::read::<&[u8]>(&mut block_buf.as_ref()).unwrap();
+  let block = Block::read(&mut block_buf.as_slice()).unwrap();
 
   // Confirm tx has long form encrypted amounts
   match &tx {

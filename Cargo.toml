@@ -36,6 +36,13 @@ dalek-ff-group = { opt-level = 3 }
 
 multiexp = { opt-level = 3 }
 
+monero-io = { opt-level = 3 }
+monero-generators = { opt-level = 3 }
+monero-primitives = { opt-level = 3 }
+monero-mlsag = { opt-level = 3 }
+monero-clsag = { opt-level = 3 }
+monero-borromean = { opt-level = 3 }
+monero-bulletproofs = {opt-level = 3 }
 monero-oxide = { opt-level = 3 }
 
 [profile.release]
@@ -43,6 +50,7 @@ panic = "unwind"
 overflow-checks = true
 
 [workspace.lints.clippy]
+incompatible_msrv = "allow" # Manually checked with a GitHub workflow
 unwrap_or_default = "allow"
 borrow_as_ptr = "deny"
 cast_lossless = "deny"

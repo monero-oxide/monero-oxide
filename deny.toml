@@ -49,7 +49,7 @@ wildcards = "warn"
 highlight = "all"
 deny = [
   { name = "serde_derive", version = ">=1.0.172, <1.0.185" },
-  { name = "hashbrown", version = ">=0.15" },
+  { name = "hashbrown", version = "=0.15.0" },
 ]
 
 [sources]

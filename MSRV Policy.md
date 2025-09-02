@@ -1,7 +1,10 @@
 # MSRV Policy
 
-monero-oxide tracks the latest stable Rust version. monero-oxide _may_ adopt
-a soft-MSRV where [`msrv-shims`](https::/crates.io/crates/msrv-shims) is used
-for all `std` objects introduced after a certain version. This would enable
-downstream consumers to patch `msrv-shims` with the necessary set of polyfills
-to achieve a certain MSRV.
+monero-oxide officially tracks the latest stable Rust version there's merit to
+track. Where possible, `std-shims` (primarily used to provide alternatives to
+members of `std` on `no-std` environments) may provide polyfills so
+monero-oxide may use modern features without actually bumping its MSRV.
+
+Any polyfills provided by `std-shims` are not recommended for usage. They will
+presumably be much more inefficient and will receive a fraction of the testing.
+Only the targeted Rust version is officially supported.

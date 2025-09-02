@@ -152,12 +152,7 @@ test!(
       assert!(sub_outputs[0].subaddress().unwrap().address() == 1);
 
       // Make sure only one R was included in TX extra
-      assert!(Extra::read::<&[u8]>(&mut tx.prefix().extra.as_ref())
-        .unwrap()
-        .keys()
-        .unwrap()
-        .1
-        .is_none());
+      assert!(Extra::read(&mut tx.prefix().extra.as_slice()).unwrap().keys().unwrap().1.is_none());
     },
   ),
 );

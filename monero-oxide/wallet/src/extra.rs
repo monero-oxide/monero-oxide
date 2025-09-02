@@ -229,7 +229,7 @@ impl Extra {
   pub fn payment_id(&self) -> Option<PaymentId> {
     for field in &self.0 {
       if let ExtraField::Nonce(data) = field {
-        return PaymentId::read::<&[u8]>(&mut data.as_ref()).ok();
+        return PaymentId::read(&mut data.as_slice()).ok();
       }
     }
     None

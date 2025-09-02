@@ -52,10 +52,7 @@ test!(
       );
       let tx = builder.build().unwrap();
       let eventuality = Eventuality::from(tx.clone());
-      assert_eq!(
-        eventuality,
-        Eventuality::read::<&[u8]>(&mut eventuality.serialize().as_ref()).unwrap()
-      );
+      assert_eq!(eventuality, Eventuality::read(&mut eventuality.serialize().as_slice()).unwrap());
       (tx, eventuality)
     },
     |_, _, mut tx: Transaction, _, eventuality: Eventuality| async move {

@@ -128,7 +128,7 @@ impl InternalScanner {
     }
 
     // Read the extra field
-    let Ok(extra) = Extra::read::<&[u8]>(&mut tx.prefix().extra.as_ref()) else {
+    let Ok(extra) = Extra::read(&mut tx.prefix().extra.as_slice()) else {
       return Ok(Timelocked(vec![]));
     };
 

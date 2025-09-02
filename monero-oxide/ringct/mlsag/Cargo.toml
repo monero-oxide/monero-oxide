@@ -3,10 +3,10 @@ name = "monero-mlsag"
 version = "0.1.0"
 description = "The MLSAG linkable ring signature, as defined by the Monero protocol"
 license = "MIT"
-repository = "https://github.com/monero-oxide/monero-oxide/tree/develop/monero-oxide/ringct/mlsag"
+repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/ringct/mlsag"
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.66"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -16,7 +16,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 workspace = true
 
 [dependencies]
-std-shims = { version = "^0.1.2", default-features = false }
+std-shims = { version = "0.1.4", default-features = false }
 
 thiserror = { version = "2", default-features = false }
 

@@ -87,11 +87,11 @@ impl SharedKeyDerivations {
         .expect("write failed but <Vec as io::Write> doesn't fail");
     }
 
-    let view_tag = keccak256([b"view_tag".as_ref(), &output_derivation].concat())[0];
+    let view_tag = keccak256([b"view_tag".as_slice(), &output_derivation].concat())[0];
 
     // uniqueness ||
     let output_derivation = if let Some(uniqueness) = uniqueness {
-      Zeroizing::new([uniqueness.as_ref(), &output_derivation].concat())
+      Zeroizing::new([uniqueness.as_slice(), &output_derivation].concat())
     } else {
       output_derivation
     };
@@ -112,7 +112,7 @@ impl SharedKeyDerivations {
 
     let mut payment_id_xor = [0; 8];
     payment_id_xor
-      .copy_from_slice(&keccak256([output_derivation.as_ref(), [0x8d].as_ref()].concat())[.. 8]);
+      .copy_from_slice(&keccak256([output_derivation.as_slice(), &[0x8d]].concat())[.. 8]);
     payment_id_xor
   }
 
