@@ -80,17 +80,13 @@ impl WipStatement {
   }
 
   fn transcript_L_R(transcript: &mut Scalar, L: CompressedPoint, R: CompressedPoint) -> Scalar {
-    let e = keccak256_to_scalar(
-      [transcript.to_bytes(), L.to_bytes(), R.to_bytes()].concat(),
-    );
+    let e = keccak256_to_scalar([transcript.to_bytes(), L.to_bytes(), R.to_bytes()].concat());
     *transcript = e;
     e
   }
 
   fn transcript_A_B(transcript: &mut Scalar, A: CompressedPoint, B: CompressedPoint) -> Scalar {
-    let e = keccak256_to_scalar(
-      [transcript.to_bytes(), A.to_bytes(), B.to_bytes()].concat(),
-    );
+    let e = keccak256_to_scalar([transcript.to_bytes(), A.to_bytes(), B.to_bytes()].concat());
     *transcript = e;
     e
   }

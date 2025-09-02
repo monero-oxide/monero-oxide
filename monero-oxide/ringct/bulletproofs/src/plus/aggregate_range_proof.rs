@@ -65,7 +65,7 @@ impl<'a> AggregateRangeStatement<'a> {
     Some(Self { generators: BpPlusGenerators::new(), V })
   }
 
-    fn transcript_A(transcript: &mut Scalar, A: CompressedPoint) -> (Scalar, Scalar) {
+  fn transcript_A(transcript: &mut Scalar, A: CompressedPoint) -> (Scalar, Scalar) {
     let y = keccak256_to_scalar([transcript.to_bytes(), A.to_bytes()].concat());
     let z = keccak256_to_scalar(y.to_bytes());
     *transcript = z;
