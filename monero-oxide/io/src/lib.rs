@@ -10,10 +10,10 @@ use std_shims::{
   io::{self, Read, Write},
 };
 
-use curve25519_dalek::{
-  scalar::Scalar,
-  edwards::{EdwardsPoint, CompressedEdwardsY},
-};
+use curve25519_dalek::{scalar::Scalar, edwards::EdwardsPoint};
+
+mod compressed_point;
+pub use compressed_point::CompressedPoint;
 
 const VARINT_CONTINUATION_MASK: u8 = 0b1000_0000;
 
@@ -90,11 +90,6 @@ pub fn write_scalar<W: Write>(scalar: &Scalar, w: &mut W) -> io::Result<()> {
 /// Write a point.
 pub fn write_point<W: Write>(point: &EdwardsPoint, w: &mut W) -> io::Result<()> {
   w.write_all(&point.compress().to_bytes())
-}
-
-/// Write a compressed point.
-pub fn write_compressed_point<W: Write>(point: &CompressedEdwardsY, w: &mut W) -> io::Result<()> {
-  w.write_all(&point.0)
 }
 
 /// Write a list of elements, without length-prefixing.
@@ -175,42 +170,12 @@ pub fn read_scalar<R: Read>(r: &mut R) -> io::Result<Scalar> {
     .ok_or_else(|| io::Error::other("unreduced scalar"))
 }
 
-/// Decompress a canonically-encoded Ed25519 point.
-///
-/// Ed25519 is of order `8 * l`. This function ensures each of those `8 * l` points have a singular
-/// encoding by checking points aren't encoded with an unreduced field element, and aren't negative
-/// when the negative is equivalent (0 == -0).
-///
-/// Since this decodes an Ed25519 point, it does not check the point is in the prime-order
-/// subgroup. Torsioned points do have a canonical encoding, and only aren't canonical when
-/// considered in relation to the prime-order subgroup.
-pub fn decompress_point(compressed: CompressedEdwardsY) -> Option<EdwardsPoint> {
-  compressed
-    .decompress()
-    // Ban points which are either unreduced or -0
-    .filter(|point| point.compress().to_bytes() == compressed.to_bytes())
-}
-
 /// Read a canonically-encoded Ed25519 point.
 ///
 /// This internally calls `decompress_point` and has the same definition of canonicity. This
 /// function does not check the resulting point is within the prime-order subgroup.
 pub fn read_point<R: Read>(r: &mut R) -> io::Result<EdwardsPoint> {
-  let bytes = read_bytes(r)?;
-  decompress_point(CompressedEdwardsY(bytes)).ok_or_else(|| io::Error::other("invalid point"))
-}
-
-/// Read a canonically-encoded Ed25519 point, within the prime-order subgroup.
-pub fn read_torsion_free_point<R: Read>(r: &mut R) -> io::Result<EdwardsPoint> {
-  read_point(r)
-    .ok()
-    .filter(EdwardsPoint::is_torsion_free)
-    .ok_or_else(|| io::Error::other("invalid point"))
-}
-
-/// Read a [`CompressedEdwardsY`] without checking if this point can be decompressed.
-pub fn read_compressed_point<R: Read>(r: &mut R) -> io::Result<CompressedEdwardsY> {
-  Ok(CompressedEdwardsY(read_bytes(r)?))
+  CompressedPoint::read(r)?.decompress().ok_or_else(|| io::Error::other("invalid point"))
 }
 
 /// Read a variable-length list of elements, without length-prefixing.

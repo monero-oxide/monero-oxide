@@ -7,8 +7,6 @@ use std_shims::{
 
 use zeroize::Zeroize;
 
-use curve25519_dalek::edwards::CompressedEdwardsY;
-
 use crate::{
   io::*,
   primitives::keccak256,
@@ -28,7 +26,7 @@ pub enum Input {
     /// The decoys used by this input's ring, specified as their offset distance from each other.
     key_offsets: Vec<u64>,
     /// The key image (linking tag, nullifer) for the spent output.
-    key_image: CompressedEdwardsY,
+    key_image: CompressedPoint,
   },
 }
 
@@ -45,7 +43,7 @@ impl Input {
         w.write_all(&[2])?;
         write_varint(&amount.unwrap_or(0), w)?;
         write_vec(write_varint, key_offsets, w)?;
-        write_compressed_point(key_image, w)
+        key_image.write(w)
       }
     }
   }
@@ -72,7 +70,7 @@ impl Input {
         Input::ToKey {
           amount,
           key_offsets: read_vec(read_varint, None, r)?,
-          key_image: read_compressed_point(r)?,
+          key_image: CompressedPoint::read(r)?,
         }
       }
       _ => Err(io::Error::other("Tried to deserialize unknown/unused input type"))?,
@@ -86,7 +84,7 @@ pub struct Output {
   /// The pool this output should be sorted into.
   pub amount: Option<u64>,
   /// The key which can spend this output.
-  pub key: CompressedEdwardsY,
+  pub key: CompressedPoint,
   /// The view tag for this output, as used to accelerate scanning.
   pub view_tag: Option<u8>,
 }
@@ -130,7 +128,7 @@ impl Output {
 
     Ok(Output {
       amount,
-      key: CompressedEdwardsY(read_bytes(r)?),
+      key: CompressedPoint::read(r)?,
       view_tag: if view_tag { Some(read_byte(r)?) } else { None },
     })
   }

@@ -20,7 +20,7 @@ use curve25519_dalek::{
   constants::{ED25519_BASEPOINT_TABLE, ED25519_BASEPOINT_POINT},
   scalar::Scalar,
   traits::{IsIdentity, MultiscalarMul, VartimePrecomputedMultiscalarMul},
-  edwards::{EdwardsPoint, VartimeEdwardsPrecomputation, CompressedEdwardsY},
+  edwards::{EdwardsPoint, VartimeEdwardsPrecomputation},
 };
 
 use monero_io::*;
@@ -89,7 +89,7 @@ impl ClsagContext {
 #[allow(clippy::large_enum_variant)]
 enum Mode {
   Sign { signer_index: u8, A: EdwardsPoint, AH: EdwardsPoint },
-  Verify { c1: Scalar, D_serialized: CompressedEdwardsY },
+  Verify { c1: Scalar, D_serialized: CompressedPoint },
 }
 
 // Core of the CLSAG algorithm, applicable to both sign and verify with minimal differences
@@ -233,7 +233,7 @@ fn core(
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Clsag {
   /// The difference of the commitment randomnesses, scaling the key image generator.
-  pub D: CompressedEdwardsY,
+  pub D: CompressedPoint,
   /// The responses for each ring member.
   pub s: Vec<Scalar>,
   /// The first challenge in the ring.
@@ -281,7 +281,7 @@ impl Clsag {
     );
 
     ClsagSignCore {
-      incomplete_clsag: Clsag { D: D.compress(), s, c1 },
+      incomplete_clsag: Clsag { D: CompressedPoint::from(D.compress()), s, c1 },
       pseudo_out,
       key_challenge: c_p,
       challenged_mask: c_c * mask_delta,
@@ -367,9 +367,15 @@ impl Clsag {
 
       debug_assert!(clsag
         .verify(
-          inputs[i].1.decoys.ring().iter().map(|r| [r[0].compress(), r[1].compress()]).collect(),
-          &key_images[i].compress(),
-          &pseudo_out.compress(),
+          inputs[i]
+            .1
+            .decoys
+            .ring()
+            .iter()
+            .map(|r| [r[0].compress().into(), r[1].compress().into()])
+            .collect(),
+          &key_images[i].compress().into(),
+          &pseudo_out.compress().into(),
           &msg_hash
         )
         .is_ok());
@@ -387,9 +393,9 @@ impl Clsag {
   /// not use this if you don't know what you're doing.
   pub fn verify(
     &self,
-    ring: Vec<[CompressedEdwardsY; 2]>,
-    I: &CompressedEdwardsY,
-    pseudo_out: &CompressedEdwardsY,
+    ring: Vec<[CompressedPoint; 2]>,
+    I: &CompressedPoint,
+    pseudo_out: &CompressedPoint,
     msg_hash: &[u8; 32],
   ) -> Result<(), ClsagError> {
     // Preliminary checks
@@ -401,15 +407,15 @@ impl Clsag {
       Err(ClsagError::InvalidS)?;
     }
 
-    let I = decompress_point(*I).ok_or(ClsagError::InvalidImage)?;
+    let I = I.decompress().ok_or(ClsagError::InvalidImage)?;
     if I.is_identity() || (!I.is_torsion_free()) {
       Err(ClsagError::InvalidImage)?;
     }
 
-    let Some(pseudo_out) = decompress_point(*pseudo_out) else {
+    let Some(pseudo_out) = pseudo_out.decompress() else {
       return Err(ClsagError::InvalidCommitment);
     };
-    let Some(D) = decompress_point(self.D) else {
+    let Some(D) = self.D.decompress() else {
       return Err(ClsagError::InvalidD);
     };
     let D_torsion_free = D.mul_by_cofactor();
@@ -419,7 +425,7 @@ impl Clsag {
 
     let ring = ring
       .into_iter()
-      .map(|r| Some([decompress_point(r[0])?, decompress_point(r[1])?]))
+      .map(|r| Some([r[0].decompress()?, r[1].decompress()?]))
       .collect::<Option<Vec<_>>>()
       .ok_or(ClsagError::InvalidRing)?;
 
@@ -442,7 +448,7 @@ impl Clsag {
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     write_raw_vec(write_scalar, &self.s, w)?;
     w.write_all(&self.c1.to_bytes())?;
-    write_compressed_point(&self.D, w)
+    self.D.write(w)
   }
 
   /// Read a CLSAG.
@@ -450,7 +456,7 @@ impl Clsag {
     Ok(Clsag {
       s: read_raw_vec(read_scalar, decoys, r)?,
       c1: read_scalar(r)?,
-      D: read_compressed_point(r)?,
+      D: CompressedPoint::read(r)?,
     })
   }
 }

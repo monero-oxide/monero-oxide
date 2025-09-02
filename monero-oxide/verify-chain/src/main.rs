@@ -2,7 +2,7 @@
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
 
-use curve25519_dalek::{edwards::CompressedEdwardsY, scalar::Scalar};
+use curve25519_dalek::scalar::Scalar;
 
 use serde::Deserialize;
 use serde_json::json;
@@ -12,6 +12,7 @@ use monero_oxide::{
   ringct::{RctPrunable, bulletproofs::BatchVerifier},
   transaction::{Input, Transaction},
   block::Block,
+  io::CompressedPoint,
 };
 
 use monero_rpc::{RpcError, Rpc};
@@ -132,7 +133,7 @@ async fn check_block(rpc: impl Rpc, block_i: usize) {
                   rpc: &impl Rpc,
                   amount: u64,
                   indexes: &[u64],
-                ) -> Vec<[CompressedEdwardsY; 2]> {
+                ) -> Vec<[CompressedPoint; 2]> {
                   #[derive(Deserialize, Debug)]
                   struct Out {
                     key: String,
@@ -168,7 +169,7 @@ async fn check_block(rpc: impl Rpc, block_i: usize) {
                   };
 
                   let rpc_point = |point: &str| {
-                    CompressedEdwardsY(
+                    CompressedPoint(
                       hex::decode(point)
                         .expect("invalid hex for ring member")
                         .try_into()
@@ -184,7 +185,9 @@ async fn check_block(rpc: impl Rpc, block_i: usize) {
                       if amount != 0 {
                         assert_eq!(
                           mask,
-                          Commitment::new(Scalar::from(1u8), amount).calculate().compress()
+                          CompressedPoint::from(
+                            Commitment::new(Scalar::from(1u8), amount).calculate().compress()
+                          )
                         );
                       }
                       [rpc_point(&out.key), mask]

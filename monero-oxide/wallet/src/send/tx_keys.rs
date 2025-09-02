@@ -6,9 +6,9 @@ use zeroize::{Zeroize, Zeroizing};
 use rand_core::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 
-use curve25519_dalek::{
-  constants::ED25519_BASEPOINT_TABLE, Scalar, EdwardsPoint, edwards::CompressedEdwardsY,
-};
+use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE, Scalar, EdwardsPoint};
+
+use monero_oxide::io::CompressedPoint;
 
 use crate::{
   primitives::{keccak256, Commitment},
@@ -31,7 +31,8 @@ fn seeded_rng(
   // Bind to the outgoing view key to prevent foreign entities from rebuilding the transcript
   transcript.extend(outgoing_view_key);
 
-  let mut input_keys = input_keys.into_iter().map(|p| p.compress()).collect::<Vec<_>>();
+  let mut input_keys =
+    input_keys.into_iter().map(|p| CompressedPoint::from(p.compress())).collect::<Vec<_>>();
 
   // We sort the inputs here to ensure a consistent order
   // We use the key image sort as it's applicable and well-defined, not because these are key
@@ -168,7 +169,7 @@ impl SignableTransaction {
   // Calculate the shared keys and the necessary derivations.
   pub(crate) fn shared_key_derivations(
     &self,
-    key_images: &[CompressedEdwardsY],
+    key_images: &[CompressedPoint],
   ) -> Vec<Zeroizing<SharedKeyDerivations>> {
     let ecdhs = self.ecdhs();
 
@@ -243,7 +244,7 @@ impl SignableTransaction {
 
   pub(crate) fn commitments_and_encrypted_amounts(
     &self,
-    key_images: &[CompressedEdwardsY],
+    key_images: &[CompressedPoint],
   ) -> Vec<(Commitment, EncryptedAmount)> {
     let shared_key_derivations = self.shared_key_derivations(key_images);
 
@@ -275,7 +276,7 @@ impl SignableTransaction {
     res
   }
 
-  pub(crate) fn sum_output_masks(&self, key_images: &[CompressedEdwardsY]) -> Scalar {
+  pub(crate) fn sum_output_masks(&self, key_images: &[CompressedPoint]) -> Scalar {
     self
       .commitments_and_encrypted_amounts(key_images)
       .into_iter()

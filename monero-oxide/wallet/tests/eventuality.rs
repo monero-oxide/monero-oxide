@@ -1,6 +1,6 @@
 use curve25519_dalek::constants::ED25519_BASEPOINT_POINT;
 
-use monero_oxide::transaction::Transaction;
+use monero_oxide::{transaction::Transaction, io::CompressedPoint};
 use monero_wallet::{
   rpc::Rpc,
   address::{AddressType, MoneroAddress},
@@ -72,8 +72,9 @@ test!(
       let Transaction::V2 { proofs: Some(ref mut proofs), .. } = tx else {
         panic!("TX wasn't RingCT")
       };
-      proofs.base.commitments[0] =
-        (proofs.base.commitments[0].decompress().unwrap() + ED25519_BASEPOINT_POINT).compress();
+      proofs.base.commitments[0] = CompressedPoint::from(
+        (proofs.base.commitments[0].decompress().unwrap() + ED25519_BASEPOINT_POINT).compress(),
+      );
       // Verify it no longer matches
       assert!(!eventuality.matches(&tx.clone().into()));
     },

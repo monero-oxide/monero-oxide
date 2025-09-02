@@ -5,7 +5,7 @@ use std_shims::{
 
 use zeroize::Zeroize;
 
-use curve25519_dalek::{EdwardsPoint, Scalar, edwards::CompressedEdwardsY};
+use curve25519_dalek::{EdwardsPoint, Scalar};
 
 use crate::{io::*, generators::biased_hash_to_point, primitives::keccak256_to_scalar};
 
@@ -62,14 +62,14 @@ impl RingSignature {
   pub fn verify(
     &self,
     msg: &[u8; 32],
-    ring: &[CompressedEdwardsY],
-    key_image: &CompressedEdwardsY,
+    ring: &[CompressedPoint],
+    key_image: &CompressedPoint,
   ) -> bool {
     if ring.len() != self.sigs.len() {
       return false;
     }
 
-    let Some(key_image) = decompress_point(*key_image) else {
+    let Some(key_image) = key_image.decompress() else {
       return false;
     };
 
@@ -100,7 +100,7 @@ impl RingSignature {
         modified to cause the intended sum, if and only if a corresponding `s` value is known.
       */
 
-      let Some(decomp_ring_member) = decompress_point(*ring_member) else {
+      let Some(decomp_ring_member) = ring_member.decompress() else {
         return false;
       };
 

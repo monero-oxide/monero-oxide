@@ -20,6 +20,8 @@ std-shims = { version = "^0.1.2", default-features = false }
 
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc"] }
 
+zeroize = { version = "^1.5", default-features = false, features = ["zeroize_derive"] }
+
 [features]
 std = ["std-shims/std"]
 default = ["std"]

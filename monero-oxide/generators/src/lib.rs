@@ -7,12 +7,9 @@ use std_shims::{sync::LazyLock, vec::Vec};
 
 use sha3::{Digest, Keccak256};
 
-use curve25519_dalek::{
-  constants::ED25519_BASEPOINT_POINT,
-  edwards::{EdwardsPoint, CompressedEdwardsY},
-};
+use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::EdwardsPoint};
 
-use monero_io::{write_varint, decompress_point};
+use monero_io::{write_varint, CompressedPoint};
 
 mod hash_to_point;
 pub use hash_to_point::biased_hash_to_point;
@@ -30,7 +27,8 @@ fn keccak256(data: &[u8]) -> [u8; 32] {
 /// within Pedersen commitments.
 #[allow(non_snake_case)]
 pub static H: LazyLock<EdwardsPoint> = LazyLock::new(|| {
-  decompress_point(CompressedEdwardsY(keccak256(&ED25519_BASEPOINT_POINT.compress().to_bytes())))
+  CompressedPoint::from(keccak256(&ED25519_BASEPOINT_POINT.compress().to_bytes()))
+    .decompress()
     .expect("known on-curve point wasn't on-curve")
     .mul_by_cofactor()
 });

@@ -1,11 +1,9 @@
-use curve25519_dalek::{
-  edwards::{CompressedEdwardsY, EdwardsPoint},
-  scalar::Scalar,
-};
+use curve25519_dalek::{EdwardsPoint, scalar::Scalar};
 
 use serde_json::Value;
 
 use crate::{
+  io::CompressedPoint,
   ringct::RctPrunable,
   transaction::{NotPruned, Transaction, Timelock, Input},
 };
@@ -26,8 +24,8 @@ fn tx_vectors() -> Vec<Vector> {
   serde_json::from_str(TRANSACTIONS).unwrap()
 }
 
-fn compressed_point(hex: &Value) -> CompressedEdwardsY {
-  CompressedEdwardsY(hex::decode(hex.as_str().unwrap()).unwrap().try_into().unwrap())
+fn compressed_point(hex: &Value) -> CompressedPoint {
+  CompressedPoint(hex::decode(hex.as_str().unwrap()).unwrap().try_into().unwrap())
 }
 
 fn point(hex: &Value) -> EdwardsPoint {
@@ -39,7 +37,7 @@ fn scalar(hex: &Value) -> Scalar {
     .unwrap()
 }
 
-fn compressed_point_vector(val: &Value) -> Vec<CompressedEdwardsY> {
+fn compressed_point_vector(val: &Value) -> Vec<CompressedPoint> {
   let mut v = vec![];
   for hex in val.as_array().unwrap() {
     v.push(compressed_point(hex));
@@ -92,13 +90,13 @@ fn parse() {
     for (i, output) in tx.prefix().outputs.iter().enumerate() {
       assert_eq!(output.amount.unwrap_or(0), outputs[i]["amount"]);
       if output.view_tag.is_some() {
-        assert_eq!(output.key, point(&outputs[i]["target"]["tagged_key"]["key"]).compress());
+        assert_eq!(output.key, point(&outputs[i]["target"]["tagged_key"]["key"]).compress().into());
         let view_tag =
           hex::decode(outputs[i]["target"]["tagged_key"]["view_tag"].as_str().unwrap()).unwrap();
         assert_eq!(view_tag.len(), 1);
         assert_eq!(output.view_tag.unwrap(), view_tag[0]);
       } else {
-        assert_eq!(output.key, point(&outputs[i]["target"]["key"]).compress());
+        assert_eq!(output.key, point(&outputs[i]["target"]["key"]).compress().into());
       }
     }
 

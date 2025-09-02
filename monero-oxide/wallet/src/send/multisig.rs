@@ -20,6 +20,7 @@ use frost::{
 };
 
 use monero_oxide::{
+  io::CompressedPoint,
   ringct::{
     clsag::{ClsagContext, ClsagMultisigMaskSender, ClsagAddendum, ClsagMultisig},
     RctPrunable, RctProofs,
@@ -229,7 +230,7 @@ impl SignMachine<Transaction> for TransactionSignMachine {
       .map(|(mut key_image, (generator, (scalar, offset)))| {
         key_image *= scalar;
         key_image += generator * offset;
-        key_image.compress()
+        CompressedPoint::from(key_image.compress())
       })
       .collect();
 
@@ -313,7 +314,7 @@ impl SignatureMachine<Transaction> for TransactionSignatureMachine {
             shares.iter().map(|(l, shares)| (*l, shares[c].clone())).collect::<HashMap<_, _>>(),
           )?;
           clsags.push(clsag);
-          pseudo_outs.push(pseudo_out.compress());
+          pseudo_outs.push(CompressedPoint::from(pseudo_out.compress()));
         }
       }
       _ => unreachable!("attempted to sign a multisig TX which wasn't CLSAG"),

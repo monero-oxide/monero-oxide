@@ -67,13 +67,15 @@ fn clsag() {
     .unwrap()
     .swap_remove(0);
 
-    let pseudo_out = pseudo_out.compress();
+    let pseudo_out = pseudo_out.compress().into();
 
     let image = (biased_hash_to_point((ED25519_BASEPOINT_TABLE * secrets.0.deref()).compress().0) *
       secrets.0.deref())
-    .compress();
+    .compress()
+    .into();
 
-    let ring = ring.iter().map(|r| [r[0].compress(), r[1].compress()]).collect::<Vec<_>>();
+    let ring =
+      ring.iter().map(|r| [r[0].compress().into(), r[1].compress().into()]).collect::<Vec<_>>();
 
     clsag.verify(ring.clone(), &image, &pseudo_out, &msg_hash).unwrap();
 

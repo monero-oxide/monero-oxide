@@ -12,7 +12,7 @@ use std_shims::{
 
 use zeroize::Zeroize;
 
-use curve25519_dalek::{traits::Identity, Scalar, EdwardsPoint, edwards::CompressedEdwardsY};
+use curve25519_dalek::{traits::Identity, Scalar, EdwardsPoint};
 
 use monero_io::*;
 use monero_generators::H_pow_2;
@@ -78,7 +78,7 @@ impl BorromeanSignatures {
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub struct BorromeanRange {
   sigs: BorromeanSignatures,
-  bit_commitments: [CompressedEdwardsY; 64],
+  bit_commitments: [CompressedPoint; 64],
 }
 
 impl BorromeanRange {
@@ -86,26 +86,26 @@ impl BorromeanRange {
   pub fn read<R: Read>(r: &mut R) -> io::Result<BorromeanRange> {
     Ok(BorromeanRange {
       sigs: BorromeanSignatures::read(r)?,
-      bit_commitments: read_array(read_compressed_point, r)?,
+      bit_commitments: read_array(CompressedPoint::read, r)?,
     })
   }
 
   /// Write the BorromeanRange proof.
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     self.sigs.write(w)?;
-    write_raw_vec(|p, w| w.write_all(&p.0), &self.bit_commitments, w)
+    write_raw_vec(CompressedPoint::write, &self.bit_commitments, w)
   }
 
   /// Verify the commitment contains a 64-bit value.
   #[must_use]
-  pub fn verify(&self, commitment: &CompressedEdwardsY) -> bool {
+  pub fn verify(&self, commitment: &CompressedPoint) -> bool {
     let Some(bit_commitments) =
-      self.bit_commitments.iter().copied().map(decompress_point).collect::<Option<Vec<_>>>()
+      self.bit_commitments.iter().map(CompressedPoint::decompress).collect::<Option<Vec<_>>>()
     else {
       return false;
     };
 
-    if &bit_commitments.iter().sum::<EdwardsPoint>().compress() != commitment {
+    if &bit_commitments.iter().sum::<EdwardsPoint>().compress().0 != commitment.as_bytes() {
       return false;
     }
 

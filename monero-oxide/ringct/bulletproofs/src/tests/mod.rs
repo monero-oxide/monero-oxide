@@ -25,8 +25,11 @@ macro_rules! bulletproofs_tests {
           Bulletproof::prove(&mut OsRng, commitments.clone()).unwrap()
         };
 
-        let commitments =
-          commitments.iter().map(Commitment::calculate).map(|p| p.compress()).collect::<Vec<_>>();
+        let commitments = commitments
+          .iter()
+          .map(Commitment::calculate)
+          .map(|p| p.compress().into())
+          .collect::<Vec<_>>();
         assert!(bp.verify(&mut OsRng, &commitments));
         assert!(bp.batch_verify(&mut OsRng, &mut verifier, &commitments));
       }

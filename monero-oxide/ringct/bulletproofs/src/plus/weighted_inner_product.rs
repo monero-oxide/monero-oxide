@@ -3,11 +3,8 @@ use std_shims::{vec, vec::Vec};
 use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use curve25519_dalek::{
-  scalar::Scalar,
-  edwards::{EdwardsPoint, CompressedEdwardsY},
-};
-use monero_io::decompress_point;
+use curve25519_dalek::{scalar::Scalar, edwards::EdwardsPoint};
+use monero_io::CompressedPoint;
 use monero_primitives::{INV_EIGHT, keccak256_to_scalar};
 use crate::{
   core::{multiexp, multiexp_vartime, challenge_products},
@@ -58,10 +55,10 @@ impl WipWitness {
 
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub(crate) struct WipProof {
-  pub(crate) L: Vec<CompressedEdwardsY>,
-  pub(crate) R: Vec<CompressedEdwardsY>,
-  pub(crate) A: CompressedEdwardsY,
-  pub(crate) B: CompressedEdwardsY,
+  pub(crate) L: Vec<CompressedPoint>,
+  pub(crate) R: Vec<CompressedPoint>,
+  pub(crate) A: CompressedPoint,
+  pub(crate) B: CompressedPoint,
   pub(crate) r_answer: Scalar,
   pub(crate) s_answer: Scalar,
   pub(crate) delta_answer: Scalar,
@@ -81,11 +78,7 @@ impl WipStatement {
     Self { generators, P, y: y_vec }
   }
 
-  fn transcript_L_R(
-    transcript: &mut Scalar,
-    L: CompressedEdwardsY,
-    R: CompressedEdwardsY,
-  ) -> Scalar {
+  fn transcript_L_R(transcript: &mut Scalar, L: CompressedPoint, R: CompressedPoint) -> Scalar {
     let e = keccak256_to_scalar(
       [transcript.as_bytes().as_ref(), L.as_bytes().as_ref(), R.as_bytes().as_ref()].concat(),
     );
@@ -93,11 +86,7 @@ impl WipStatement {
     e
   }
 
-  fn transcript_A_B(
-    transcript: &mut Scalar,
-    A: CompressedEdwardsY,
-    B: CompressedEdwardsY,
-  ) -> Scalar {
+  fn transcript_A_B(transcript: &mut Scalar, A: CompressedPoint, B: CompressedPoint) -> Scalar {
     let e = keccak256_to_scalar(
       [transcript.as_bytes().as_ref(), A.as_bytes().as_ref(), B.as_bytes().as_ref()].concat(),
     );
@@ -115,8 +104,8 @@ impl WipStatement {
     mut g_bold2: PointVector,
     mut h_bold1: PointVector,
     mut h_bold2: PointVector,
-    L: CompressedEdwardsY,
-    R: CompressedEdwardsY,
+    L: CompressedPoint,
+    R: CompressedPoint,
     y_inv_n_hat: Scalar,
   ) -> (Scalar, Scalar, Scalar, Scalar, PointVector, PointVector) {
     debug_assert_eq!(g_bold1.len(), g_bold2.len());
@@ -243,7 +232,7 @@ impl WipStatement {
         .collect::<Vec<_>>();
       L_terms.push((c_l, g));
       L_terms.push((d_l, h));
-      let L = (multiexp(&L_terms) * INV_EIGHT()).compress();
+      let L = CompressedPoint::from((multiexp(&L_terms) * INV_EIGHT()).compress());
       L_vec.push(L);
       L_terms.zeroize();
 
@@ -255,7 +244,7 @@ impl WipStatement {
         .collect::<Vec<_>>();
       R_terms.push((c_r, g));
       R_terms.push((d_r, h));
-      let R = (multiexp(&R_terms) * INV_EIGHT()).compress();
+      let R = CompressedPoint::from((multiexp(&R_terms) * INV_EIGHT()).compress());
       R_vec.push(R);
       R_terms.zeroize();
 
@@ -288,11 +277,11 @@ impl WipStatement {
 
     let mut A_terms =
       vec![(r, g_bold[0]), (s, h_bold[0]), ((ry * b[0]) + (s * y[0] * a[0]), g), (delta, h)];
-    let A = (multiexp(&A_terms) * INV_EIGHT()).compress();
+    let A = CompressedPoint::from((multiexp(&A_terms) * INV_EIGHT()).compress());
     A_terms.zeroize();
 
     let mut B_terms = vec![(ry * s, g), (eta, h)];
-    let B = (multiexp(&B_terms) * INV_EIGHT()).compress();
+    let B = CompressedPoint::from((multiexp(&B_terms) * INV_EIGHT()).compress());
     B_terms.zeroize();
 
     let e = Self::transcript_A_B(&mut transcript, A, B);
@@ -345,7 +334,8 @@ impl WipStatement {
     let mut L = Vec::with_capacity(proof.L.len());
     let mut R = Vec::with_capacity(proof.R.len());
 
-    let decomp_mul_cofactor = |p| decompress_point(p).map(|p| EdwardsPoint::mul_by_cofactor(&p));
+    let decomp_mul_cofactor =
+      |p| CompressedPoint::decompress(&p).map(|p| EdwardsPoint::mul_by_cofactor(&p));
 
     for (L_i, R_i) in proof.L.into_iter().zip(proof.R.into_iter()) {
       e_is.push(Self::transcript_L_R(&mut transcript, L_i, R_i));

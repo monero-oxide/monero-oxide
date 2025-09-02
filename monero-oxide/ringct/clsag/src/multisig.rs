@@ -26,6 +26,7 @@ use frost::{
 };
 
 use monero_generators::biased_hash_to_point;
+use monero_io::CompressedPoint;
 
 use crate::{ClsagContext, Clsag};
 
@@ -316,10 +317,10 @@ impl Algorithm<Ed25519> for ClsagMultisig {
           .decoys
           .ring()
           .iter()
-          .map(|m| [m[0].compress(), m[1].compress()])
+          .map(|m| [CompressedPoint::from(m[0].compress()), CompressedPoint::from(m[1].compress())])
           .collect::<Vec<_>>(),
-        &self.image.0.compress(),
-        &interim.pseudo_out.compress(),
+        &CompressedPoint::from(self.image.0.compress()),
+        &CompressedPoint::from(interim.pseudo_out.compress()),
         self.msg_hash.as_ref().expect("verify called before sign_share"),
       )
       .is_ok()

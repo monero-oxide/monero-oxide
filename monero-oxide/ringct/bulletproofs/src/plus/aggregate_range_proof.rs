@@ -3,12 +3,8 @@ use std_shims::{vec, vec::Vec};
 use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use curve25519_dalek::{
-  traits::Identity,
-  scalar::Scalar,
-  edwards::{EdwardsPoint, CompressedEdwardsY},
-};
-use monero_io::decompress_point;
+use curve25519_dalek::{traits::Identity, scalar::Scalar, edwards::EdwardsPoint};
+use monero_io::CompressedPoint;
 use monero_primitives::{INV_EIGHT, Commitment, keccak256_to_scalar};
 
 use crate::{
@@ -46,7 +42,7 @@ impl AggregateRangeWitness {
 #[doc(hidden)]
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub struct AggregateRangeProof {
-  pub(crate) A: CompressedEdwardsY,
+  pub(crate) A: CompressedPoint,
   pub(crate) wip: WipProof,
 }
 
@@ -68,7 +64,7 @@ impl<'a> AggregateRangeStatement<'a> {
     Some(Self { generators: BpPlusGenerators::new(), V })
   }
 
-  fn transcript_A(transcript: &mut Scalar, A: CompressedEdwardsY) -> (Scalar, Scalar) {
+  fn transcript_A(transcript: &mut Scalar, A: CompressedPoint) -> (Scalar, Scalar) {
     let y = keccak256_to_scalar([transcript.to_bytes().as_ref(), A.to_bytes().as_ref()].concat());
     let z = keccak256_to_scalar(y.to_bytes().as_ref());
     *transcript = z;
@@ -91,11 +87,11 @@ impl<'a> AggregateRangeStatement<'a> {
     mut V: PointVector,
     generators: &BpPlusGenerators,
     transcript: &mut Scalar,
-    A: CompressedEdwardsY,
+    A: CompressedPoint,
   ) -> Option<AHatComputation> {
     let (y, z) = Self::transcript_A(transcript, A);
 
-    let A = decompress_point(A).as_ref().map(EdwardsPoint::mul_by_cofactor)?;
+    let A = A.decompress().as_ref().map(EdwardsPoint::mul_by_cofactor)?;
 
     while V.len() < padded_pow_of_2(V.len()) {
       V.0.push(EdwardsPoint::identity());
@@ -221,8 +217,10 @@ impl<'a> AggregateRangeStatement<'a> {
     // Multiply by INV_EIGHT per earlier commentary
     A *= INV_EIGHT();
 
+    let A = CompressedPoint::from(A.compress());
+
     let AHatComputation { y, d_descending_y_plus_z, y_mn_plus_one, z, z_pow, A_hat } =
-      Self::compute_A_hat(PointVector(V), &generators, &mut transcript, A.compress())
+      Self::compute_A_hat(PointVector(V), &generators, &mut transcript, A)
         .expect("A is a valid point as we just compressed it");
 
     let a_l = a_l - z;
@@ -233,7 +231,7 @@ impl<'a> AggregateRangeStatement<'a> {
     }
 
     Some(AggregateRangeProof {
-      A: A.compress(),
+      A,
       wip: WipStatement::new(generators, A_hat, y)
         .prove(
           rng,
