@@ -270,7 +270,7 @@ impl<'a> AggregateRangeStatement<'a> {
     self,
     rng: &mut (impl RngCore + CryptoRng),
     verifier: &mut BulletproofsBatchVerifier,
-    proof: AggregateRangeProof,
+    AggregateRangeProof { A, S, T1, T2, tau_x, mu, t_hat, ip }: AggregateRangeProof,
   ) -> bool {
     let mut padded_pow_of_2 = 1;
     while padded_pow_of_2 < self.commitments.len() {
@@ -288,22 +288,22 @@ impl<'a> AggregateRangeStatement<'a> {
       *commitment = commitment.mul_by_cofactor();
     }
 
-    let (y, z) = Self::transcript_A_S(transcript, proof.A, proof.S);
+    let (y, z) = Self::transcript_A_S(transcript, A, S);
     transcript = z;
     let z = ScalarVector::powers(z, 3 + padded_pow_of_2);
-    transcript = Self::transcript_T12(transcript, proof.T1, proof.T2);
+    transcript = Self::transcript_T12(transcript, T1, T2);
     let x = transcript;
-    transcript = Self::transcript_tau_x_mu_t_hat(transcript, proof.tau_x, proof.mu, proof.t_hat);
+    transcript = Self::transcript_tau_x_mu_t_hat(transcript, tau_x, mu, t_hat);
     let x_ip = transcript;
 
     let decomp_mul_cofactor =
       |p| CompressedPoint::decompress(&p).map(|p| EdwardsPoint::mul_by_cofactor(&p));
 
     let (Some(A), Some(S), Some(T1), Some(T2)) = (
-      decomp_mul_cofactor(proof.A),
-      decomp_mul_cofactor(proof.S),
-      decomp_mul_cofactor(proof.T1),
-      decomp_mul_cofactor(proof.T2),
+      decomp_mul_cofactor(A),
+      decomp_mul_cofactor(S),
+      decomp_mul_cofactor(T1),
+      decomp_mul_cofactor(T2),
     ) else {
       return false;
     };
@@ -316,8 +316,8 @@ impl<'a> AggregateRangeStatement<'a> {
     // 65
     {
       let weight = Scalar::random(&mut *rng);
-      verifier.0.h += weight * proof.t_hat;
-      verifier.0.g += weight * proof.tau_x;
+      verifier.0.h += weight * t_hat;
+      verifier.0.g += weight * tau_x;
 
       // Now that we've accumulated the lhs, negate the weight and accumulate the rhs
       // These will now sum to 0 if equal
@@ -360,12 +360,12 @@ impl<'a> AggregateRangeStatement<'a> {
         }
       }
     }
-    verifier.0.h += ip_weight * x_ip * proof.t_hat;
+    verifier.0.h += ip_weight * x_ip * t_hat;
 
     // 67, 68
-    verifier.0.g += ip_weight * -proof.mu;
+    verifier.0.g += ip_weight * -mu;
     let res = IpStatement::new_without_P_transcript(y_inv_pow_n, x_ip)
-      .verify(verifier, ip_rows, transcript, ip_weight, proof.ip);
+      .verify(verifier, ip_rows, transcript, ip_weight, ip);
     res.is_ok()
   }
 }

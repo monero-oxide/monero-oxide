@@ -4,6 +4,7 @@ use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use curve25519_dalek::{traits::Identity, scalar::Scalar, edwards::EdwardsPoint};
+
 use monero_io::CompressedPoint;
 use monero_primitives::{INV_EIGHT, Commitment, keccak256_to_scalar};
 

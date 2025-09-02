@@ -89,7 +89,7 @@ pub fn write_scalar<W: Write>(scalar: &Scalar, w: &mut W) -> io::Result<()> {
 
 /// Write a point.
 pub fn write_point<W: Write>(point: &EdwardsPoint, w: &mut W) -> io::Result<()> {
-  w.write_all(&point.compress().to_bytes())
+  CompressedPoint(point.compress().to_bytes()).write(w)
 }
 
 /// Write a list of elements, without length-prefixing.
@@ -172,8 +172,8 @@ pub fn read_scalar<R: Read>(r: &mut R) -> io::Result<Scalar> {
 
 /// Read a canonically-encoded Ed25519 point.
 ///
-/// This internally calls `decompress_point` and has the same definition of canonicity. This
-/// function does not check the resulting point is within the prime-order subgroup.
+/// This internally calls [`CompressedPoint::decompress`] and has the same definition of canonicity.
+/// This function does not check the resulting point is within the prime-order subgroup.
 pub fn read_point<R: Read>(r: &mut R) -> io::Result<EdwardsPoint> {
   CompressedPoint::read(r)?.decompress().ok_or_else(|| io::Error::other("invalid point"))
 }

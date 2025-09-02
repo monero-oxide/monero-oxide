@@ -4,6 +4,7 @@ use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use curve25519_dalek::{scalar::Scalar, edwards::EdwardsPoint};
+
 use monero_io::CompressedPoint;
 use monero_primitives::{INV_EIGHT, keccak256_to_scalar};
 use crate::{
@@ -298,7 +299,7 @@ impl WipStatement {
     rng: &mut R,
     verifier: &mut BulletproofsPlusBatchVerifier,
     mut transcript: Scalar,
-    proof: WipProof,
+    WipProof { L, R, A, B, r_answer, s_answer, delta_answer }: WipProof,
   ) -> bool {
     let verifier_weight = Scalar::random(rng);
 
@@ -310,10 +311,7 @@ impl WipStatement {
       while (1 << lr_len) < generators.len() {
         lr_len += 1;
       }
-      if (proof.L.len() != lr_len) ||
-        (proof.R.len() != lr_len) ||
-        (generators.len() != (1 << lr_len))
-      {
+      if (L.len() != lr_len) || (R.len() != lr_len) || (generators.len() != (1 << lr_len)) {
         return false;
       }
     }
@@ -330,27 +328,30 @@ impl WipStatement {
       res
     };
 
-    let mut e_is = Vec::with_capacity(proof.L.len());
-    let mut L = Vec::with_capacity(proof.L.len());
-    let mut R = Vec::with_capacity(proof.R.len());
+    let mut e_is = Vec::with_capacity(L.len());
+    let mut L_decomp = Vec::with_capacity(L.len());
+    let mut R_decomp = Vec::with_capacity(R.len());
 
     let decomp_mul_cofactor =
       |p| CompressedPoint::decompress(&p).map(|p| EdwardsPoint::mul_by_cofactor(&p));
 
-    for (L_i, R_i) in proof.L.into_iter().zip(proof.R.into_iter()) {
+    for (L_i, R_i) in L.into_iter().zip(R.into_iter()) {
       e_is.push(Self::transcript_L_R(&mut transcript, L_i, R_i));
 
       let (Some(L_i), Some(R_i)) = (decomp_mul_cofactor(L_i), decomp_mul_cofactor(R_i)) else {
         return false;
       };
 
-      L.push(L_i);
-      R.push(R_i);
+      L_decomp.push(L_i);
+      R_decomp.push(R_i);
     }
 
-    let e = Self::transcript_A_B(&mut transcript, proof.A, proof.B);
+    let L = L_decomp;
+    let R = R_decomp;
 
-    let (Some(A), Some(B)) = (decomp_mul_cofactor(proof.A), decomp_mul_cofactor(proof.B)) else {
+    let e = Self::transcript_A_B(&mut transcript, A, B);
+
+    let (Some(A), Some(B)) = (decomp_mul_cofactor(A), decomp_mul_cofactor(B)) else {
       return false;
     };
 
@@ -389,7 +390,7 @@ impl WipStatement {
       verifier.0.h_bold.push(Scalar::ZERO);
     }
 
-    let re = proof.r_answer * e;
+    let re = r_answer * e;
     for i in 0 .. generators.len() {
       let mut scalar = product_cache[i] * re;
       if i > 0 {
@@ -398,14 +399,14 @@ impl WipStatement {
       verifier.0.g_bold[i] += verifier_weight * scalar;
     }
 
-    let se = proof.s_answer * e;
+    let se = s_answer * e;
     for i in 0 .. generators.len() {
       verifier.0.h_bold[i] += verifier_weight * (se * product_cache[product_cache.len() - 1 - i]);
     }
 
     verifier.0.other.push((verifier_weight * -e, A));
-    verifier.0.g += verifier_weight * (proof.r_answer * y[0] * proof.s_answer);
-    verifier.0.h += verifier_weight * proof.delta_answer;
+    verifier.0.g += verifier_weight * (r_answer * y[0] * s_answer);
+    verifier.0.h += verifier_weight * delta_answer;
     verifier.0.other.push((-verifier_weight, B));
 
     true
