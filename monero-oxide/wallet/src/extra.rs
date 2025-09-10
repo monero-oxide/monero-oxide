@@ -242,7 +242,7 @@ impl Extra {
     let mut res = vec![];
     for field in &self.0 {
       if let ExtraField::Nonce(data) = field {
-        if data[0] == ARBITRARY_DATA_MARKER {
+        if data.get(0) == Some(&ARBITRARY_DATA_MARKER) {
           res.push(data[1 ..].to_vec());
         }
       }
