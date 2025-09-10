@@ -268,7 +268,7 @@ impl OutputWithDecoys {
   /// The methodology used to sample decoys SHOULD prevent an RPC controlled by a passive adversary
   /// from discovering the output actually being spent. An RPC controlled by an active adversary,
   /// one who deliberately yields non-standard responses and provides a malicious view of the
-  /// Monero blockchain, may stiill be able to identify the output being spent. For privacy, please
+  /// Monero blockchain, may still be able to identify the output being spent. For privacy, please
   /// only connect to trusted RPCs.
   pub async fn new(
     rng: &mut (impl Send + Sync + RngCore + CryptoRng),
@@ -293,7 +293,7 @@ impl OutputWithDecoys {
   /// The methodology used to sample decoys SHOULD prevent an RPC controlled by a passive adversary
   /// from discovering the output actually being spent. An RPC controlled by an active adversary,
   /// one who deliberately yields non-standard responses and provides a malicious view of the
-  /// Monero blockchain, may stiill be able to identify the output being spent. For privacy, please
+  /// Monero blockchain, may still be able to identify the output being spent. For privacy, please
   /// only connect to trusted RPCs.
   pub async fn fingerprintable_deterministic_new(
     rng: &mut (impl Send + Sync + RngCore + CryptoRng),
