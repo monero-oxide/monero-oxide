@@ -174,7 +174,7 @@ async fn select_n(
             output.map(|[_key, commitment]| commitment))
         {
           Err(RpcError::InvalidNode(
-            "node presented different view of output we're trying to spend".to_owned(),
+            "node presented different view of output we're trying to spend".to_string(),
           ))?;
         }
 
