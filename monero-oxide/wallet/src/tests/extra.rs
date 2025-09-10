@@ -205,5 +205,8 @@ fn extra_mysterious_minergate_and_pub_key() {
 #[test]
 fn fetching_data_does_not_panic() {
   assert!(Extra::read(&mut [0x02, 0x00].as_slice()).unwrap().data().is_empty());
-  assert_eq!(Extra::read(&mut [0x02, 0x01, 0x7F].as_slice()).unwrap().data(), vec![Vec::<u8>::new()]);
+  assert_eq!(
+    Extra::read(&mut [0x02, 0x01, 0x7F].as_slice()).unwrap().data(),
+    vec![Vec::<u8>::new()]
+  );
 }
