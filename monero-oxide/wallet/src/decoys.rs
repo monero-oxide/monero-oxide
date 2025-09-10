@@ -26,7 +26,7 @@ async fn select_n(
   rng: &mut (impl RngCore + CryptoRng),
   rpc: &impl DecoyRpc,
   height: usize,
-  real_output: u64,
+  output_being_spent: &WalletOutput,
   ring_len: u8,
   fingerprintable_deterministic: bool,
 ) -> Result<Vec<(u64, [EdwardsPoint; 2])>, RpcError> {
@@ -64,35 +64,41 @@ async fn select_n(
     (outputs as f64) / ((blocks * BLOCK_TIME) as f64)
   };
 
+  let output_being_spent_index = output_being_spent.relative_id.index_on_blockchain;
+
   // Don't select the real output
   let mut do_not_select = HashSet::new();
-  do_not_select.insert(real_output);
+  do_not_select.insert(output_being_spent_index);
 
   let decoy_count = usize::from(ring_len - 1);
   let mut res = Vec::with_capacity(decoy_count);
 
+  let mut first_iter = true;
   let mut iters = 0;
   // Iterates until we have enough decoys
   // If an iteration only returns a partial set of decoys, the remainder will be obvious as decoys
   // to the RPC
   // The length of that remainder is expected to be minimal
   while res.len() != decoy_count {
-    iters += 1;
-    #[cfg(not(test))]
-    const MAX_ITERS: usize = 10;
-    // When testing on fresh chains, increased iterations can be useful and we don't necessitate
-    // reasonable performance
-    #[cfg(test)]
-    const MAX_ITERS: usize = 100;
-    // Ensure this isn't infinitely looping
-    // We check both that we aren't at the maximum amount of iterations and that the not-yet
-    // selected candidates exceed the amount of candidates necessary to trigger the next iteration
-    if (iters == MAX_ITERS) ||
-      ((highest_output_exclusive_bound -
-        u64::try_from(do_not_select.len()).expect("amount of ignored decoys exceeds 2^{64}")) <
-        u64::from(ring_len))
     {
-      Err(RpcError::InternalError("hit decoy selection round limit".to_string()))?;
+      iters += 1;
+      #[cfg(not(test))]
+      const MAX_ITERS: usize = 10;
+      // When testing on fresh chains, increased iterations can be useful and we don't necessitate
+      // reasonable performance
+      #[cfg(test)]
+      const MAX_ITERS: usize = 100;
+      // Ensure this isn't infinitely looping
+      // We check both that we aren't at the maximum amount of iterations and that the not-yet
+      // selected candidates exceed the amount of candidates necessary to trigger the next iteration
+      if (iters == MAX_ITERS) ||
+        ((highest_output_exclusive_bound -
+          u64::try_from(do_not_select.len())
+            .expect("amount of ignored decoys exceeds 2^{64}")) <
+          u64::from(ring_len))
+      {
+        Err(RpcError::InternalError("hit decoy selection round limit".to_string()))?;
+      }
     }
 
     let remaining = decoy_count - res.len();
@@ -140,13 +146,15 @@ async fn select_n(
     // If this is the first time we're requesting these outputs, include the real one as well
     // Prevents the node we're connected to from having a list of known decoys and then seeing a
     // TX which uses all of them, with one additional output (the true spend)
-    let real_index = if iters == 0 {
-      candidates.push(real_output);
+    let real_index = if first_iter {
+      first_iter = false;
+
+      candidates.push(output_being_spent_index);
       // Sort candidates so the real spends aren't the ones at the end
       candidates.sort();
       Some(
         candidates
-          .binary_search(&real_output)
+          .binary_search(&output_being_spent_index)
           .expect("selected a ring which didn't include the real spend"),
       )
     } else {
@@ -159,13 +167,17 @@ async fn select_n(
       .iter_mut()
       .enumerate()
     {
-      // We could check the returned info is equivalent to our expectations, yet that'd allow the
-      // node to malleate the returned info to see if they can cause this error (allowing them to
-      // figure out the output being spent)
-      //
-      // Some degree of this attack (forcing resampling/trying to observe errors) is likely
-      // always possible
+      // https://github.com/monero-oxide/monero-oxide/issues/56
       if real_index == Some(i) {
+        if (Some(output_being_spent.key()) != output.map(|[key, _commitment]| key)) ||
+          (Some(output_being_spent.commitment().calculate()) !=
+            output.map(|[_key, commitment]| commitment))
+        {
+          Err(RpcError::InvalidNode(
+            "node presented different view of output we're trying to spend".to_owned(),
+          ))?;
+        }
+
         continue;
       }
 
@@ -203,15 +215,7 @@ async fn select_decoys<R: RngCore + CryptoRng>(
   // Select all decoys for this transaction, assuming we generate a sane transaction
   // We should almost never naturally generate an insane transaction, hence why this doesn't
   // bother with an overage
-  let decoys = select_n(
-    rng,
-    rpc,
-    height,
-    input.relative_id.index_on_blockchain,
-    ring_len,
-    fingerprintable_deterministic,
-  )
-  .await?;
+  let decoys = select_n(rng, rpc, height, input, ring_len, fingerprintable_deterministic).await?;
 
   // Form the complete ring
   let mut ring = decoys;
@@ -260,6 +264,12 @@ pub struct OutputWithDecoys {
 
 impl OutputWithDecoys {
   /// Select decoys for this output.
+  ///
+  /// The methodology used to sample decoys SHOULD prevent an RPC controlled by a passive adversary
+  /// from discovering the output actually being spent. An RPC controlled by an active adversary,
+  /// one who deliberately yields non-standard responses and provides a malicious view of the
+  /// Monero blockchain, may stiill be able to identify the output being spent. For privacy, please
+  /// only connect to trusted RPCs.
   pub async fn new(
     rng: &mut (impl Send + Sync + RngCore + CryptoRng),
     rpc: &impl DecoyRpc,
@@ -279,6 +289,12 @@ impl OutputWithDecoys {
   ///
   /// The set of decoys selected may be fingerprintable as having been produced by this
   /// methodology.
+  ///
+  /// The methodology used to sample decoys SHOULD prevent an RPC controlled by a passive adversary
+  /// from discovering the output actually being spent. An RPC controlled by an active adversary,
+  /// one who deliberately yields non-standard responses and provides a malicious view of the
+  /// Monero blockchain, may stiill be able to identify the output being spent. For privacy, please
+  /// only connect to trusted RPCs.
   pub async fn fingerprintable_deterministic_new(
     rng: &mut (impl Send + Sync + RngCore + CryptoRng),
     rpc: &impl DecoyRpc,
