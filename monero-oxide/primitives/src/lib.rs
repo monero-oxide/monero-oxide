@@ -14,7 +14,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use sha3::{Digest, Keccak256};
 use curve25519_dalek::{
   constants::ED25519_BASEPOINT_POINT,
-  traits::VartimePrecomputedMultiscalarMul,
+  traits::{MultiscalarMul, VartimePrecomputedMultiscalarMul},
   scalar::Scalar,
   edwards::{EdwardsPoint, VartimeEdwardsPrecomputation},
 };
@@ -112,7 +112,7 @@ impl Commitment {
 
   /// Calculate the Pedersen commitment, as a point, from this transparent structure.
   pub fn calculate(&self) -> EdwardsPoint {
-    EdwardsPoint::vartime_double_scalar_mul_basepoint(&Scalar::from(self.amount), &H, &self.mask)
+    EdwardsPoint::multiscalar_mul([self.mask, self.amount.into()], [ED25519_BASEPOINT_POINT, *H])
   }
 
   /// Write the Commitment.
