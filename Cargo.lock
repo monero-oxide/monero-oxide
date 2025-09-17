@@ -946,13 +946,10 @@ name = "monero-oxide-verify-chain"
 version = "0.1.0"
 dependencies = [
  "curve25519-dalek",
- "hex",
  "monero-oxide",
  "monero-rpc",
  "monero-simple-request-rpc",
  "rand_core",
- "serde",
- "serde_json",
  "tokio",
 ]
 

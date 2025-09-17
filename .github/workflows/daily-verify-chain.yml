@@ -1,0 +1,28 @@
+name: Daily Deny Check
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  verify-chain:
+    name: Run monero-oxide-verify-chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
+
+      - name: Build Dependencies
+        uses: ./.github/actions/build-dependencies
+
+      - name: Run monero-oxide-verify-chain
+        run: |
+          BLOCKS_ON_CHAIN=3500000
+
+          ROTATION_PERIOD=30
+          PER_DAY=$(( $BLOCKS_ON_CHAIN / $ROTATION_PERIOD ))
+
+          DAY_WITHIN_ROTATION_PERIOD=$((($(date +%s) / (24 * 60 * 60)) % $ROTATION_PERIOD))
+          START=$(( DAY_WITHIN_ROTATION_PERIOD * $PER_DAY ))
+          END=$(( $START + PER_DAY ))
+
+          cargo run -p monero-oxide-verify-chain --release -- $START $END

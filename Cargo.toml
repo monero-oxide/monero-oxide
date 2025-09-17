@@ -17,9 +17,8 @@ members = [
   "monero-oxide/wallet/address",
   "monero-oxide/wallet",
 
-  "monero-oxide/verify-chain",
-
   "tests/no-std",
+  "tests/verify-chain",
 ]
 
 # Always compile Monero (and a variety of dependencies) with optimizations due
