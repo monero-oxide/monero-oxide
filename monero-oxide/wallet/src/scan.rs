@@ -299,8 +299,12 @@ impl InternalScanner {
 
       // Update the RingCT starting index for the next TX
       if matches!(tx, Transaction::V2 { .. }) {
-        output_index_for_first_ringct_output += u64::try_from(tx.prefix().outputs.len())
-          .expect("couldn't convert amount of outputs (usize) to u64")
+        output_index_for_first_ringct_output = output_index_for_first_ringct_output
+          .checked_add(
+            u64::try_from(tx.prefix().outputs.len())
+              .expect("couldn't convert amount of outputs (usize) to u64"),
+          )
+          .ok_or(ScanError::InvalidScannableBlock("RingCT output indexes exceeded u64::MAX"))?;
       }
     }
 
