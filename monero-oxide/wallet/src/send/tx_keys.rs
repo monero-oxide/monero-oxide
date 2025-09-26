@@ -1,9 +1,9 @@
 use core::ops::Deref;
 use std_shims::{vec, vec::Vec};
 
-use zeroize::{Zeroize, Zeroizing};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use rand_core::SeedableRng;
+use rand_core::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
 use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE, Scalar, EdwardsPoint};
@@ -61,6 +61,21 @@ fn seeded_rng(
 /// This is used when sending and can be used after sending to re-derive the keys used, as
 /// necessary for payment proofs.
 pub struct TransactionKeys(ChaCha20Rng);
+impl Drop for TransactionKeys {
+  fn drop(&mut self) {
+    // Advance the stream to attempt to clear any current state
+    let mut seed = [0; 64];
+    let _result = self.0.try_fill_bytes(&mut seed);
+    // Reset the position of the stream
+    self.0.set_stream(0);
+    self.0.set_word_pos(0);
+    // Overwrite the stream with a new one which has been zero-initialized
+    self.0 = ChaCha20Rng::from_seed([0; 32]);
+    core::hint::black_box(&mut self.0);
+  }
+}
+impl ZeroizeOnDrop for TransactionKeys {}
+
 impl TransactionKeys {
   /// Construct a new `TransactionKeys`.
   ///

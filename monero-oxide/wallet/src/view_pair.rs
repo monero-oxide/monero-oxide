@@ -98,7 +98,7 @@ impl ViewPair {
 /// 'Guaranteed' outputs, or transactions outputs to the burning bug, are not officially specified
 /// by the Monero project. They should only be used if necessary. No support outside of
 /// monero-wallet is promised.
-#[derive(Clone, PartialEq, Eq, Zeroize)]
+#[derive(Clone, PartialEq, Eq, Zeroize)] // Does not impl `ZeroizeOnDrop` since `ViewPair` does
 pub struct GuaranteedViewPair(pub(crate) ViewPair);
 
 impl GuaranteedViewPair {

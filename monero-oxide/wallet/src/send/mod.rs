@@ -5,7 +5,7 @@ use std_shims::{
   string::{String, ToString},
 };
 
-use zeroize::{Zeroize, Zeroizing};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use rand_core::{RngCore, CryptoRng};
 use rand::seq::SliceRandom;
@@ -215,7 +215,7 @@ pub enum SendError {
 }
 
 /// A signable transaction.
-#[derive(Clone, PartialEq, Eq, Zeroize)]
+#[derive(Clone, PartialEq, Eq, Zeroize, ZeroizeOnDrop)]
 pub struct SignableTransaction {
   rct_type: RctType,
   outgoing_view_key: Zeroizing<[u8; 32]>,
@@ -237,6 +237,7 @@ impl fmt::Debug for SignableTransaction {
   }
 }
 
+#[derive(Zeroize, ZeroizeOnDrop)]
 struct SignableTransactionWithKeyImages {
   intent: SignableTransaction,
   key_images: Vec<CompressedPoint>,
@@ -533,17 +534,15 @@ impl SignableTransaction {
 
   fn with_key_images(
     mut self,
-    key_images: Vec<CompressedPoint>,
+    mut key_images: Vec<CompressedPoint>,
   ) -> SignableTransactionWithKeyImages {
     debug_assert_eq!(self.inputs.len(), key_images.len());
 
     // Sort the inputs by their key images
-    let mut sorted_inputs = self.inputs.into_iter().zip(key_images).collect::<Vec<_>>();
+    let mut sorted_inputs = self.inputs.drain(..).zip(key_images.drain(..)).collect::<Vec<_>>();
     sorted_inputs
       .sort_by(|(_, key_image_a), (_, key_image_b)| key_image_sort(key_image_a, key_image_b));
 
-    self.inputs = Vec::with_capacity(sorted_inputs.len());
-    let mut key_images = Vec::with_capacity(sorted_inputs.len());
     for (input, key_image) in sorted_inputs {
       self.inputs.push(input);
       key_images.push(key_image);

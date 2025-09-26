@@ -8,7 +8,7 @@ use std_shims::{
 use rand_core::{RngCore, CryptoRng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
-use zeroize::{Zeroize, Zeroizing};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use curve25519_dalek::{scalar::Scalar, edwards::EdwardsPoint};
 
@@ -75,9 +75,19 @@ impl ClsagMultisigMaskSender {
 }
 impl ClsagMultisigMaskReceiver {
   fn recv(self) -> Option<Scalar> {
-    *self.buf.lock()
+    let mut lock = self.buf.lock();
+    // This is safe as this method may only be called once
+    let res = lock.take();
+    (*lock).zeroize();
+    res
   }
 }
+impl Drop for ClsagMultisigMaskReceiver {
+  fn drop(&mut self) {
+    (*self.buf.lock()).zeroize();
+  }
+}
+impl ZeroizeOnDrop for ClsagMultisigMaskReceiver {}
 
 /// Addendum produced during the signing process.
 #[derive(Clone, PartialEq, Eq, Zeroize, Debug)]
@@ -98,7 +108,7 @@ impl WriteAddendum for ClsagAddendum {
   }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Zeroize)]
 struct Interim {
   p: Scalar,
   c: Scalar,
@@ -116,15 +126,24 @@ struct Interim {
 ///
 /// The message signed is expected to be a 32-byte value. Per Monero, it's the keccak256 hash of
 /// the transaction data which is signed. This will panic if the message is not a 32-byte value.
+#[derive(Zeroize, ZeroizeOnDrop)]
 pub struct ClsagMultisig {
   transcript: RecommendedTranscript,
 
   key_image_generator: EdwardsPoint,
+  /*
+    This is fine to skip, even if not preferable. These are sent over the wire during signing and
+    accordingly reasonably public. Anyone who observes them could reconstruct the key image and see
+    the set who signed, but that's it.
+  */
+  #[zeroize(skip)]
   key_image_shares: HashMap<[u8; 32], dfg::EdwardsPoint>,
   image: dfg::EdwardsPoint,
 
   context: ClsagContext,
 
+  // `ClsagMultisigMaskReceiver` implements `Zeroize` within its `Drop` implementation
+  #[zeroize(skip)]
   mask_recv: Option<ClsagMultisigMaskReceiver>,
   mask: Option<Scalar>,
 

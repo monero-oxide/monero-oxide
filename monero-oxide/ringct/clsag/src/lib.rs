@@ -230,7 +230,7 @@ fn core(
 }
 
 /// The CLSAG signature, as used in Monero.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub struct Clsag {
   /// The difference of the commitment randomnesses, scaling the key image generator.
   pub D: CompressedPoint,
