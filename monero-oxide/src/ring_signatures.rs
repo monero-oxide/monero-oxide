@@ -59,9 +59,13 @@ impl RingSignature {
   }
 
   /// Verify the ring signature.
+  ///
+  /// WARNING: This follows the Fiat-Shamir transcript format used by the Monero protocol, which
+  /// makes assumptions on what has already been transcripted and bound to within `msg_hash`. Do
+  /// not use this if you don't know what you're doing.
   pub fn verify(
     &self,
-    msg: &[u8; 32],
+    msg_hash: &[u8; 32],
     ring: &[CompressedPoint],
     key_image: &CompressedPoint,
   ) -> bool {
@@ -78,7 +82,7 @@ impl RingSignature {
     }
 
     let mut buf = Vec::with_capacity(32 + (2 * 32 * ring.len()));
-    buf.extend_from_slice(msg);
+    buf.extend_from_slice(msg_hash);
 
     let mut sum = Scalar::ZERO;
     for (ring_member, sig) in ring.iter().zip(&self.sigs) {
