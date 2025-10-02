@@ -239,7 +239,7 @@ impl Metadata {
         for _ in 0 .. <usize as VarInt>::read(r)? {
           let len = read_byte(r)?;
           let chunk = read_raw_vec(read_byte, usize::from(len), r)?;
-          total_len = total_len.wrapping_add(chunk.len());
+          total_len = total_len.saturating_add(chunk.len());
           if total_len > MAX_EXTRA_SIZE_BY_RELAY_RULE {
             Err(io::Error::other("amount of arbitrary data exceeded amount allowed by policy"))?;
           }
