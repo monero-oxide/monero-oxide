@@ -100,6 +100,10 @@ pub enum ExtraField {
   /// The nonce field.
   ///
   /// This is used for data, such as payment IDs.
+  ///
+  /// When read, this is bounded by a maximum size. As we directly expose the field here (without a
+  /// constructor asserting its validity), this means it's possible to create an
+  /// `ExtraField::Nonce` which can be written but not read. Please be careful accordingly.
   Nonce(Vec<u8>),
   /// The field for merge-mining.
   ///
