@@ -30,6 +30,9 @@ curve25519-dalek = { version = "4", default-features = false, features = ["alloc
 monero-oxide = { path = "..", default-features = false }
 monero-address = { path = "../wallet/address", default-features = false }
 
+cuprate-epee-encoding = { git = "https://github.com/cuprate/cuprate" }
+cuprate-types = { git = "https://github.com/cuprate/cuprate", features = ["epee"] }
+
 [features]
 std = [
   "std-shims/std",

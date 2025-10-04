@@ -8,6 +8,9 @@ use core::{
   fmt::Debug,
   ops::{Bound, RangeBounds},
 };
+use std::io::Cursor;
+use cuprate_epee_encoding::{epee_object, to_bytes};
+use cuprate_types::BlockCompleteEntry;
 use std_shims::{
   alloc::format,
   vec,
@@ -209,6 +212,17 @@ struct TransactionsResponse {
   missed_tx: Vec<String>,
   txs: Vec<TransactionResponse>,
 }
+
+#[derive(Debug)]
+struct HeightsRequest {
+  heights: Vec<u32>
+}
+epee_object!(HeightsRequest, heights: Vec<u32>,);
+#[derive(Debug)]
+struct BlocksResponse {
+  blocks: Vec<BlockCompleteEntry>
+}
+epee_object!(BlocksResponse, blocks: Vec<BlockCompleteEntry>,);
 
 /// The response to an query for the information of a RingCT output.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -685,12 +699,50 @@ pub trait Rpc: Sync + Clone {
   }
 
   /// Get a block's scannable form by its number.
-  // TODO: get_blocks_by_height.bin
   fn get_scannable_block_by_number(
     &self,
     number: usize,
   ) -> impl Send + Future<Output = Result<ScannableBlock, RpcError>> {
     async move { self.get_scannable_block(self.get_block_by_number(number).await?).await }
+  }
+
+  /// Get a vector of blocks by their numbers
+  ///
+  /// `numbers` is a vector of the block's zero-indexed position on the blockchain (`0` for the genesis block, `height - 1` for the latest block).
+  /// Uses the binary `get_blocks_by_height.bin` RPC call.
+  fn get_blocks_by_numbers(
+    &self,
+    numbers: &[usize]
+  ) -> impl Send + Future<Output = Result<Vec<Block>, RpcError>> {
+    async move {
+      if numbers.is_empty() {
+          return Ok(vec![]);
+      }
+      for &n in numbers {
+        if n > u32::MAX as usize {
+          return Err(RpcError::InternalError("block number too large".to_string()));
+        }
+      }
+      let heights = HeightsRequest { heights: numbers.iter().map(|n| u32::try_from(*n).unwrap()).collect() };
+      let bytes = match to_bytes(heights) {
+        Err(e) => return Err(RpcError::InternalError(format!("couldn't serialize heights: {e:?}"))),
+        Ok(b) => b,
+      };
+      let res: BlocksResponse = match cuprate_epee_encoding::from_bytes(&mut (self.bin_call("get_blocks_by_height.bin", bytes.freeze().to_vec()).await?.as_slice())) {
+        Err(e) => return Err(RpcError::InternalError(format!("couldn't deserialize response: {e:?}"))),
+        Ok(b) => b,
+      };
+      let mut blocks = Vec::new();
+      for entry in res.blocks {
+        let mut cursor = Cursor::new(entry.block);
+        let block = match Block::read(&mut cursor) {
+          Err(e) => return Err(RpcError::InternalError(format!("couldn't deserialize block: {e:?}"))),
+          Ok(b) => b,
+        };
+        blocks.push(block);
+      }
+      Ok(blocks)
+    }
   }
 
   /// Get the currently estimated fee rate from the node.
