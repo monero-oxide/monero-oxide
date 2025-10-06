@@ -54,6 +54,5 @@ pub struct UpperBound<U>(pub U);
 /// the entire Monero protocol, solely as of the targeted version of the Monero protocol. It is
 /// intended to be used for size hints. Changes to this value, whether increasing it to be closer
 /// to the actual bound or decreasing it in response to a new version of the protocol, will not be
-/// considered breaking changes under
-/// SemVer.
+/// considered breaking changes under SemVer.
 pub struct LowerBound<U>(pub U);
