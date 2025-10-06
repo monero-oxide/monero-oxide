@@ -87,7 +87,7 @@ async fn select_n(
       // When testing on fresh chains, increased iterations can be useful and we don't necessitate
       // reasonable performance
       #[cfg(test)]
-      const MAX_ITERS: usize = 100;
+      const MAX_ITERS: usize = 1000;
       // Ensure this isn't infinitely looping
       // We check both that we aren't at the maximum amount of iterations and that the not-yet
       // selected candidates exceed the amount of candidates necessary to trigger the next iteration
