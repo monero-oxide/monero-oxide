@@ -73,6 +73,24 @@ jobs:
       - name: Run rustfmt
         run: cargo +${{ steps.nightly.outputs.version }} fmt -- --check
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
+
+      - name: Get nightly version to use
+        id: nightly
+        shell: bash
+        run: echo "version=$(cat .github/nightly-version)" >> $GITHUB_OUTPUT
+
+      - name: Build Dependencies
+        uses: ./.github/actions/build-dependencies
+
+      - name: Buld Rust docs
+        run: |
+          rustup toolchain install ${{ steps.nightly.outputs.version }} --profile minimal -c rust-docs
+          RUSTDOCFLAGS="--cfg docsrs" cargo +${{ steps.nightly.outputs.version }} doc --no-deps --workspace --all-features
+
   machete:
     runs-on: ubuntu-latest
     steps:

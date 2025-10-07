@@ -20,7 +20,7 @@ use crate::primitives::keccak256;
 /// computation of the leaves. The value of this scratch space is undefined after the operation
 /// completes.
 ///
-/// This function returns [`None`] if the tree is empty and [`Some`](_) otherwise.
+/// This function returns [`None`] if the tree is empty and [`Some`] otherwise.
 pub fn merkle_root(mut leaves: impl AsMut<[[u8; 32]]>) -> Option<[u8; 32]> {
   let mut leaves = leaves.as_mut();
 
