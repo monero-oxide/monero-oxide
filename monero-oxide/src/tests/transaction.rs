@@ -293,3 +293,15 @@ fn clsag() {
     _ => panic!("non-CLSAG test vector"),
   }
 }
+
+#[test]
+fn pruned_with_prunable() {
+  for tx in tx_vectors() {
+    let tx_bytes = hex::decode(tx.hex.clone()).unwrap();
+    let tx = Transaction::read(&mut tx_bytes.as_slice()).unwrap();
+
+    let (pruned, prunable) = tx.pruned_with_prunable();
+
+    assert_eq!([pruned.serialize(), prunable].concat(), tx_bytes);
+  }
+}

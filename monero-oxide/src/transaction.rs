@@ -636,6 +636,36 @@ impl Transaction<NotPruned> {
     })
   }
 
+  /// Splits this transaction into its pruned and serialized prunable part.
+  pub fn pruned_with_prunable(self) -> (Transaction<Pruned>, Vec<u8>) {
+    let mut buf = Vec::with_capacity(512);
+
+    match self {
+      Transaction::V1 { prefix, signatures } => {
+        for signature in signatures {
+          signature.write(&mut buf).expect("write failed but <Vec as io::Write> doesn't fail");
+        }
+
+        (Transaction::V1 { prefix, signatures: () }, buf)
+      }
+      Transaction::V2 { prefix, proofs } => {
+        match &proofs {
+          None => (),
+          Some(proofs) => proofs.prunable.write(&mut buf, proofs.rct_type()).unwrap(),
+        }
+
+        (
+          Transaction::V2 {
+            prefix,
+            proofs: proofs
+              .map(|proofs| PrunedRctProofs { rct_type: proofs.rct_type(), base: proofs.base }),
+          },
+          buf,
+        )
+      }
+    }
+  }
+
   fn is_rct_bulletproof(&self) -> bool {
     match self {
       Transaction::V1 { .. } => false,
