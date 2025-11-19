@@ -67,8 +67,9 @@ impl<'encoding, 'parent, B: BytesLike<'encoding>> Drop for EpeeEntry<'encoding, 
   #[inline(always)]
   fn drop(&mut self) {
     if let Some(root) = self.root.take() {
-      for _ in 0 .. self.len {
-        root.error = root.error.or_else(|| root.stack.step(&mut root.current_encoding_state).err());
+      while root.error.is_none() && (self.len != 0) {
+        root.error = root.stack.step(&mut root.current_encoding_state).err();
+        self.len -= 1;
       }
     }
   }
@@ -108,7 +109,7 @@ impl<'encoding, B: BytesLike<'encoding>> Epee<'encoding, B> {
   /// state. However, this is not eligible to be called again after consumption. Multiple calls to
   /// this function will cause an error to be returned.
   pub fn entry(&mut self) -> Result<EpeeEntry<'encoding, '_, B>, EpeeError> {
-    if self.stack.depth() != 1 {
+    if (self.stack.depth() != 1) || self.error.is_some() {
       Err(EpeeError::EpeeReuse)?;
     }
     Ok(EpeeEntry { root: Some(self), kind: Type::Object, len: 1 })
@@ -125,11 +126,9 @@ pub struct FieldIterator<'encoding, 'parent, B: BytesLike<'encoding>> {
 impl<'encoding, 'parent, B: BytesLike<'encoding>> Drop for FieldIterator<'encoding, 'parent, B> {
   #[inline(always)]
   fn drop(&mut self) {
-    for _ in 0 .. self.len {
-      self.root.error = self
-        .root
-        .error
-        .or_else(|| self.root.stack.step(&mut self.root.current_encoding_state).err());
+    while self.root.error.is_none() && (self.len != 0) {
+      self.root.error = self.root.stack.step(&mut self.root.current_encoding_state).err();
+      self.len -= 1;
     }
   }
 }
@@ -150,6 +149,10 @@ impl<'encoding, 'parent, B: BytesLike<'encoding>> FieldIterator<'encoding, 'pare
   pub fn next(
     &mut self,
   ) -> Option<Result<(String<'encoding, B>, EpeeEntry<'encoding, '_, B>), EpeeError>> {
+    if let Some(error) = self.root.error {
+      return Some(Err(error));
+    }
+
     self.len = self.len.checked_sub(1)?;
     let (key, kind, len) = match self.root.stack.single_step(&mut self.root.current_encoding_state)
     {
@@ -174,11 +177,9 @@ pub struct ArrayIterator<'encoding, 'parent, B: BytesLike<'encoding>> {
 impl<'encoding, 'parent, B: BytesLike<'encoding>> Drop for ArrayIterator<'encoding, 'parent, B> {
   #[inline(always)]
   fn drop(&mut self) {
-    for _ in 0 .. self.len {
-      self.root.error = self
-        .root
-        .error
-        .or_else(|| self.root.stack.step(&mut self.root.current_encoding_state).err());
+    while self.root.error.is_none() && (self.len != 0) {
+      self.root.error = self.root.stack.step(&mut self.root.current_encoding_state).err();
+      self.len -= 1;
     }
   }
 }
@@ -263,6 +264,9 @@ impl<'encoding, 'parent, B: BytesLike<'encoding>> EpeeEntry<'encoding, 'parent, 
     }
 
     let root = self.root.take().ok_or(EpeeError::InternalError)?;
+    if let Some(error) = root.error {
+      Err(error)?;
+    }
     root.stack.pop();
     root.current_encoding_state.read_into_slice(slice)?;
     Ok(slice)
@@ -339,6 +343,9 @@ impl<'encoding, 'parent, B: BytesLike<'encoding>> EpeeEntry<'encoding, 'parent, 
     }
 
     let root = self.root.take().ok_or(EpeeError::InternalError)?;
+    if let Some(error) = root.error {
+      Err(error)?;
+    }
     root.stack.pop();
     read_str(&mut root.current_encoding_state)
   }
