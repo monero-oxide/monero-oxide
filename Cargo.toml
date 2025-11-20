@@ -7,7 +7,6 @@ members = [
   "monero-oxide/ringct/mlsag",
   "monero-oxide/ringct/clsag",
   "monero-oxide/ringct/borromean",
-  "monero-oxide/ringct/bulletproofs/generators",
   "monero-oxide/ringct/bulletproofs",
   "monero-oxide",
 
@@ -32,18 +31,19 @@ curve25519-dalek = { opt-level = 3 }
 ff = { opt-level = 3 }
 group = { opt-level = 3 }
 
+keccak-const = { opt-level = 3 }
 crypto-bigint = { opt-level = 3 }
 dalek-ff-group = { opt-level = 3 }
 
 multiexp = { opt-level = 3 }
 
 monero-io = { opt-level = 3 }
+monero-ed25519 = { opt-level = 3 }
 monero-primitives = { opt-level = 3 }
 monero-mlsag = { opt-level = 3 }
 monero-clsag = { opt-level = 3 }
 monero-borromean = { opt-level = 3 }
-monero-bulletproofs-generators = { opt-level = 3 }
-monero-bulletproofs = {opt-level = 3 }
+monero-bulletproofs = { opt-level = 3 }
 monero-oxide = { opt-level = 3 }
 
 [profile.release]

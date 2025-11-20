@@ -15,3 +15,5 @@ pub use compressed_point::CompressedPoint;
 
 mod commitment;
 pub use commitment::Commitment;
+
+mod hash_to_point;

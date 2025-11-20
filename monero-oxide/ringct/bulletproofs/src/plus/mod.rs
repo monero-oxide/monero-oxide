@@ -4,8 +4,6 @@ use std_shims::sync::LazyLock;
 
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar, EdwardsPoint};
 
-use monero_bulletproofs_generators::Generators;
-
 pub(crate) use crate::{scalar_vector::ScalarVector, point_vector::PointVector, MONERO_H};
 
 pub(crate) mod transcript;
@@ -34,7 +32,19 @@ pub(crate) struct BpPlusGenerators {
   h_bold: &'static [EdwardsPoint],
 }
 
-include!(concat!(env!("OUT_DIR"), "/generators_plus.rs"));
+#[cfg(feature = "compile-time-generators")]
+#[allow(long_running_const_eval)]
+static BULLETPROOF_PLUS_GENERATORS: (
+  [monero_ed25519::CompressedPoint; crate::MAX_MN],
+  [monero_ed25519::CompressedPoint; crate::MAX_MN],
+) = crate::generators::generate(b"bulletproof_plus");
+#[cfg(feature = "compile-time-generators")]
+pub(crate) static GENERATORS: LazyLock<crate::generators::Generators> =
+  LazyLock::new(|| crate::generators::decompress(BULLETPROOF_PLUS_GENERATORS));
+#[cfg(not(feature = "compile-time-generators"))]
+pub(crate) static GENERATORS: LazyLock<crate::generators::Generators> = LazyLock::new(|| {
+  crate::generators::decompress(crate::generators::generate_alloc(b"bulletproof_plus"))
+});
 
 impl BpPlusGenerators {
   #[allow(clippy::new_without_default)]

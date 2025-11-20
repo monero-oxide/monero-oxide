@@ -1,7 +1,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(any(test, feature = "std")), no_std)]
 #![allow(non_snake_case)]
 
 use std_shims::{
@@ -17,8 +17,10 @@ use curve25519_dalek::EdwardsPoint;
 
 use monero_io::*;
 use monero_ed25519::*;
-pub use monero_bulletproofs_generators::MAX_BULLETPROOF_COMMITMENTS as MAX_COMMITMENTS;
-use monero_bulletproofs_generators::COMMITMENT_BITS;
+pub use crate::generators::MAX_COMMITMENTS;
+use crate::generators::COMMITMENT_BITS;
+
+pub(crate) mod generators;
 
 pub(crate) mod scalar_vector;
 pub(crate) mod point_vector;
@@ -48,6 +50,9 @@ mod tests;
 const LOG_COMMITMENT_BITS: usize = COMMITMENT_BITS.ilog2() as usize;
 // The maximum length of L/R `Vec`s.
 const MAX_LR: usize = (MAX_COMMITMENTS.ilog2() as usize) + LOG_COMMITMENT_BITS;
+
+// The maximum amount of bits used within a single range proof.
+const MAX_MN: usize = MAX_COMMITMENTS * COMMITMENT_BITS;
 
 // A static for `H` as it's frequently used yet this decompression is expensive.
 static MONERO_H: LazyLock<EdwardsPoint> = LazyLock::new(|| {

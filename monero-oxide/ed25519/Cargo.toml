@@ -24,8 +24,9 @@ zeroize = { version = "^1.5", default-features = false, features = ["zeroize_der
 rand_core = { version = "0.6", default-features = false }
 
 sha3 = { version = "0.10", default-features = false }
+keccak-const = { version = "0.2", default-features = false }
 
-crypto-bigint = { version = "0.5", default-features = false }
+crypto-bigint = { version = "0.6", default-features = false }
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc", "zeroize"] }
 
 monero-io = { path = "../io", version = "0.1", default-features = false }

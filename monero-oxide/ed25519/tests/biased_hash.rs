@@ -1,11 +1,13 @@
-use monero_ed25519::Point;
+use monero_ed25519::{Point, CompressedPoint};
 
 mod hex;
 
 #[test]
 fn biased_hash() {
-  let reader = include_str!("./tests.txt");
+  let mut batch = vec![];
+  let mut preimages = vec![];
 
+  let reader = include_str!("./tests.txt");
   for line in reader.lines() {
     let mut words = line.split_whitespace();
 
@@ -17,8 +19,17 @@ fn biased_hash() {
         let actual = Point::biased_hash(preimage);
         let expected = hex::decode(words.next().unwrap());
         assert_eq!(actual.compress().to_bytes(), expected);
+        batch.push(actual.compress());
+        preimages.push(preimage);
       }
       _ => unreachable!("unknown command"),
     }
+  }
+
+  for (actual, constant) in batch
+    .into_iter()
+    .zip(CompressedPoint::biased_hash_vartime::<256, 512>(preimages.try_into().unwrap()))
+  {
+    assert_eq!(actual, constant);
   }
 }

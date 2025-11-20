@@ -215,6 +215,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "crypto-bigint"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96272c2ff28b807e09250b180ad1fb7889a3258f7455759b5c3c58b719467130"
+dependencies = [
+ "num-traits",
+ "subtle",
+]
+
+[[package]]
 name = "crypto-common"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -260,7 +270,7 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f9d720a1cc9388e4bcee44959d0471ec1d578e49b7fffc82d2e5b9a4a5b74cc"
 dependencies = [
- "crypto-bigint",
+ "crypto-bigint 0.5.5",
  "curve25519-dalek",
  "digest",
  "ff",
@@ -278,7 +288,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26103554e8f7857b6015a4a9ef551c6ce0669f6caa040785d4394bf52041ccaf"
 dependencies = [
  "ciphersuite",
- "crypto-bigint",
+ "crypto-bigint 0.5.5",
  "curve25519-dalek",
  "digest",
  "ff",
@@ -381,7 +391,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5e6043086bf7973472e0c7dff2142ea0b680d30e18d9cc40f267efbf222bd47"
 dependencies = [
  "base16ct",
- "crypto-bigint",
+ "crypto-bigint 0.5.5",
  "digest",
  "ff",
  "generic-array 0.14.7",
@@ -706,6 +716,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "keccak-const"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57d8d8ce877200136358e0bbff3a77965875db3af755a11e1fa6b1b3e2df13ea"
+
+[[package]]
 name = "libc"
 version = "0.2.175"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -751,7 +767,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0209ec7c2b5573660a3c5d0f64c90f8ff286171b15ad2234e7a3fbf8f26180be"
 dependencies = [
- "crypto-bigint",
+ "crypto-bigint 0.5.5",
  "ff",
  "generic-array 1.2.0",
  "group",
@@ -847,7 +863,7 @@ version = "0.1.0"
 dependencies = [
  "curve25519-dalek",
  "hex-literal",
- "monero-bulletproofs-generators",
+ "keccak-const",
  "monero-ed25519",
  "monero-io",
  "monero-primitives",
@@ -855,18 +871,6 @@ dependencies = [
  "std-shims",
  "thiserror",
  "zeroize",
-]
-
-[[package]]
-name = "monero-bulletproofs-generators"
-version = "0.1.0"
-dependencies = [
- "curve25519-dalek",
- "hex",
- "monero-ed25519",
- "monero-io",
- "monero-primitives",
- "std-shims",
 ]
 
 [[package]]
@@ -892,8 +896,9 @@ dependencies = [
 name = "monero-ed25519"
 version = "0.1.0"
 dependencies = [
- "crypto-bigint",
+ "crypto-bigint 0.6.1",
  "curve25519-dalek",
+ "keccak-const",
  "monero-io",
  "rand_core",
  "sha3",

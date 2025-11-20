@@ -21,7 +21,7 @@ use crate::Point;
 /// The implementations of `PartialOrd`, `Ord`, and `Hash` are not guaranteed to execute in
 /// variable time.
 #[derive(Clone, Copy, Eq, Debug, Zeroize)]
-pub struct CompressedPoint([u8; 32]);
+pub struct CompressedPoint(pub(crate) [u8; 32]);
 
 impl ConstantTimeEq for CompressedPoint {
   fn ct_eq(&self, other: &Self) -> Choice {
@@ -72,6 +72,17 @@ impl CompressedPoint {
     108, 114,  81, 213,  65,  84, 207, 169,  44,  23,  58,  13, 211, 156,  31, 148,
   ]);
 
+  /// A `const fn` equivalent to `Point::biased_hash` which executes for a batch, in variable time.
+  ///
+  /// This is hidden as it is not part of our API commitment. No guarantees are made for any
+  /// aspects of its safety or behavior.
+  #[doc(hidden)]
+  pub const fn biased_hash_vartime<const N: usize, const TWO_N: usize>(
+    bytes: [[u8; 32]; N],
+  ) -> [Self; N] {
+    crate::hash_to_point::const_map_batch::<N, TWO_N>(bytes)
+  }
+
   /// Read a [`CompressedPoint`] without checking if this point can be decompressed.
   pub fn read<R: Read>(r: &mut R) -> io::Result<CompressedPoint> {
     Ok(CompressedPoint(read_bytes(r)?))
@@ -86,7 +97,7 @@ impl CompressedPoint {
   ///
   /// This does not ensure these bytes represent a point of any validity, with no guarantees on
   /// their contents.
-  pub fn to_bytes(&self) -> [u8; 32] {
+  pub const fn to_bytes(&self) -> [u8; 32] {
     self.0
   }
 
