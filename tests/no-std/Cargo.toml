@@ -18,4 +18,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 workspace = true
 
 [dependencies]
+generalized-bulletproofs = { path = "../../crypto/generalized-bulletproofs", default-features = false }
+
 monero-wallet = { path = "../../monero-oxide/wallet", default-features = false, features = ["compile-time-generators"] }

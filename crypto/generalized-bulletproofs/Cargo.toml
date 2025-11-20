@@ -1,0 +1,44 @@
+[package]
+name = "generalized-bulletproofs"
+version = "0.1.0"
+description = "Generalized Bulletproofs"
+license = "MIT"
+repository = "https://github.com/monero-oxide/monero-oxide/tree/main/crypto/generalized-bulletproofs"
+authors = ["Luke Parker <lukeparker5132@gmail.com>"]
+keywords = ["ciphersuite", "ff", "group"]
+edition = "2021"
+rust-version = "1.66"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.cargo-machete]
+ignored = ["flexible-transcript", "ff"]
+
+[lints]
+workspace = true
+
+[dependencies]
+std-shims = { version = "0.1.4", default-features = false }
+
+rand_core = { version = "0.6", default-features = false }
+
+zeroize = { version = "^1.5", default-features = false, features = ["zeroize_derive"] }
+
+blake2 = { version = "0.10", default-features = false }
+
+multiexp = { version = "0.4.2", default-features = false, features = ["batch"] }
+flexible-transcript = { version = "0.3.4", default-features = false } # Needed minimum version for msrv
+ff = { version = "0.13", default-features = false, features = ["alloc"] } # Needed feature for batch invert
+ciphersuite = { version = "0.4.2", default-features = false, features = ["alloc"] }
+
+[dev-dependencies]
+rand_core = { version = "0.6", features = ["getrandom"] }
+
+ciphersuite = { version = "0.4", features = ["ristretto"] }
+
+[features]
+std = ["std-shims/std", "rand_core/std", "zeroize/std", "blake2/std", "multiexp/std", "flexible-transcript/std", "ciphersuite/std"]
+tests = ["std"]
+default = ["std"]

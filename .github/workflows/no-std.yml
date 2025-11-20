@@ -5,11 +5,13 @@ on:
     branches:
       - main
     paths:
+      - "crypto/**"
       - "monero-oxide/**"
       - "tests/no-std/**"
 
   pull_request:
     paths:
+      - "crypto/**"
       - "monero-oxide/**"
       - "tests/no-std/**"
 

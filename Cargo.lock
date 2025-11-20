@@ -484,6 +484,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "generalized-bulletproofs"
+version = "0.1.0"
+dependencies = [
+ "blake2",
+ "ciphersuite",
+ "ff",
+ "flexible-transcript",
+ "multiexp",
+ "rand_core",
+ "std-shims",
+ "zeroize",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -946,6 +960,7 @@ dependencies = [
 name = "monero-oxide-no-std-tests"
 version = "0.1.0"
 dependencies = [
+ "generalized-bulletproofs",
  "monero-wallet",
 ]
 
@@ -1025,9 +1040,9 @@ dependencies = [
 
 [[package]]
 name = "multiexp"
-version = "0.4.0"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25a383da1ae933078ddb1e4141f1dd617b512b4183779d6977e6451b0e644806"
+checksum = "7ec2ce93a6f06ac6cae04c1da3f2a6a24fcfc1f0eb0b4e0f3d302f0df45326cb"
 dependencies = [
  "ff",
  "group",

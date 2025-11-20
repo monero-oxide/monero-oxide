@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
+  "crypto/generalized-bulletproofs",
+
   "monero-oxide/io",
   "monero-oxide/ed25519",
   "monero-oxide/primitives",
@@ -34,6 +36,8 @@ crypto-bigint = { opt-level = 3 }
 dalek-ff-group = { opt-level = 3 }
 
 multiexp = { opt-level = 3 }
+
+generalized-bulletproofs = { opt-level = 3 }
 
 monero-io = { opt-level = 3 }
 monero-primitives = { opt-level = 3 }

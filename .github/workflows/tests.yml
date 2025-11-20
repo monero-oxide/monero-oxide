@@ -5,10 +5,12 @@ on:
     branches:
       - main
     paths:
+      - "crypto/**"
       - "monero-oxide/**"
 
   pull_request:
     paths:
+      - "crypto/**"
       - "monero-oxide/**"
 
   workflow_dispatch:
