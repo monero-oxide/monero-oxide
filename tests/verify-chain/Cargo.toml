@@ -19,8 +19,6 @@ workspace = true
 [dependencies]
 rand_core = { version = "0.6", default-features = false, features = ["std"] }
 
-curve25519-dalek = { version = "4", default-features = false, features = ["alloc", "zeroize"] }
-
 hex = { version = "0.4", default-features = false, features = ["std"] }
 serde = { version = "1", default-features = false, features = ["derive", "alloc", "std"] }
 serde_json = { version = "1", default-features = false, features = ["alloc", "std"] }

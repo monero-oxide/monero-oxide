@@ -55,4 +55,5 @@ signatures. That means this library cannot spend non-RingCT outputs.
   compile-time so they don't need to be derived at runtime. This is recommended
   if program size doesn't need to be kept minimal.
 - `multisig`: Adds support for creation of transactions using a threshold
-  multisignature wallet.
+  multisignature wallet represented by [`dkg`](https://docs.rs/dkg). This
+  functionality is not covered by SemVer, except along minor versions.

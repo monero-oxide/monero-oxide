@@ -1,7 +1,6 @@
-use curve25519_dalek::edwards::EdwardsPoint;
-
 use crate::{
-  io::{CompressedPoint, write_varint},
+  io::VarInt,
+  ed25519::CompressedPoint,
   extra::{
     ARBITRARY_DATA_MARKER, MAX_TX_EXTRA_PADDING_COUNT, MAX_EXTRA_SIZE_BY_RELAY_RULE, ExtraField,
     Extra,
@@ -62,10 +61,8 @@ const PUB_KEY_BYTES: [u8; 33] = [
   198, 141, 173, 111, 244, 183, 4, 149, 186, 140, 230,
 ];
 
-fn pub_key() -> EdwardsPoint {
-  CompressedPoint(PUB_KEY_BYTES[1 .. PUB_KEY_BYTES.len()].try_into().expect("invalid pub key"))
-    .decompress()
-    .unwrap()
+fn pub_key() -> CompressedPoint {
+  CompressedPoint::from(<[u8; 32]>::try_from(&PUB_KEY_BYTES[1 .. PUB_KEY_BYTES.len()]).unwrap())
 }
 
 fn test_write_buf(extra: &Extra, buf: &[u8]) {
@@ -177,7 +174,7 @@ fn extra_mysterious_minergate_only() {
 #[test]
 fn extra_mysterious_minergate_only_large() {
   let mut buf: Vec<u8> = vec![222];
-  write_varint(&512u64, &mut buf).unwrap();
+  VarInt::write(&512u64, &mut buf).unwrap();
   buf.extend_from_slice(&vec![0; 512]);
   let extra = Extra::read(&mut buf.as_slice()).unwrap();
   assert_eq!(extra.0, vec![ExtraField::MysteriousMinergate(vec![0; 512])]);
@@ -216,8 +213,7 @@ fn fetching_data_does_not_panic() {
 
 #[test]
 fn fetching_long_data_does_not_panic() {
-  use curve25519_dalek::traits::Identity;
-  let mut extra = Extra::new(EdwardsPoint::identity(), vec![]);
+  let mut extra = Extra::new(CompressedPoint::IDENTITY, vec![]);
 
   let mut arb_data = vec![0; 200];
   arb_data[0] = ARBITRARY_DATA_MARKER;

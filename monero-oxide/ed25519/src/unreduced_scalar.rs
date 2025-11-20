@@ -4,21 +4,12 @@ use std_shims::{
   io::{self, *},
 };
 
+use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
-
-use curve25519_dalek::scalar::Scalar;
 
 use monero_io::*;
 
-// Precomputed scalars used to recover an incorrectly reduced scalar.
-static PRECOMPUTED_SCALARS: LazyLock<[Scalar; 8]> = LazyLock::new(|| {
-  let mut precomputed_scalars = [Scalar::ONE; 8];
-  for (i, scalar) in precomputed_scalars.iter_mut().enumerate().skip(1) {
-    *scalar =
-      Scalar::from(u64::try_from((i * 2) + 1).expect("enumerating more than u64::MAX / 2 items"));
-  }
-  precomputed_scalars
-});
+use crate::Scalar;
 
 /// An unreduced scalar.
 ///
@@ -27,24 +18,38 @@ static PRECOMPUTED_SCALARS: LazyLock<[Scalar; 8]> = LazyLock::new(|| {
 /// comes, yet a couple have non-standard reductions performed.
 ///
 /// This struct delays scalar conversions and offers the non-standard reduction.
-#[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
-pub struct UnreducedScalar(pub [u8; 32]);
+#[derive(Clone, Copy, Eq, Debug, Zeroize)]
+pub struct UnreducedScalar([u8; 32]);
+
+impl ConstantTimeEq for UnreducedScalar {
+  fn ct_eq(&self, other: &Self) -> Choice {
+    self.0.ct_eq(&other.0)
+  }
+}
+impl PartialEq for UnreducedScalar {
+  /// This defers to `ConstantTimeEq::ct_eq`.
+  fn eq(&self, other: &Self) -> bool {
+    bool::from(self.ct_eq(other))
+  }
+}
 
 impl UnreducedScalar {
-  /// Write an UnreducedScalar.
-  pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
-    w.write_all(&self.0)
-  }
-
   /// Read an UnreducedScalar.
   pub fn read<R: Read>(r: &mut R) -> io::Result<UnreducedScalar> {
     Ok(UnreducedScalar(read_bytes(r)?))
   }
 
+  /// Write an UnreducedScalar.
+  pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
+    w.write_all(&self.0)
+  }
+
   fn as_bits(&self) -> [u8; 256] {
     let mut bits = [0; 256];
     for (i, bit) in bits.iter_mut().enumerate() {
-      *bit = core::hint::black_box(1 & (self.0[i / 8] >> (i % 8)))
+      // Using `Choice` here takes advantage of `subtle`'s internal `black_box` function, necessary
+      // as our MSRV doesn't allow us to use `core::hint::black_box`
+      *bit = Choice::from(1 & (self.0[i / 8] >> (i % 8))).unwrap_u8();
     }
 
     bits
@@ -119,14 +124,27 @@ impl UnreducedScalar {
   //
   /// This function does not execute in constant time and must only be used with public data.
   pub fn ref10_slide_scalar_vartime(&self) -> Scalar {
+    use curve25519_dalek::Scalar as DScalar;
+
+    /// Precomputed scalars used to recover an incorrectly reduced scalar
+    static PRECOMPUTED_SCALARS: LazyLock<[DScalar; 8]> = LazyLock::new(|| {
+      let mut precomputed_scalars = [DScalar::ONE; 8];
+      for (i, scalar) in precomputed_scalars.iter_mut().enumerate().skip(1) {
+        *scalar = DScalar::from(
+          u64::try_from((i * 2) + 1).expect("enumerating more than u64::MAX / 2 items"),
+        );
+      }
+      precomputed_scalars
+    });
+
     if self.0[31] & 128 == 0 {
       // Computing the w-NAF of a number can only give an output with 1 more bit than
       // the number, so even if the number isn't reduced, the `slide` function will be
       // correct when the last bit isn't set.
-      return Scalar::from_bytes_mod_order(self.0);
+      return Scalar::from(DScalar::from_bytes_mod_order(self.0));
     }
 
-    let mut recovered = Scalar::ZERO;
+    let mut recovered = DScalar::ZERO;
     for &numb in self.non_adjacent_form().iter().rev() {
       recovered += recovered;
       match numb.cmp(&0) {
@@ -140,6 +158,6 @@ impl UnreducedScalar {
         Ordering::Equal => (),
       }
     }
-    recovered
+    Scalar::from(recovered)
   }
 }

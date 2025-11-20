@@ -3,15 +3,15 @@ use std_shims::{vec, vec::Vec};
 use zeroize::Zeroize;
 
 use curve25519_dalek::{Scalar, EdwardsPoint};
-use monero_generators::H;
-use monero_io::{CompressedPoint};
-use monero_primitives::{INV_EIGHT, keccak256_to_scalar};
+use monero_ed25519::CompressedPoint;
 use crate::{
   core::{multiexp_vartime, challenge_products},
   scalar_vector::ScalarVector,
   point_vector::PointVector,
-  BulletproofsBatchVerifier,
+  MONERO_H, BulletproofsBatchVerifier,
 };
+
+const INV_EIGHT: monero_ed25519::Scalar = monero_ed25519::Scalar::INV_EIGHT;
 
 /// An error from proving/verifying Inner-Product statements.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -83,9 +83,9 @@ impl IpStatement {
   // Transcript a round of the protocol
   fn transcript_L_R(transcript: Scalar, L: CompressedPoint, R: CompressedPoint) -> Scalar {
     let mut transcript = transcript.to_bytes().to_vec();
-    transcript.extend_from_slice(L.as_bytes());
-    transcript.extend_from_slice(R.as_bytes());
-    keccak256_to_scalar(transcript)
+    transcript.extend(L.to_bytes());
+    transcript.extend(R.to_bytes());
+    monero_ed25519::Scalar::hash(transcript).into()
   }
 
   /// Prove for this Inner-Product statement.
@@ -103,7 +103,7 @@ impl IpStatement {
 
     let (mut g_bold, mut h_bold, u, mut a, mut b) = {
       let IpStatement { h_bold_weights, u } = self;
-      let u = *H * u;
+      let u = *MONERO_H * u;
 
       // Ensure we have the exact amount of weights
       if h_bold_weights.len() != g_bold_slice.len() {
@@ -159,7 +159,7 @@ impl IpStatement {
         // Uses vartime since this isn't a ZK proof
         multiexp_vartime(&L_terms)
       };
-      L_vec.push(CompressedPoint::from((L * INV_EIGHT()).compress()));
+      L_vec.push(CompressedPoint::from((L * INV_EIGHT.into()).compress().to_bytes()));
 
       let R = {
         let mut R_terms = Vec::with_capacity(1 + (2 * g_bold1.len()));
@@ -172,7 +172,7 @@ impl IpStatement {
         R_terms.push((cr, u));
         multiexp_vartime(&R_terms)
       };
-      R_vec.push(CompressedPoint::from((R * INV_EIGHT()).compress()));
+      R_vec.push(CompressedPoint::from((R * INV_EIGHT.into()).compress().to_bytes()));
 
       // Now that we've calculate L, R, transcript them to receive x (26-27)
       transcript = Self::transcript_L_R(
@@ -277,10 +277,14 @@ impl IpStatement {
       for ((x, x_inv), (L, R)) in x_iter.zip(lr_iter) {
         challenges.push((x, x_inv));
 
-        let L =
-          L.decompress().map(|p| EdwardsPoint::mul_by_cofactor(&p)).ok_or(IpError::InvalidPoint)?;
-        let R =
-          R.decompress().map(|p| EdwardsPoint::mul_by_cofactor(&p)).ok_or(IpError::InvalidPoint)?;
+        let L = L
+          .decompress()
+          .map(|p| EdwardsPoint::mul_by_cofactor(&p.into()))
+          .ok_or(IpError::InvalidPoint)?;
+        let R = R
+          .decompress()
+          .map(|p| EdwardsPoint::mul_by_cofactor(&p.into()))
+          .ok_or(IpError::InvalidPoint)?;
 
         verifier.0.other.push((verifier_weight * (x * x), L));
         verifier.0.other.push((verifier_weight * (x_inv * x_inv), R));

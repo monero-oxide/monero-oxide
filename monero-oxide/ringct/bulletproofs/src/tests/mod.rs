@@ -1,8 +1,6 @@
 use rand_core::{RngCore, OsRng};
 
-use curve25519_dalek::scalar::Scalar;
-
-use monero_primitives::Commitment;
+use monero_ed25519::{Scalar, Commitment};
 use crate::{batch_verifier::BatchVerifier, Bulletproof, BulletproofError};
 
 mod original;
@@ -27,7 +25,7 @@ macro_rules! bulletproofs_tests {
 
         let commitments = commitments
           .iter()
-          .map(Commitment::calculate)
+          .map(Commitment::commit)
           .map(|p| p.compress().into())
           .collect::<Vec<_>>();
         assert!(bp.verify(&mut OsRng, &commitments));

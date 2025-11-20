@@ -5,8 +5,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use curve25519_dalek::{traits::Identity, scalar::Scalar, edwards::EdwardsPoint};
 
-use monero_io::CompressedPoint;
-use monero_primitives::{INV_EIGHT, Commitment, keccak256_to_scalar};
+use monero_ed25519::{Point, CompressedPoint, Commitment};
 
 use crate::{
   batch_verifier::BulletproofsPlusBatchVerifier,
@@ -18,6 +17,8 @@ use crate::{
     padded_pow_of_2, u64_decompose,
   },
 };
+
+const INV_EIGHT: monero_ed25519::Scalar = monero_ed25519::Scalar::INV_EIGHT;
 
 // Figure 3 of the Bulletproofs+ Paper
 #[derive(Clone, Debug)]
@@ -39,7 +40,7 @@ impl AggregateRangeWitness {
   }
 }
 
-/// Internal structure representing a Bulletproof+, as defined by Monero..
+/// Internal structure representing a Bulletproof+, as defined by Monero.
 #[doc(hidden)]
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub struct AggregateRangeProof {
@@ -66,8 +67,8 @@ impl<'a> AggregateRangeStatement<'a> {
   }
 
   fn transcript_A(transcript: &mut Scalar, A: CompressedPoint) -> (Scalar, Scalar) {
-    let y = keccak256_to_scalar([transcript.to_bytes(), A.to_bytes()].concat());
-    let z = keccak256_to_scalar(y.to_bytes());
+    let y = monero_ed25519::Scalar::hash([transcript.to_bytes(), A.to_bytes()].concat()).into();
+    let z = monero_ed25519::Scalar::hash(y.to_bytes()).into();
     *transcript = z;
     (y, z)
   }
@@ -92,7 +93,7 @@ impl<'a> AggregateRangeStatement<'a> {
   ) -> Option<AHatComputation> {
     let (y, z) = Self::transcript_A(transcript, A);
 
-    let A = A.decompress().as_ref().map(EdwardsPoint::mul_by_cofactor)?;
+    let A = A.decompress().map(Point::into).as_ref().map(EdwardsPoint::mul_by_cofactor)?;
 
     while V.len() < padded_pow_of_2(V.len()) {
       V.0.push(EdwardsPoint::identity());
@@ -163,7 +164,7 @@ impl<'a> AggregateRangeStatement<'a> {
       return None;
     }
     for (commitment, witness) in self.V.iter().zip(witness.0.iter()) {
-      if witness.calculate() != *commitment {
+      if witness.commit().into() != *commitment {
         return None;
       }
     }
@@ -176,7 +177,7 @@ impl<'a> AggregateRangeStatement<'a> {
     // Commitments aren't transmitted INV_EIGHT though, so this multiplies by INV_EIGHT to enable
     // clearing its cofactor without mutating the value
     // For some reason, these values are transcripted * INV_EIGHT, not as transmitted
-    let V = V.iter().map(|V| V * INV_EIGHT()).collect::<Vec<_>>();
+    let V = V.iter().map(|V| V * INV_EIGHT.into()).collect::<Vec<_>>();
     let mut transcript = initial_transcript(V.iter());
     let mut V = V.iter().map(EdwardsPoint::mul_by_cofactor).collect::<Vec<_>>();
 
@@ -202,7 +203,7 @@ impl<'a> AggregateRangeStatement<'a> {
 
     let a_r = a_l.clone() - Scalar::ONE;
 
-    let alpha = Scalar::random(&mut *rng);
+    let alpha = monero_ed25519::Scalar::random(&mut *rng).into();
 
     let mut A_terms = Vec::with_capacity((generators.len() * 2) + 1);
     for (i, a_l) in a_l.0.iter().enumerate() {
@@ -216,9 +217,9 @@ impl<'a> AggregateRangeStatement<'a> {
     A_terms.zeroize();
 
     // Multiply by INV_EIGHT per earlier commentary
-    A *= INV_EIGHT();
+    A *= INV_EIGHT.into();
 
-    let A = CompressedPoint::from(A.compress());
+    let A = CompressedPoint::from(A.compress().to_bytes());
 
     let AHatComputation { y, d_descending_y_plus_z, y_mn_plus_one, z, z_pow, A_hat } =
       Self::compute_A_hat(PointVector(V), &generators, &mut transcript, A)
@@ -228,7 +229,7 @@ impl<'a> AggregateRangeStatement<'a> {
     let a_r = a_r + &d_descending_y_plus_z;
     let mut alpha = alpha;
     for j in 1 ..= witness.0.len() {
-      alpha += z_pow[j - 1] * witness.0[j - 1].mask * y_mn_plus_one;
+      alpha += z_pow[j - 1] * witness.0[j - 1].mask.into() * y_mn_plus_one;
     }
 
     Some(AggregateRangeProof {
@@ -254,7 +255,7 @@ impl<'a> AggregateRangeStatement<'a> {
   ) -> bool {
     let Self { generators, V } = self;
 
-    let V = V.iter().map(|V| V * INV_EIGHT()).collect::<Vec<_>>();
+    let V = V.iter().map(|V| V * INV_EIGHT.into()).collect::<Vec<_>>();
     let mut transcript = initial_transcript(V.iter());
     let V = V.iter().map(EdwardsPoint::mul_by_cofactor).collect::<Vec<_>>();
 

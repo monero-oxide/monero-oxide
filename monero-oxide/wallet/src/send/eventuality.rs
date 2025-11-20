@@ -2,8 +2,6 @@ use std_shims::{vec::Vec, io};
 
 use zeroize::Zeroize;
 
-use monero_oxide::io::CompressedPoint;
-
 use crate::{
   ringct::PrunedRctProofs,
   transaction::{Input, Timelock, Pruned, Transaction},
@@ -106,7 +104,7 @@ impl Eventuality {
     if base.commitments !=
       commitments_and_encrypted_amounts
         .iter()
-        .map(|(commitment, _)| CompressedPoint::from(commitment.calculate().compress()))
+        .map(|(commitment, _)| commitment.commit().compress())
         .collect::<Vec<_>>()
     {
       return false;

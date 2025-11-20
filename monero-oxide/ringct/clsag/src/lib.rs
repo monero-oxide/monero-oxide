@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -17,15 +17,21 @@ use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 use subtle::{ConstantTimeEq, ConditionallySelectable};
 
 use curve25519_dalek::{
-  constants::{ED25519_BASEPOINT_TABLE, ED25519_BASEPOINT_POINT},
-  scalar::Scalar,
+  constants::ED25519_BASEPOINT_POINT,
+  scalar::Scalar as DScalar,
   traits::{IsIdentity, MultiscalarMul, VartimePrecomputedMultiscalarMul},
   edwards::{EdwardsPoint, VartimeEdwardsPrecomputation},
 };
+#[cfg(feature = "compile-time-generators")]
+use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
+#[cfg(not(feature = "compile-time-generators"))]
+use curve25519_dalek::constants::ED25519_BASEPOINT_POINT as ED25519_BASEPOINT_TABLE;
 
 use monero_io::*;
-use monero_generators::biased_hash_to_point;
-use monero_primitives::{INV_EIGHT, G_PRECOMP, Commitment, Decoys, keccak256_to_scalar};
+use monero_ed25519::*;
+
+mod decoys;
+pub use decoys::Decoys;
 
 #[cfg(feature = "multisig")]
 mod multisig;
@@ -34,6 +40,22 @@ pub use multisig::{ClsagMultisigMaskSender, ClsagAddendum, ClsagMultisig};
 
 #[cfg(all(feature = "std", test))]
 mod tests;
+
+#[cfg(feature = "std")]
+static G_PRECOMP_CELL: std_shims::sync::LazyLock<VartimeEdwardsPrecomputation> =
+  std_shims::sync::LazyLock::new(|| VartimeEdwardsPrecomputation::new([ED25519_BASEPOINT_POINT]));
+/// A cached (if std) pre-computation of the Ed25519 generator, G.
+#[cfg(feature = "std")]
+#[allow(non_snake_case)]
+fn G_PRECOMP() -> &'static VartimeEdwardsPrecomputation {
+  &G_PRECOMP_CELL
+}
+/// A cached (if std) pre-computation of the Ed25519 generator, G.
+#[cfg(not(feature = "std"))]
+#[allow(non_snake_case)]
+fn G_PRECOMP() -> VartimeEdwardsPrecomputation {
+  VartimeEdwardsPrecomputation::new([ED25519_BASEPOINT_POINT])
+}
 
 /// Errors when working with CLSAGs.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, thiserror::Error)]
@@ -62,7 +84,7 @@ pub enum ClsagError {
 }
 
 /// Context on the input being signed for.
-#[derive(Clone, PartialEq, Eq, Debug, Zeroize, ZeroizeOnDrop)]
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
 pub struct ClsagContext {
   // The opening for the commitment of the signing ring member
   commitment: Commitment,
@@ -78,7 +100,7 @@ impl ClsagContext {
     }
 
     // Validate the commitment matches
-    if decoys.signer_ring_members()[1] != commitment.calculate() {
+    if decoys.signer_ring_members()[1] != commitment.commit() {
       Err(ClsagError::InvalidCommitment)?;
     }
 
@@ -89,28 +111,28 @@ impl ClsagContext {
 #[allow(clippy::large_enum_variant)]
 enum Mode {
   Sign { signer_index: u8, A: EdwardsPoint, AH: EdwardsPoint },
-  Verify { c1: Scalar, D_serialized: CompressedPoint },
+  Verify { c1: DScalar, D_serialized: CompressedPoint },
 }
 
 // Core of the CLSAG algorithm, applicable to both sign and verify with minimal differences
 //
 // Said differences are covered via the above Mode
 fn core(
-  ring: &[[EdwardsPoint; 2]],
+  ring: &[[Point; 2]],
   I: &EdwardsPoint,
   pseudo_out: &EdwardsPoint,
   msg_hash: &[u8; 32],
   D_torsion_free: &EdwardsPoint,
   s: &[Scalar],
   A_c1: &Mode,
-) -> ((EdwardsPoint, Scalar, Scalar), Scalar) {
+) -> ((EdwardsPoint, DScalar, DScalar), DScalar) {
   let n = ring.len();
 
   let images_precomp = match A_c1 {
     Mode::Sign { .. } => None,
     Mode::Verify { .. } => Some(VartimeEdwardsPrecomputation::new([I, D_torsion_free])),
   };
-  let D_inv_eight = D_torsion_free * INV_EIGHT();
+  let D_inv_eight = D_torsion_free * Scalar::INV_EIGHT.into();
 
   // Generate the transcript
   // Instead of generating multiple, a single transcript is created and then edited as needed
@@ -128,13 +150,13 @@ fn core(
 
   let mut P = Vec::with_capacity(n);
   for member in ring {
-    P.push(member[0]);
+    P.push(member[0].into());
     to_hash.extend(member[0].compress().to_bytes());
   }
 
   let mut C = Vec::with_capacity(n);
   for member in ring {
-    C.push(member[1] - pseudo_out);
+    C.push(member[1].into() - pseudo_out);
     to_hash.extend(member[1].compress().to_bytes());
   }
 
@@ -149,10 +171,10 @@ fn core(
   }
   to_hash.extend(pseudo_out.compress().to_bytes());
   // mu_P with agg_0
-  let mu_P = keccak256_to_scalar(&to_hash);
+  let mu_P = Scalar::hash(&to_hash).into();
   // mu_C with agg_1
   to_hash[PREFIX_AGG_0_LEN - 1] = b'1';
-  let mu_C = keccak256_to_scalar(&to_hash);
+  let mu_C = Scalar::hash(&to_hash).into();
 
   // Truncate it for the round transcript, altering the DST as needed
   to_hash.truncate(((2 * n) + 1) * 32);
@@ -175,7 +197,7 @@ fn core(
       end = signer_index + n;
       to_hash.extend(A.compress().to_bytes());
       to_hash.extend(AH.compress().to_bytes());
-      c = keccak256_to_scalar(&to_hash);
+      c = Scalar::hash(&to_hash).into();
     }
 
     Mode::Verify { c1, .. } => {
@@ -193,31 +215,32 @@ fn core(
 
     // (s_i * G) + (c_p * P_i) + (c_c * C_i)
     let L = match A_c1 {
-      Mode::Sign { .. } => {
-        EdwardsPoint::multiscalar_mul([s[i], c_p, c_c], [ED25519_BASEPOINT_POINT, P[i], C[i]])
-      }
+      Mode::Sign { .. } => EdwardsPoint::multiscalar_mul(
+        [s[i].into(), c_p, c_c],
+        [ED25519_BASEPOINT_POINT, P[i], C[i]],
+      ),
       Mode::Verify { .. } => {
-        G_PRECOMP().vartime_mixed_multiscalar_mul([s[i]], [c_p, c_c], [P[i], C[i]])
+        G_PRECOMP().vartime_mixed_multiscalar_mul([s[i].into()], [c_p, c_c], [P[i], C[i]])
       }
     };
 
-    let PH = biased_hash_to_point(P[i].compress().0);
+    let PH = Point::biased_hash(P[i].compress().0).into();
 
     // (c_p * I) + (c_c * D) + (s_i * PH)
     let R = match A_c1 {
       Mode::Sign { .. } => {
-        EdwardsPoint::multiscalar_mul([c_p, c_c, s[i]], [I, D_torsion_free, &PH])
+        EdwardsPoint::multiscalar_mul([c_p, c_c, s[i].into()], [I, D_torsion_free, &PH])
       }
       Mode::Verify { .. } => images_precomp
         .as_ref()
         .expect("value populated when verifying wasn't populated")
-        .vartime_mixed_multiscalar_mul([c_p, c_c], [s[i]], [PH]),
+        .vartime_mixed_multiscalar_mul([c_p, c_c], [s[i].into()], [PH]),
     };
 
     to_hash.truncate(((2 * n) + 3) * 32);
     to_hash.extend(L.compress().to_bytes());
     to_hash.extend(R.compress().to_bytes());
-    c = keccak256_to_scalar(&to_hash);
+    c = Scalar::hash(&to_hash).into();
 
     // This will only execute once and shouldn't need to be constant time. Making it constant time
     // removes the risk of branch prediction creating timing differences depending on ring index
@@ -230,7 +253,7 @@ fn core(
 }
 
 /// The CLSAG signature, as used in Monero.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub struct Clsag {
   /// The difference of the commitment randomnesses, scaling the key image generator.
   pub D: CompressedPoint,
@@ -243,8 +266,8 @@ pub struct Clsag {
 struct ClsagSignCore {
   incomplete_clsag: Clsag,
   pseudo_out: EdwardsPoint,
-  key_challenge: Scalar,
-  challenged_mask: Scalar,
+  key_challenge: DScalar,
+  challenged_mask: DScalar,
 }
 
 impl Clsag {
@@ -254,17 +277,19 @@ impl Clsag {
     rng: &mut R,
     I: &EdwardsPoint,
     input: &ClsagContext,
-    mask: Scalar,
+    mask: DScalar,
     msg_hash: &[u8; 32],
     A: EdwardsPoint,
     AH: EdwardsPoint,
   ) -> ClsagSignCore {
     let signer_index = input.decoys.signer_index();
 
-    let pseudo_out = Commitment::new(mask, input.commitment.amount).calculate();
-    let mask_delta = input.commitment.mask - mask;
+    let pseudo_out = Commitment::new(Scalar::from(mask), input.commitment.amount).commit().into();
+    let mask_delta = input.commitment.mask.into() - mask;
 
-    let H = biased_hash_to_point(input.decoys.ring()[usize::from(signer_index)][0].compress().0);
+    let H =
+      Point::biased_hash(input.decoys.ring()[usize::from(signer_index)][0].compress().to_bytes())
+        .into();
     let D = H * mask_delta;
     let mut s = Vec::with_capacity(input.decoys.ring().len());
     for _ in 0 .. input.decoys.ring().len() {
@@ -281,7 +306,11 @@ impl Clsag {
     );
 
     ClsagSignCore {
-      incomplete_clsag: Clsag { D: CompressedPoint::from(D.compress()), s, c1 },
+      incomplete_clsag: Clsag {
+        D: CompressedPoint::from(D.compress().to_bytes()),
+        s,
+        c1: Scalar::from(c1),
+      },
       pseudo_out,
       key_challenge: c_p,
       challenged_mask: c_c * mask_delta,
@@ -314,36 +343,37 @@ impl Clsag {
     mut inputs: Vec<(Zeroizing<Scalar>, ClsagContext)>,
     sum_outputs: Scalar,
     msg_hash: [u8; 32],
-  ) -> Result<Vec<(Clsag, EdwardsPoint)>, ClsagError> {
+  ) -> Result<Vec<(Clsag, Point)>, ClsagError> {
     // Create the key images
     let mut key_image_generators = vec![];
     let mut key_images = vec![];
     for input in &inputs {
-      let key = input.1.decoys.signer_ring_members()[0];
+      let key = Zeroizing::new((*input.0.deref()).into());
+      let public_key = input.1.decoys.signer_ring_members()[0].into();
 
       // Check the key is consistent
-      if (ED25519_BASEPOINT_TABLE * input.0.deref()) != key {
+      if (ED25519_BASEPOINT_TABLE * key.deref()) != public_key {
         Err(ClsagError::InvalidKey)?;
       }
 
-      let key_image_generator = biased_hash_to_point(key.compress().0);
+      let key_image_generator = Point::biased_hash(public_key.compress().0).into();
       key_image_generators.push(key_image_generator);
-      key_images.push(key_image_generator * input.0.deref());
+      key_images.push(key_image_generator * key.deref());
     }
 
     let mut res = Vec::with_capacity(inputs.len());
-    let mut sum_pseudo_outs = Scalar::ZERO;
+    let mut sum_pseudo_outs = DScalar::ZERO;
     for i in 0 .. inputs.len() {
       let mask;
       // If this is the last input, set the mask as described above
       if i == (inputs.len() - 1) {
-        mask = sum_outputs - sum_pseudo_outs;
+        mask = sum_outputs.into() - sum_pseudo_outs;
       } else {
-        mask = Scalar::random(rng);
+        mask = Scalar::random(rng).into();
         sum_pseudo_outs += mask;
       }
 
-      let mut nonce = Zeroizing::new(Scalar::random(rng));
+      let mut nonce = Zeroizing::new(Scalar::random(rng).into());
       let ClsagSignCore { mut incomplete_clsag, pseudo_out, key_challenge, challenged_mask } =
         Clsag::sign_core(
           rng,
@@ -357,8 +387,11 @@ impl Clsag {
       // Effectively r - c x, except c x is (c_p x) + (c_c z), where z is the delta between the
       // ring member's commitment and our pseudo-out commitment (which will only have a known
       // discrete log over G if the amounts cancel out)
-      incomplete_clsag.s[usize::from(inputs[i].1.decoys.signer_index())] =
-        nonce.deref() - ((key_challenge * inputs[i].0.deref()) + challenged_mask);
+      incomplete_clsag.s[usize::from(inputs[i].1.decoys.signer_index())] = Scalar::from(
+        nonce.deref() -
+          ((key_challenge * Zeroizing::new((*inputs[i].0.deref()).into()).deref()) +
+            challenged_mask),
+      );
       let clsag = incomplete_clsag;
 
       // Zeroize private keys and nonces.
@@ -367,20 +400,14 @@ impl Clsag {
 
       debug_assert!(clsag
         .verify(
-          inputs[i]
-            .1
-            .decoys
-            .ring()
-            .iter()
-            .map(|r| [r[0].compress().into(), r[1].compress().into()])
-            .collect(),
-          &key_images[i].compress().into(),
-          &pseudo_out.compress().into(),
+          inputs[i].1.decoys.ring().iter().map(|r| [r[0].compress(), r[1].compress()]).collect(),
+          &key_images[i].compress().to_bytes().into(),
+          &pseudo_out.compress().to_bytes().into(),
           &msg_hash
         )
         .is_ok());
 
-      res.push((clsag, pseudo_out));
+      res.push((clsag, Point::from(pseudo_out)));
     }
 
     Ok(res)
@@ -408,9 +435,7 @@ impl Clsag {
     }
 
     let I = I.decompress().ok_or(ClsagError::InvalidImage)?;
-    if I.is_identity() || (!I.is_torsion_free()) {
-      Err(ClsagError::InvalidImage)?;
-    }
+    let Some(I) = I.key_image() else { Err(ClsagError::InvalidImage)? };
 
     let Some(pseudo_out) = pseudo_out.decompress() else {
       return Err(ClsagError::InvalidCommitment);
@@ -418,7 +443,7 @@ impl Clsag {
     let Some(D) = self.D.decompress() else {
       return Err(ClsagError::InvalidD);
     };
-    let D_torsion_free = D.mul_by_cofactor();
+    let D_torsion_free = D.into().mul_by_cofactor();
     if D_torsion_free.is_identity() {
       Err(ClsagError::InvalidD)?;
     }
@@ -432,13 +457,13 @@ impl Clsag {
     let (_, c1) = core(
       &ring,
       &I,
-      &pseudo_out,
+      &pseudo_out.into(),
       msg_hash,
       &D_torsion_free,
       &self.s,
-      &Mode::Verify { c1: self.c1, D_serialized: self.D },
+      &Mode::Verify { c1: self.c1.into(), D_serialized: self.D },
     );
-    if c1 != self.c1 {
+    if c1 != self.c1.into() {
       Err(ClsagError::InvalidC1)?;
     }
     Ok(())
@@ -446,16 +471,16 @@ impl Clsag {
 
   /// Write a CLSAG.
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
-    write_raw_vec(write_scalar, &self.s, w)?;
-    w.write_all(&self.c1.to_bytes())?;
+    write_raw_vec(Scalar::write, &self.s, w)?;
+    self.c1.write(w)?;
     self.D.write(w)
   }
 
   /// Read a CLSAG.
   pub fn read<R: Read>(decoys: usize, r: &mut R) -> io::Result<Clsag> {
     Ok(Clsag {
-      s: read_raw_vec(read_scalar, decoys, r)?,
-      c1: read_scalar(r)?,
+      s: read_raw_vec(Scalar::read, decoys, r)?,
+      c1: Scalar::read(r)?,
       D: CompressedPoint::read(r)?,
     })
   }

@@ -2,11 +2,12 @@
 resolver = "2"
 members = [
   "monero-oxide/io",
-  "monero-oxide/generators",
+  "monero-oxide/ed25519",
   "monero-oxide/primitives",
   "monero-oxide/ringct/mlsag",
   "monero-oxide/ringct/clsag",
   "monero-oxide/ringct/borromean",
+  "monero-oxide/ringct/bulletproofs/generators",
   "monero-oxide/ringct/bulletproofs",
   "monero-oxide",
 
@@ -23,8 +24,7 @@ members = [
   "tests/verify-chain",
 ]
 
-# Always compile Monero (and a variety of dependencies) with optimizations due
-# to the extensive operations required for Bulletproofs
+# Always compile Monero (and a variety of dependencies) with optimizations
 [profile.dev.package]
 subtle = { opt-level = 3 }
 curve25519-dalek = { opt-level = 3 }
@@ -38,11 +38,11 @@ dalek-ff-group = { opt-level = 3 }
 multiexp = { opt-level = 3 }
 
 monero-io = { opt-level = 3 }
-monero-generators = { opt-level = 3 }
 monero-primitives = { opt-level = 3 }
 monero-mlsag = { opt-level = 3 }
 monero-clsag = { opt-level = 3 }
 monero-borromean = { opt-level = 3 }
+monero-bulletproofs-generators = { opt-level = 3 }
 monero-bulletproofs = {opt-level = 3 }
 monero-oxide = { opt-level = 3 }
 

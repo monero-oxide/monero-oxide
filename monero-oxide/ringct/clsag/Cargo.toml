@@ -6,7 +6,7 @@ license = "MIT"
 repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/ringct/clsag"
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
 edition = "2021"
-rust-version = "1.66"
+rust-version = "1.65"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -36,8 +36,7 @@ frost = { package = "modular-frost", version = "0.11", default-features = false,
 
 # Other Monero dependencies
 monero-io = { path = "../../io", version = "0.1", default-features = false }
-monero-generators = { path = "../../generators", version = "0.4", default-features = false }
-monero-primitives = { path = "../../primitives", version = "0.1", default-features = false }
+monero-ed25519 = { path = "../../ed25519", version = "0.1", default-features = false }
 
 [dev-dependencies]
 frost = { package = "modular-frost", version = "0.11", default-features = false, features = ["ed25519", "tests"] }
@@ -56,8 +55,8 @@ std = [
   "group?/alloc",
 
   "monero-io/std",
-  "monero-generators/std",
-  "monero-primitives/std",
+  "monero-ed25519/std",
 ]
+compile-time-generators = ["curve25519-dalek/precomputed-tables"]
 multisig = ["rand_chacha", "transcript", "group", "dalek-ff-group", "frost", "std"]
-default = ["std"]
+default = ["std", "compile-time-generators"]

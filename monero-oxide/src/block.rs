@@ -11,9 +11,9 @@ use crate::{
   transaction::{Input, Transaction},
 };
 
-const CORRECT_BLOCK_HASH_202612: [u8; 32] =
+pub(crate) const CORRECT_BLOCK_HASH_202612: [u8; 32] =
   hex_literal::hex!("426d16cff04c71f8b16340b722dc4010a2dd3831c22041431f772547ba6e331a");
-const EXISTING_BLOCK_HASH_202612: [u8; 32] =
+pub(crate) const EXISTING_BLOCK_HASH_202612: [u8; 32] =
   hex_literal::hex!("bbd604d2ba11ba27935e006ed39c9bfdd99b76bf4a50654bc1e1e61217962698");
 
 /// A Monero block's header.
@@ -41,9 +41,9 @@ pub struct BlockHeader {
 impl BlockHeader {
   /// Write the BlockHeader.
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
-    write_varint(&self.hardfork_version, w)?;
-    write_varint(&self.hardfork_signal, w)?;
-    write_varint(&self.timestamp, w)?;
+    VarInt::write(&self.hardfork_version, w)?;
+    VarInt::write(&self.hardfork_signal, w)?;
+    VarInt::write(&self.timestamp, w)?;
     w.write_all(&self.previous)?;
     w.write_all(&self.nonce.to_le_bytes())
   }
@@ -58,9 +58,9 @@ impl BlockHeader {
   /// Read a BlockHeader.
   pub fn read<R: Read>(r: &mut R) -> io::Result<BlockHeader> {
     Ok(BlockHeader {
-      hardfork_version: read_varint(r)?,
-      hardfork_signal: read_varint(r)?,
-      timestamp: read_varint(r)?,
+      hardfork_version: VarInt::read(r)?,
+      hardfork_signal: VarInt::read(r)?,
+      timestamp: VarInt::read(r)?,
       previous: read_bytes(r)?,
       nonce: read_bytes(r).map(u32::from_le_bytes)?,
     })
@@ -146,7 +146,7 @@ impl Block {
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     self.header.write(w)?;
     self.miner_transaction.write(w)?;
-    write_varint(&self.transactions.len(), w)?;
+    VarInt::write(&self.transactions.len(), w)?;
     for tx in &self.transactions {
       w.write_all(tx)?;
     }
@@ -160,10 +160,13 @@ impl Block {
     serialized
   }
 
-  /// Serialize the block as required for the proof of work hash.
+  /// Serialize the block as generally required for the proof of work hash.
   ///
   /// This is distinct from the serialization required for the block hash. To get the block hash,
   /// use the [`Block::hash`] function.
+  ///
+  /// Please note that for block #202,612, regardless of the network, the proof of work hash will
+  /// be fixed to a specific value and this preimage will be irrelevant.
   pub fn serialize_pow_hash(&self) -> Vec<u8> {
     let mut blob = self.header.serialize();
 
@@ -175,7 +178,7 @@ impl Block {
       &merkle_root(transactions)
         .expect("the tree will not be empty, the miner tx is always present"),
     );
-    write_varint(&(1 + self.transactions.len()), &mut blob)
+    VarInt::write(&(1 + self.transactions.len()), &mut blob)
       .expect("write failed but <Vec as io::Write> doesn't fail");
     blob
   }
@@ -183,10 +186,10 @@ impl Block {
   /// Get the hash of this block.
   pub fn hash(&self) -> [u8; 32] {
     let mut hashable = self.serialize_pow_hash();
-    // Monero pre-appends a VarInt of the block-to-hash'ss length before getting the block hash,
+    // Monero pre-appends a VarInt of the block-to-hash's length before getting the block hash,
     // but doesn't do this when getting the proof of work hash :)
-    let mut hashing_blob = Vec::with_capacity(9 + hashable.len());
-    write_varint(
+    let mut hashing_blob = Vec::with_capacity(<usize as VarInt>::UPPER_BOUND + hashable.len());
+    VarInt::write(
       &u64::try_from(hashable.len()).expect("length of block hash's preimage exceeded u64::MAX"),
       &mut hashing_blob,
     )
@@ -194,6 +197,8 @@ impl Block {
     hashing_blob.append(&mut hashable);
 
     let hash = keccak256(hashing_blob);
+    // https://github.com/monero-project/monero/blob/8e9ab9677f90492bca3c7555a246f2a8677bd570
+    //   /src/cryptonote_basic/cryptonote_format_utils.cpp#L1468-L1477
     if hash == CORRECT_BLOCK_HASH_202612 {
       return EXISTING_BLOCK_HASH_202612;
     };
@@ -210,7 +215,7 @@ impl Block {
 
     let miner_transaction = Transaction::read(r)?;
 
-    let transactions: usize = read_varint(r)?;
+    let transactions: usize = VarInt::read(r)?;
     if transactions >= Self::MAX_TRANSACTIONS {
       Err(io::Error::other("amount of transaction exceeds limit"))?;
     }

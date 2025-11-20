@@ -1,9 +1,7 @@
-use curve25519_dalek::{EdwardsPoint, scalar::Scalar};
-
 use serde_json::Value;
 
 use crate::{
-  io::CompressedPoint,
+  ed25519::{Scalar, CompressedPoint},
   ringct::RctPrunable,
   transaction::{NotPruned, Transaction, Timelock, Input},
 };
@@ -25,16 +23,11 @@ fn tx_vectors() -> Vec<Vector> {
 }
 
 fn compressed_point(hex: &Value) -> CompressedPoint {
-  CompressedPoint(hex::decode(hex.as_str().unwrap()).unwrap().try_into().unwrap())
-}
-
-fn point(hex: &Value) -> EdwardsPoint {
-  compressed_point(hex).decompress().unwrap()
+  CompressedPoint::from(<[u8; 32]>::try_from(hex::decode(hex.as_str().unwrap()).unwrap()).unwrap())
 }
 
 fn scalar(hex: &Value) -> Scalar {
-  Scalar::from_canonical_bytes(hex::decode(hex.as_str().unwrap()).unwrap().try_into().unwrap())
-    .unwrap()
+  Scalar::read(&mut hex::decode(hex.as_str().unwrap()).unwrap().as_slice()).unwrap()
 }
 
 fn compressed_point_vector(val: &Value) -> Vec<CompressedPoint> {
@@ -90,13 +83,13 @@ fn parse() {
     for (i, output) in tx.prefix().outputs.iter().enumerate() {
       assert_eq!(output.amount.unwrap_or(0), outputs[i]["amount"]);
       if output.view_tag.is_some() {
-        assert_eq!(output.key, point(&outputs[i]["target"]["tagged_key"]["key"]).compress().into());
+        assert_eq!(output.key, compressed_point(&outputs[i]["target"]["tagged_key"]["key"]));
         let view_tag =
           hex::decode(outputs[i]["target"]["tagged_key"]["view_tag"].as_str().unwrap()).unwrap();
         assert_eq!(view_tag.len(), 1);
         assert_eq!(output.view_tag.unwrap(), view_tag[0]);
       } else {
-        assert_eq!(output.key, point(&outputs[i]["target"]["key"]).compress().into());
+        assert_eq!(output.key, compressed_point(&outputs[i]["target"]["key"]));
       }
     }
 
@@ -111,10 +104,10 @@ fn parse() {
           let tx_sig = hex::decode(sigs_array[i].as_str().unwrap()).unwrap();
           for (i, sig) in sig.sigs.iter().enumerate() {
             let start = i * 64;
-            let c: [u8; 32] = tx_sig[start .. (start + 32)].try_into().unwrap();
-            let s: [u8; 32] = tx_sig[(start + 32) .. (start + 64)].try_into().unwrap();
-            assert_eq!(sig.c, Scalar::from_canonical_bytes(c).unwrap());
-            assert_eq!(sig.s, Scalar::from_canonical_bytes(s).unwrap());
+            let mut c = &tx_sig[start .. (start + 32)];
+            let mut s = &tx_sig[(start + 32) .. (start + 64)];
+            assert_eq!(sig.c, Scalar::read(&mut c).unwrap());
+            assert_eq!(sig.s, Scalar::read(&mut s).unwrap());
           }
         }
       }
@@ -291,5 +284,17 @@ fn clsag() {
     },
     // TODO: Add
     _ => panic!("non-CLSAG test vector"),
+  }
+}
+
+#[test]
+fn pruned_with_prunable() {
+  for tx in tx_vectors() {
+    let tx_bytes = hex::decode(tx.hex.clone()).unwrap();
+    let tx = Transaction::read(&mut tx_bytes.as_slice()).unwrap();
+
+    let (pruned, prunable) = tx.pruned_with_prunable();
+
+    assert_eq!([pruned.serialize(), prunable].concat(), tx_bytes);
   }
 }

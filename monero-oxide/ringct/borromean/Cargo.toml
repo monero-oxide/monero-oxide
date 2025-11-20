@@ -6,7 +6,7 @@ license = "MIT"
 repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/ringct/borromean"
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
 edition = "2021"
-rust-version = "1.66"
+rust-version = "1.65"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -18,15 +18,14 @@ workspace = true
 [dependencies]
 std-shims = { version = "0.1.5", default-features = false }
 
-zeroize = { version = "^1.5", default-features = false, features = ["zeroize_derive"] }
+zeroize = { version = "^1.5", default-features = false, features = ["zeroize_derive", "alloc"] }
 
 # Cryptographic dependencies
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc", "zeroize"] }
 
 # Other Monero dependencies
 monero-io = { path = "../../io", version = "0.1", default-features = false }
-monero-generators = { path = "../../generators", version = "0.4", default-features = false }
-monero-primitives = { path = "../../primitives", version = "0.1", default-features = false }
+monero-ed25519 = { path = "../../ed25519", version = "0.1", default-features = false }
 
 [features]
 std = [
@@ -35,7 +34,6 @@ std = [
   "zeroize/std",
 
   "monero-io/std",
-  "monero-generators/std",
-  "monero-primitives/std",
+  "monero-ed25519/std",
 ]
 default = ["std"]

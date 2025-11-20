@@ -5,12 +5,11 @@ use std_shims::{
 };
 
 use zeroize::{Zeroize, ZeroizeOnDrop};
-
-use curve25519_dalek::{Scalar, edwards::EdwardsPoint};
+use subtle::{Choice, ConstantTimeEq};
 
 use crate::{
   io::*,
-  primitives::Commitment,
+  ed25519::{Scalar, CompressedPoint, Point, Commitment},
   transaction::Timelock,
   address::SubaddressIndex,
   extra::{MAX_ARBITRARY_DATA_SIZE, MAX_EXTRA_SIZE_BY_RELAY_RULE, PaymentId},
@@ -19,7 +18,7 @@ use crate::{
 /// An absolute output ID, defined as its transaction hash and output index.
 ///
 /// This is not the output's key as multiple outputs may share an output key.
-#[derive(Clone, PartialEq, Eq, Zeroize, ZeroizeOnDrop)]
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
 pub(crate) struct AbsoluteId {
   pub(crate) transaction: [u8; 32],
   pub(crate) index_in_transaction: u64,
@@ -36,6 +35,12 @@ impl core::fmt::Debug for AbsoluteId {
 }
 
 impl AbsoluteId {
+  /// A constant-time `eq`, albeit one not exposed via `ConstantTimeEq`.
+  fn ct_eq(&self, other: &Self) -> Choice {
+    self.transaction.ct_eq(&other.transaction) &
+      self.index_in_transaction.ct_eq(&other.index_in_transaction)
+  }
+
   /// Write the AbsoluteId.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
@@ -57,7 +62,7 @@ impl AbsoluteId {
 /// An output's relative ID.
 ///
 /// This is defined as the output's index on the blockchain.
-#[derive(Clone, PartialEq, Eq, Zeroize, ZeroizeOnDrop)]
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
 pub(crate) struct RelativeId {
   pub(crate) index_on_blockchain: u64,
 }
@@ -69,6 +74,11 @@ impl core::fmt::Debug for RelativeId {
 }
 
 impl RelativeId {
+  /// A constant-time `eq`, albeit one not exposed via `ConstantTimeEq`.
+  fn ct_eq(&self, other: &Self) -> Choice {
+    self.index_on_blockchain.ct_eq(&other.index_on_blockchain)
+  }
+
   /// Write the RelativeId.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
@@ -87,9 +97,9 @@ impl RelativeId {
 }
 
 /// The data within an output, as necessary to spend the output.
-#[derive(Clone, PartialEq, Eq, Zeroize, ZeroizeOnDrop)]
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
 pub(crate) struct OutputData {
-  pub(crate) key: EdwardsPoint,
+  pub(crate) key: Point,
   pub(crate) key_offset: Scalar,
   pub(crate) commitment: Commitment,
 }
@@ -98,15 +108,22 @@ impl core::fmt::Debug for OutputData {
   fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
     fmt
       .debug_struct("OutputData")
-      .field("key", &hex::encode(self.key.compress().0))
+      .field("key", &hex::encode(self.key.compress().to_bytes()))
       .field("commitment", &self.commitment)
       .finish_non_exhaustive()
   }
 }
 
 impl OutputData {
+  /// A constant-time `eq`, albeit one not exposed via `ConstantTimeEq`.
+  pub(crate) fn ct_eq(&self, other: &Self) -> Choice {
+    self.key.ct_eq(&other.key) &
+      self.key_offset.ct_eq(&other.key_offset) &
+      self.commitment.ct_eq(&other.commitment)
+  }
+
   /// The key this output may be spent by.
-  pub(crate) fn key(&self) -> EdwardsPoint {
+  pub(crate) fn key(&self) -> Point {
     self.key
   }
 
@@ -127,7 +144,7 @@ impl OutputData {
   /// defined serialization.
   pub(crate) fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     w.write_all(&self.key.compress().to_bytes())?;
-    w.write_all(&self.key_offset.to_bytes())?;
+    self.key_offset.write(w)?;
     self.commitment.write(w)
   }
 
@@ -146,15 +163,17 @@ impl OutputData {
   /// defined serialization.
   pub(crate) fn read<R: Read>(r: &mut R) -> io::Result<OutputData> {
     Ok(OutputData {
-      key: read_point(r)?,
-      key_offset: read_scalar(r)?,
+      key: CompressedPoint::read(r)?
+        .decompress()
+        .ok_or_else(|| io::Error::other("output data included an invalid key"))?,
+      key_offset: Scalar::read(r)?,
       commitment: Commitment::read(r)?,
     })
   }
 }
 
 /// The metadata for an output.
-#[derive(Clone, PartialEq, Eq, Zeroize, ZeroizeOnDrop)]
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
 pub(crate) struct Metadata {
   pub(crate) additional_timelock: Timelock,
   pub(crate) subaddress: Option<SubaddressIndex>,
@@ -175,6 +194,13 @@ impl core::fmt::Debug for Metadata {
 }
 
 impl Metadata {
+  fn eq(&self, other: &Self) -> bool {
+    (self.additional_timelock == other.additional_timelock) &&
+      (self.subaddress == other.subaddress) &&
+      (self.payment_id == other.payment_id) &&
+      (self.arbitrary_data == other.arbitrary_data)
+  }
+
   /// Write the Metadata.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
@@ -197,11 +223,9 @@ impl Metadata {
       w.write_all(&[0])?;
     }
 
-    write_varint(&self.arbitrary_data.len(), w)?;
+    VarInt::write(&self.arbitrary_data.len(), w)?;
     for part in &self.arbitrary_data {
-      // TODO: Define our own collection whose `len` function returns `u8` to ensure this bound
-      // with types
-      const _ASSERT_MAX_ARB_DATA_SIZE_FITS_WITHIN_U8: [();
+      const _ASSERT_MAX_ARBITRARY_DATA_SIZE_FITS_WITHIN_U8: [();
         (u8::MAX as usize) - MAX_ARBITRARY_DATA_SIZE] = [(); _];
       w.write_all(&[
         u8::try_from(part.len()).expect("piece of arbitrary data exceeded max length of u8::MAX")
@@ -236,12 +260,20 @@ impl Metadata {
         only checks the arbitrary data, raw, will fit in an extra, with no other structure/fields.
       */
       arbitrary_data: {
+        let chunks = <usize as VarInt>::read(r)?;
+        // Each chunk will use at least one byte to be declared
+        if chunks > MAX_EXTRA_SIZE_BY_RELAY_RULE {
+          Err(io::Error::other(
+            "amount of arbitrary data chunks exceeded amount possible under policy",
+          ))?;
+        }
+
         let mut data = vec![];
         let mut total_len = 0usize;
-        for _ in 0 .. read_varint::<_, usize>(r)? {
+        for _ in 0 .. chunks {
           let len = read_byte(r)?;
           let chunk = read_raw_vec(read_byte, usize::from(len), r)?;
-          total_len = total_len.wrapping_add(chunk.len());
+          total_len = total_len.saturating_add(chunk.len());
           if total_len > MAX_EXTRA_SIZE_BY_RELAY_RULE {
             Err(io::Error::other("amount of arbitrary data exceeded amount allowed by policy"))?;
           }
@@ -260,7 +292,7 @@ impl Metadata {
 /// This struct is bound to a specific instance of the blockchain. If the blockchain reorganizes
 /// the block this struct is bound to, it MUST be discarded. If any outputs are mutual to both
 /// blockchains, scanning the new blockchain will yield those outputs again.
-#[derive(Clone, PartialEq, Eq, Debug, Zeroize, ZeroizeOnDrop)]
+#[derive(Clone, Debug, Zeroize, ZeroizeOnDrop)]
 pub struct WalletOutput {
   /// The absolute ID for this transaction.
   pub(crate) absolute_id: AbsoluteId,
@@ -271,6 +303,18 @@ pub struct WalletOutput {
   /// Associated metadata relevant for handling it as a payment.
   pub(crate) metadata: Metadata,
 }
+
+impl PartialEq for WalletOutput {
+  /// This equality evaluates the entire object, not just the ID.
+  fn eq(&self, other: &Self) -> bool {
+    bool::from(
+      self.absolute_id.ct_eq(&other.absolute_id) &
+        self.relative_id.ct_eq(&other.relative_id) &
+        self.data.ct_eq(&other.data),
+    ) & self.metadata.eq(&other.metadata)
+  }
+}
+impl Eq for WalletOutput {}
 
 impl WalletOutput {
   /// The hash of the transaction which created this output.
@@ -289,7 +333,7 @@ impl WalletOutput {
   }
 
   /// The key this output may be spent by.
-  pub fn key(&self) -> EdwardsPoint {
+  pub fn key(&self) -> Point {
     self.data.key()
   }
 

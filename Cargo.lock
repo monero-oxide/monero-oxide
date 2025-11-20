@@ -210,7 +210,6 @@ checksum = "0dc92fb57ca44df6db8059111ab3af99a63d5d0f8375d9972e319a379c6bab76"
 dependencies = [
  "generic-array 0.14.7",
  "rand_core",
- "serdect",
  "subtle",
  "zeroize",
 ]
@@ -809,11 +808,12 @@ dependencies = [
 name = "monero-address"
 version = "0.1.0"
 dependencies = [
- "curve25519-dalek",
  "hex",
  "hex-literal",
  "monero-base58",
+ "monero-ed25519",
  "monero-io",
+ "monero-primitives",
  "rand_core",
  "serde",
  "serde_json",
@@ -835,9 +835,8 @@ name = "monero-borromean"
 version = "0.1.0"
 dependencies = [
  "curve25519-dalek",
- "monero-generators",
+ "monero-ed25519",
  "monero-io",
- "monero-primitives",
  "std-shims",
  "zeroize",
 ]
@@ -848,13 +847,26 @@ version = "0.1.0"
 dependencies = [
  "curve25519-dalek",
  "hex-literal",
- "monero-generators",
+ "monero-bulletproofs-generators",
+ "monero-ed25519",
  "monero-io",
  "monero-primitives",
  "rand_core",
  "std-shims",
  "thiserror",
  "zeroize",
+]
+
+[[package]]
+name = "monero-bulletproofs-generators"
+version = "0.1.0"
+dependencies = [
+ "curve25519-dalek",
+ "hex",
+ "monero-ed25519",
+ "monero-io",
+ "monero-primitives",
+ "std-shims",
 ]
 
 [[package]]
@@ -866,9 +878,8 @@ dependencies = [
  "flexible-transcript",
  "group",
  "modular-frost",
- "monero-generators",
+ "monero-ed25519",
  "monero-io",
- "monero-primitives",
  "rand_chacha",
  "rand_core",
  "std-shims",
@@ -878,31 +889,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "monero-epee"
-version = "0.2.0"
-
-[[package]]
-name = "monero-generators"
-version = "0.4.0"
+name = "monero-ed25519"
+version = "0.1.0"
 dependencies = [
  "crypto-bigint",
  "curve25519-dalek",
- "dalek-ff-group 0.5.0",
- "group",
- "hex",
  "monero-io",
+ "rand_core",
  "sha3",
  "std-shims",
  "subtle",
+ "zeroize",
 ]
 
 [[package]]
 name = "monero-io"
 version = "0.1.0"
 dependencies = [
- "curve25519-dalek",
  "std-shims",
- "zeroize",
 ]
 
 [[package]]
@@ -910,9 +914,8 @@ name = "monero-mlsag"
 version = "0.1.0"
 dependencies = [
  "curve25519-dalek",
- "monero-generators",
+ "monero-ed25519",
  "monero-io",
- "monero-primitives",
  "std-shims",
  "thiserror",
  "zeroize",
@@ -928,10 +931,11 @@ dependencies = [
  "monero-borromean",
  "monero-bulletproofs",
  "monero-clsag",
- "monero-generators",
+ "monero-ed25519",
  "monero-io",
  "monero-mlsag",
  "monero-primitives",
+ "rand_core",
  "serde",
  "serde_json",
  "std-shims",
@@ -942,7 +946,6 @@ dependencies = [
 name = "monero-oxide-no-std-tests"
 version = "0.1.0"
 dependencies = [
- "monero-epee",
  "monero-wallet",
 ]
 
@@ -950,7 +953,6 @@ dependencies = [
 name = "monero-oxide-verify-chain"
 version = "0.1.0"
 dependencies = [
- "curve25519-dalek",
  "hex",
  "monero-oxide",
  "monero-rpc",
@@ -965,20 +967,13 @@ dependencies = [
 name = "monero-primitives"
 version = "0.1.0"
 dependencies = [
- "curve25519-dalek",
- "hex",
- "monero-generators",
- "monero-io",
  "sha3",
- "std-shims",
- "zeroize",
 ]
 
 [[package]]
 name = "monero-rpc"
 version = "0.1.0"
 dependencies = [
- "curve25519-dalek",
  "hex",
  "monero-address",
  "monero-oxide",
@@ -1022,6 +1017,7 @@ dependencies = [
  "serde",
  "serde_json",
  "std-shims",
+ "subtle",
  "thiserror",
  "tokio",
  "zeroize",
@@ -1378,16 +1374,6 @@ dependencies = [
  "itoa",
  "memchr",
  "ryu",
- "serde",
-]
-
-[[package]]
-name = "serdect"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a84f14a19e9a014bb9f4512488d9829a68e04ecabffb0f9904cd1ace94598177"
-dependencies = [
- "base16ct",
  "serde",
 ]
 

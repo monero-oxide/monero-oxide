@@ -1,19 +1,15 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::ops::Deref;
 use std_shims::vec::Vec;
 
 use zeroize::{Zeroize, Zeroizing};
 
-use curve25519_dalek::{Scalar, EdwardsPoint};
-
 use monero_oxide::{
-  io::write_varint,
-  primitives::{Commitment, keccak256, keccak256_to_scalar},
-  ringct::EncryptedAmount,
-  transaction::Input,
+  io::VarInt, ed25519::*, primitives::keccak256, ringct::EncryptedAmount, transaction::Input,
 };
 
 pub use monero_oxide::*;
@@ -61,7 +57,7 @@ impl SharedKeyDerivations {
         // If Gen, this should be the only input, making this loop somewhat pointless
         // This works and even if there were somehow multiple inputs, it'd be a false negative
         Input::Gen(height) => {
-          write_varint(height, &mut u).expect("write failed but <Vec as io::Write> doesn't fail");
+          VarInt::write(height, &mut u).expect("write failed but <Vec as io::Write> doesn't fail");
         }
         Input::ToKey { key_image, .. } => u.extend(key_image.to_bytes()),
       }
@@ -72,18 +68,19 @@ impl SharedKeyDerivations {
   #[allow(clippy::needless_pass_by_value)]
   fn output_derivations(
     uniqueness: Option<[u8; 32]>,
-    ecdh: Zeroizing<EdwardsPoint>,
+    ecdh: Zeroizing<Point>,
     o: usize,
   ) -> Zeroizing<SharedKeyDerivations> {
     // 8Ra
     let mut output_derivation = Zeroizing::new(
-      Zeroizing::new(Zeroizing::new(ecdh.mul_by_cofactor()).compress().to_bytes()).to_vec(),
+      Zeroizing::new(Zeroizing::new((*ecdh).into().mul_by_cofactor()).compress().to_bytes())
+        .to_vec(),
     );
 
     // || o
     {
       let output_derivation: &mut Vec<u8> = output_derivation.as_mut();
-      write_varint(&o, output_derivation)
+      VarInt::write(&o, output_derivation)
         .expect("write failed but <Vec as io::Write> doesn't fail");
     }
 
@@ -96,18 +93,16 @@ impl SharedKeyDerivations {
       output_derivation
     };
 
-    Zeroizing::new(SharedKeyDerivations {
-      view_tag,
-      shared_key: keccak256_to_scalar(&output_derivation),
-    })
+    Zeroizing::new(SharedKeyDerivations { view_tag, shared_key: Scalar::hash(&output_derivation) })
   }
 
   // H(8Ra || 0x8d)
   #[allow(clippy::needless_pass_by_value)]
-  fn payment_id_xor(ecdh: Zeroizing<EdwardsPoint>) -> [u8; 8] {
+  fn payment_id_xor(ecdh: Zeroizing<Point>) -> [u8; 8] {
     // 8Ra
     let output_derivation = Zeroizing::new(
-      Zeroizing::new(Zeroizing::new(ecdh.mul_by_cofactor()).compress().to_bytes()).to_vec(),
+      Zeroizing::new(Zeroizing::new((*ecdh).into().mul_by_cofactor()).compress().to_bytes())
+        .to_vec(),
     );
 
     let mut payment_id_xor = [0; 8];
@@ -118,15 +113,15 @@ impl SharedKeyDerivations {
 
   fn commitment_mask(&self) -> Scalar {
     let mut mask = b"commitment_mask".to_vec();
-    mask.extend(self.shared_key.as_bytes());
-    let res = keccak256_to_scalar(&mask);
+    mask.extend(&<[u8; 32]>::from(self.shared_key));
+    let res = Scalar::hash(&mask);
     mask.zeroize();
     res
   }
 
   fn compact_amount_encryption(&self, amount: u64) -> [u8; 8] {
     let mut amount_mask = Zeroizing::new(b"amount".to_vec());
-    amount_mask.extend(self.shared_key.to_bytes());
+    amount_mask.extend(<[u8; 32]>::from(self.shared_key));
     let mut amount_mask = keccak256(&amount_mask);
 
     let mut amount_mask_8 = [0; 8];
@@ -139,20 +134,26 @@ impl SharedKeyDerivations {
   fn decrypt(&self, enc_amount: &EncryptedAmount) -> Commitment {
     match enc_amount {
       EncryptedAmount::Original { mask, amount } => {
-        let mask_shared_sec_scalar = keccak256_to_scalar(self.shared_key.as_bytes());
-        let amount_shared_sec_scalar = keccak256_to_scalar(mask_shared_sec_scalar.as_bytes());
+        let mask_shared_sec_scalar =
+          Zeroizing::new(Scalar::hash(Zeroizing::new(<[u8; 32]>::from(self.shared_key))));
+        let amount_shared_sec_scalar =
+          Zeroizing::new(Scalar::hash(<[u8; 32]>::from(*mask_shared_sec_scalar)));
 
-        let mask = Scalar::from_bytes_mod_order(*mask) - mask_shared_sec_scalar;
-        let amount_scalar = Scalar::from_bytes_mod_order(*amount) - amount_shared_sec_scalar;
+        let mask =
+          curve25519_dalek::Scalar::from_bytes_mod_order(*mask) - (*mask_shared_sec_scalar).into();
+        let amount_scalar = Zeroizing::new(
+          curve25519_dalek::Scalar::from_bytes_mod_order(*amount) -
+            (*amount_shared_sec_scalar).into(),
+        );
 
         // d2b from rctTypes.cpp
         let amount = u64::from_le_bytes(
-          amount_scalar.to_bytes()[.. 8]
+          Zeroizing::new(amount_scalar.to_bytes()).deref()[.. 8]
             .try_into()
             .expect("32-byte array couldn't have an 8-byte slice taken"),
         );
 
-        Commitment::new(mask, amount)
+        Commitment::new(Scalar::from(mask), amount)
       }
       EncryptedAmount::Compact { amount } => Commitment::new(
         self.commitment_mask(),

@@ -1,8 +1,7 @@
-# Monero Generators
+# Monero Bulletproofs(+) Generators
 
-Generators used by Monero in both its Pedersen commitments and Bulletproofs(+).
-An implementation of Monero's `hash_to_ec` is included, as needed to generate
-the generators.
+Generators used by Monero to instantiate Bulletproofs(+). This is an internal
+crate not covered by semver or any guarantees, with no public API.
 
 This library is usable under no-std when the `std` feature (on by default) is
 disabled.

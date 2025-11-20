@@ -3,16 +3,15 @@ use core::ops::Deref;
 use zeroize::Zeroizing;
 use rand_core::{RngCore, OsRng};
 
-use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE, scalar::Scalar};
+use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
 
 #[cfg(feature = "multisig")]
 use transcript::{Transcript, RecommendedTranscript};
 #[cfg(feature = "multisig")]
 use frost::curve::Ed25519;
 
-use monero_generators::biased_hash_to_point;
-use monero_primitives::{Commitment, Decoys};
-use crate::{ClsagContext, Clsag};
+use monero_ed25519::{Scalar, CompressedPoint, Point, Commitment};
+use crate::{Decoys, ClsagContext, Clsag};
 #[cfg(feature = "multisig")]
 use crate::ClsagMultisig;
 
@@ -34,11 +33,11 @@ fn clsag() {
   for real in 0 .. RING_LEN {
     let msg_hash = [1; 32];
 
-    let mut secrets = (Zeroizing::new(Scalar::ZERO), Scalar::ZERO);
+    let mut secrets = (Zeroizing::new(Scalar::ZERO.into()), Scalar::ZERO.into());
     let mut ring = vec![];
     for i in 0 .. RING_LEN {
-      let dest = Zeroizing::new(Scalar::random(&mut OsRng));
-      let mask = Scalar::random(&mut OsRng);
+      let dest = Zeroizing::new(Scalar::random(&mut OsRng).into());
+      let mask = Scalar::random(&mut OsRng).into();
       let amount;
       if i == real {
         secrets = (dest.clone(), mask);
@@ -46,18 +45,22 @@ fn clsag() {
       } else {
         amount = OsRng.next_u64();
       }
-      ring
-        .push([dest.deref() * ED25519_BASEPOINT_TABLE, Commitment::new(mask, amount).calculate()]);
+      ring.push([
+        CompressedPoint::from((dest.deref() * ED25519_BASEPOINT_TABLE).compress().to_bytes())
+          .decompress()
+          .unwrap(),
+        Commitment::new(Scalar::from(mask), amount).commit(),
+      ]);
     }
 
     let (clsag, pseudo_out) = Clsag::sign(
       &mut OsRng,
       vec![(
-        secrets.0.clone(),
+        Zeroizing::new(Scalar::from(*secrets.0.clone())),
         ClsagContext::new(
           Decoys::new((1 ..= RING_LEN).collect(), u8::try_from(real).unwrap(), ring.clone())
             .unwrap(),
-          Commitment::new(secrets.1, AMOUNT),
+          Commitment::new(Scalar::from(secrets.1), AMOUNT),
         )
         .unwrap(),
       )],
@@ -67,15 +70,16 @@ fn clsag() {
     .unwrap()
     .swap_remove(0);
 
-    let pseudo_out = pseudo_out.compress().into();
+    let pseudo_out = CompressedPoint::from(pseudo_out.compress().to_bytes());
 
-    let image = (biased_hash_to_point((ED25519_BASEPOINT_TABLE * secrets.0.deref()).compress().0) *
-      secrets.0.deref())
-    .compress()
-    .into();
+    let image = CompressedPoint::from(
+      (Point::biased_hash((ED25519_BASEPOINT_TABLE * secrets.0.deref()).compress().0).into() *
+        secrets.0.deref())
+      .compress()
+      .to_bytes(),
+    );
 
-    let ring =
-      ring.iter().map(|r| [r[0].compress().into(), r[1].compress().into()]).collect::<Vec<_>>();
+    let ring = ring.iter().map(|r| [r[0].compress(), r[1].compress()]).collect::<Vec<_>>();
 
     clsag.verify(ring.clone(), &image, &pseudo_out, &msg_hash).unwrap();
 
@@ -87,7 +91,9 @@ fn clsag() {
       let torsion = curve25519_dalek::edwards::CompressedEdwardsY([0; 32]).decompress().unwrap();
       assert!(!torsion.is_identity());
       assert!(!torsion.is_torsion_free());
-      ring[0][0] = (ring[0][0].decompress().unwrap() + torsion).compress().into();
+      ring[0][0] = CompressedPoint::from(
+        (ring[0][0].decompress().unwrap().into() + torsion).compress().to_bytes(),
+      );
       assert!(clsag.verify(ring, &image, &pseudo_out, &msg_hash).is_err());
     }
 
@@ -105,31 +111,34 @@ fn clsag() {
 fn clsag_multisig() {
   let keys = key_gen::<_, Ed25519>(&mut OsRng);
 
-  let randomness = Scalar::random(&mut OsRng);
+  let randomness = Scalar::random(&mut OsRng).into();
   let mut ring = vec![];
   for i in 0 .. RING_LEN {
     let dest;
     let mask;
     let amount;
     if i != u64::from(RING_INDEX) {
-      dest = &Scalar::random(&mut OsRng) * ED25519_BASEPOINT_TABLE;
-      mask = Scalar::random(&mut OsRng);
+      dest = &Scalar::random(&mut OsRng).into() * ED25519_BASEPOINT_TABLE;
+      mask = Scalar::random(&mut OsRng).into();
       amount = OsRng.next_u64();
     } else {
       dest = keys[&Participant::new(1).unwrap()].group_key().0;
       mask = randomness;
       amount = AMOUNT;
     }
-    ring.push([dest, Commitment::new(mask, amount).calculate()]);
+    ring.push([
+      CompressedPoint::from(dest.compress().to_bytes()).decompress().unwrap(),
+      Commitment::new(Scalar::from(mask), amount).commit(),
+    ]);
   }
 
-  let mask = Scalar::random(&mut OsRng);
+  let mask = Scalar::random(&mut OsRng).into();
   let params = || {
     let (algorithm, mask_send) = ClsagMultisig::new(
       RecommendedTranscript::new(b"monero-oxide CLSAG Test"),
       ClsagContext::new(
         Decoys::new((1 ..= RING_LEN).collect(), RING_INDEX, ring.clone()).unwrap(),
-        Commitment::new(randomness, AMOUNT),
+        Commitment::new(Scalar::from(randomness), AMOUNT),
       )
       .unwrap(),
     );

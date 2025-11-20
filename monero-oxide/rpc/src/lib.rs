@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -18,13 +18,12 @@ use std_shims::{
 
 use zeroize::Zeroize;
 
-use curve25519_dalek::edwards::{CompressedEdwardsY, EdwardsPoint};
-
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
 use monero_oxide::{
   io::*,
+  ed25519::{CompressedPoint, Point},
   transaction::{Input, Timelock, Pruned, Transaction},
   block::Block,
   DEFAULT_LOCK_WINDOW,
@@ -221,11 +220,11 @@ pub struct OutputInformation {
   pub unlocked: bool,
   /// The output's key.
   ///
-  /// This is a CompressedEdwardsY, not an EdwardsPoint, as it may be invalid. CompressedEdwardsY
+  /// This is a `CompressedPoint`, not a `Point`, as it may be invalid. `CompressedPoint`
   /// only asserts validity on decompression and allows representing compressed types.
-  pub key: CompressedEdwardsY,
+  pub key: CompressedPoint,
   /// The output's commitment.
-  pub commitment: EdwardsPoint,
+  pub commitment: Point,
   /// The transaction which created this output.
   pub transaction: [u8; 32],
 }
@@ -238,10 +237,9 @@ fn hash_hex(hash: &str) -> Result<[u8; 32], RpcError> {
   rpc_hex(hash)?.try_into().map_err(|_| RpcError::InvalidNode("hash wasn't 32-bytes".to_string()))
 }
 
-fn rpc_point(point: &str) -> Result<EdwardsPoint, RpcError> {
-  CompressedPoint(
-    rpc_hex(point)?
-      .try_into()
+fn rpc_point(point: &str) -> Result<Point, RpcError> {
+  CompressedPoint::from(
+    <[u8; 32]>::try_from(rpc_hex(point)?)
       .map_err(|_| RpcError::InvalidNode(format!("invalid point: {point}")))?,
   )
   .decompress()
@@ -1064,7 +1062,7 @@ pub trait DecoyRpc: Sync {
     indexes: &[u64],
     height: usize,
     fingerprintable_deterministic: bool,
-  ) -> impl Send + Future<Output = Result<Vec<Option<[EdwardsPoint; 2]>>, RpcError>>;
+  ) -> impl Send + Future<Output = Result<Vec<Option<[Point; 2]>>, RpcError>>;
 }
 
 impl<R: Rpc> DecoyRpc for R {
@@ -1245,9 +1243,8 @@ impl<R: Rpc> DecoyRpc for R {
               Ok(OutputInformation {
                 height: output.height,
                 unlocked: output.unlocked,
-                key: CompressedEdwardsY(
-                  rpc_hex(&output.key)?
-                    .try_into()
+                key: CompressedPoint::from(
+                  <[u8; 32]>::try_from(rpc_hex(&output.key)?)
                     .map_err(|_| RpcError::InvalidNode("output key wasn't 32 bytes".to_string()))?,
                 ),
                 commitment: rpc_point(&output.mask)?,
@@ -1267,7 +1264,7 @@ impl<R: Rpc> DecoyRpc for R {
     indexes: &[u64],
     height: usize,
     fingerprintable_deterministic: bool,
-  ) -> impl Send + Future<Output = Result<Vec<Option<[EdwardsPoint; 2]>>, RpcError>> {
+  ) -> impl Send + Future<Output = Result<Vec<Option<[Point; 2]>>, RpcError>> {
     async move {
       let outs = self.get_outs(indexes).await?;
 

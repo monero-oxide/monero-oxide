@@ -19,7 +19,7 @@ use frost::{
 };
 
 use monero_oxide::{
-  io::CompressedPoint,
+  ed25519::CompressedPoint,
   ringct::{
     clsag::{ClsagContext, ClsagMultisigMaskSender, ClsagAddendum, ClsagMultisig},
     RctPrunable, RctProofs,
@@ -82,9 +82,12 @@ impl SignableTransaction {
       let key_scalar = Scalar::ONE;
       let key_offset = input.key_offset();
 
-      let offset =
-        keys.clone().scale(key_scalar).expect("non-zero scalar (1) was zero").offset(key_offset);
-      if offset.group_key().0 != input.key() {
+      let offset = keys
+        .clone()
+        .scale(key_scalar)
+        .expect("non-zero scalar (1) was zero")
+        .offset(key_offset.into());
+      if offset.group_key().0 != input.key().into() {
         Err(SendError::WrongPrivateKey)?;
       }
 
@@ -267,7 +270,7 @@ impl SignMachine<Transaction> for TransactionSignMachine {
       .map(|(mut key_image, (generator, (scalar, offset)))| {
         key_image *= scalar;
         key_image += generator * offset;
-        CompressedPoint::from(key_image.compress())
+        CompressedPoint::from(key_image.compress().to_bytes())
       })
       .collect();
 
@@ -297,9 +300,9 @@ impl SignMachine<Transaction> for TransactionSignMachine {
     let mut sum_pseudo_outs = Scalar::ZERO;
     let mut to_sign = Vec::with_capacity(clsag_len);
     for (i, ((clsag_mask_send, clsag), commitments)) in clsags.into_iter().enumerate() {
-      let mut mask = Scalar::random(&mut rng);
+      let mut mask = monero_oxide::ed25519::Scalar::random(&mut rng).into();
       if i == (clsag_len - 1) {
-        mask = output_masks - sum_pseudo_outs;
+        mask = output_masks.into() - sum_pseudo_outs;
       } else {
         sum_pseudo_outs += mask;
       }
@@ -361,7 +364,7 @@ impl SignatureMachine<Transaction> for TransactionSignatureMachine {
             shares.iter().map(|(l, shares)| (*l, shares.0[c].clone())).collect::<HashMap<_, _>>(),
           )?;
           clsags.push(clsag);
-          pseudo_outs.push(CompressedPoint::from(pseudo_out.compress()));
+          pseudo_outs.push(CompressedPoint::from(pseudo_out.compress().to_bytes()));
         }
       }
       _ => unreachable!("attempted to sign a multisig TX which wasn't CLSAG"),

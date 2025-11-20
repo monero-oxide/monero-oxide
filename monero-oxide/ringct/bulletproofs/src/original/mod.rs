@@ -6,14 +6,13 @@ use zeroize::Zeroize;
 
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar, EdwardsPoint};
 
-use monero_generators::{H as MONERO_H, Generators, COMMITMENT_BITS};
-use monero_primitives::{Commitment, INV_EIGHT, keccak256_to_scalar};
-use monero_io::CompressedPoint;
+use monero_ed25519::{CompressedPoint, Commitment};
+use monero_bulletproofs_generators::{Generators, COMMITMENT_BITS};
 
 use crate::{
   core::{MAX_COMMITMENTS, multiexp},
   scalar_vector::ScalarVector,
-  BulletproofsBatchVerifier,
+  MONERO_H, BulletproofsBatchVerifier,
 };
 
 pub(crate) mod inner_product;
@@ -21,6 +20,8 @@ use inner_product::*;
 pub(crate) use inner_product::IpProof;
 
 include!(concat!(env!("OUT_DIR"), "/generators.rs"));
+
+const INV_EIGHT: monero_ed25519::Scalar = monero_ed25519::Scalar::INV_EIGHT;
 
 #[derive(Clone, Debug)]
 pub(crate) struct AggregateRangeStatement<'a> {
@@ -32,6 +33,8 @@ pub(crate) struct AggregateRangeWitness {
   commitments: Vec<Commitment>,
 }
 
+/// Internal structure representing a Bulletproof, as defined by Monero.
+#[doc(hidden)]
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub struct AggregateRangeProof {
   pub(crate) A: CompressedPoint,
@@ -64,8 +67,14 @@ impl AggregateRangeWitness {
 
 impl<'a> AggregateRangeStatement<'a> {
   fn initial_transcript(&self) -> (Scalar, Vec<EdwardsPoint>) {
-    let V = self.commitments.iter().map(|c| c * INV_EIGHT()).collect::<Vec<_>>();
-    (keccak256_to_scalar(V.iter().flat_map(|V| V.compress().to_bytes()).collect::<Vec<_>>()), V)
+    let V = self.commitments.iter().map(|c| c * INV_EIGHT.into()).collect::<Vec<_>>();
+    (
+      monero_ed25519::Scalar::hash(
+        V.iter().flat_map(|V| V.compress().to_bytes()).collect::<Vec<_>>(),
+      )
+      .into(),
+      V,
+    )
   }
 
   fn transcript_A_S(
@@ -75,20 +84,20 @@ impl<'a> AggregateRangeStatement<'a> {
   ) -> (Scalar, Scalar) {
     let mut buf = Vec::with_capacity(96);
     buf.extend(transcript.to_bytes());
-    buf.extend_from_slice(A.as_bytes());
-    buf.extend_from_slice(S.as_bytes());
-    let y = keccak256_to_scalar(buf);
-    let z = keccak256_to_scalar(y.to_bytes());
+    buf.extend(A.to_bytes());
+    buf.extend(S.to_bytes());
+    let y = monero_ed25519::Scalar::hash(buf).into();
+    let z = monero_ed25519::Scalar::hash(y.to_bytes()).into();
     (y, z)
   }
 
   fn transcript_T12(transcript: Scalar, T1: CompressedPoint, T2: CompressedPoint) -> Scalar {
     let mut buf = Vec::with_capacity(128);
-    buf.extend_from_slice(transcript.as_bytes());
-    buf.extend_from_slice(transcript.as_bytes());
-    buf.extend_from_slice(T1.as_bytes());
-    buf.extend_from_slice(T2.as_bytes());
-    keccak256_to_scalar(buf)
+    buf.extend(transcript.to_bytes());
+    buf.extend(transcript.to_bytes());
+    buf.extend(T1.to_bytes());
+    buf.extend(T2.to_bytes());
+    monero_ed25519::Scalar::hash(buf).into()
   }
 
   fn transcript_tau_x_mu_t_hat(
@@ -103,7 +112,7 @@ impl<'a> AggregateRangeStatement<'a> {
     buf.extend(tau_x.to_bytes());
     buf.extend(mu.to_bytes());
     buf.extend(t_hat.to_bytes());
-    keccak256_to_scalar(buf)
+    monero_ed25519::Scalar::hash(buf).into()
   }
 
   #[allow(clippy::needless_pass_by_value)]
@@ -112,7 +121,8 @@ impl<'a> AggregateRangeStatement<'a> {
     rng: &mut (impl RngCore + CryptoRng),
     witness: AggregateRangeWitness,
   ) -> Option<AggregateRangeProof> {
-    if self.commitments != witness.commitments.iter().map(Commitment::calculate).collect::<Vec<_>>()
+    if self.commitments !=
+      witness.commitments.iter().map(|commitment| commitment.commit().into()).collect::<Vec<_>>()
     {
       None?
     };
@@ -137,7 +147,7 @@ impl<'a> AggregateRangeStatement<'a> {
     }
     let aR = aL.clone() - Scalar::ONE;
 
-    let alpha = Scalar::random(&mut *rng);
+    let alpha = monero_ed25519::Scalar::random(&mut *rng).into();
 
     let A = CompressedPoint::from(
       {
@@ -149,20 +159,21 @@ impl<'a> AggregateRangeStatement<'a> {
         for (aR, H) in aR.0.iter().zip(&generators.H) {
           terms.push((*aR, *H));
         }
-        let res = multiexp(&terms) * INV_EIGHT();
+        let res = multiexp(&terms) * INV_EIGHT.into();
         terms.zeroize();
         res
       }
-      .compress(),
+      .compress()
+      .to_bytes(),
     );
 
     let mut sL = ScalarVector::new(padded_pow_of_2 * COMMITMENT_BITS);
     let mut sR = ScalarVector::new(padded_pow_of_2 * COMMITMENT_BITS);
     for i in 0 .. (padded_pow_of_2 * COMMITMENT_BITS) {
-      sL[i] = Scalar::random(&mut *rng);
-      sR[i] = Scalar::random(&mut *rng);
+      sL[i] = monero_ed25519::Scalar::random(&mut *rng).into();
+      sR[i] = monero_ed25519::Scalar::random(&mut *rng).into();
     }
-    let rho = Scalar::random(&mut *rng);
+    let rho = monero_ed25519::Scalar::random(&mut *rng).into();
 
     let S = CompressedPoint::from(
       {
@@ -174,11 +185,12 @@ impl<'a> AggregateRangeStatement<'a> {
         for (sR, H) in sR.0.iter().zip(&generators.H) {
           terms.push((*sR, *H));
         }
-        let res = multiexp(&terms) * INV_EIGHT();
+        let res = multiexp(&terms) * INV_EIGHT.into();
         terms.zeroize();
         res
       }
-      .compress(),
+      .compress()
+      .to_bytes(),
     );
 
     let (y, z) = Self::transcript_A_S(transcript, A, S);
@@ -200,31 +212,33 @@ impl<'a> AggregateRangeStatement<'a> {
     let t1 = (l[0].clone().inner_product(&r[1])) + (r[0].clone().inner_product(&l[1]));
     let t2 = l[1].clone().inner_product(&r[1]);
 
-    let tau_1 = Scalar::random(&mut *rng);
+    let tau_1 = monero_ed25519::Scalar::random(&mut *rng).into();
     let T1 = CompressedPoint::from(
       {
         let mut T1_terms = [(t1, *MONERO_H), (tau_1, ED25519_BASEPOINT_POINT)];
         for term in &mut T1_terms {
-          term.0 *= INV_EIGHT();
+          term.0 *= INV_EIGHT.into();
         }
         let T1 = multiexp(&T1_terms);
         T1_terms.zeroize();
         T1
       }
-      .compress(),
+      .compress()
+      .to_bytes(),
     );
-    let tau_2 = Scalar::random(&mut *rng);
+    let tau_2 = monero_ed25519::Scalar::random(&mut *rng).into();
     let T2 = CompressedPoint::from(
       {
         let mut T2_terms = [(t2, *MONERO_H), (tau_2, ED25519_BASEPOINT_POINT)];
         for term in &mut T2_terms {
-          term.0 *= INV_EIGHT();
+          term.0 *= INV_EIGHT.into();
         }
         let T2 = multiexp(&T2_terms);
         T2_terms.zeroize();
         T2
       }
-      .compress(),
+      .compress()
+      .to_bytes(),
     );
 
     transcript = Self::transcript_T12(transcript, T1, T2);
@@ -238,7 +252,7 @@ impl<'a> AggregateRangeStatement<'a> {
     let mut tau_x = ((tau_2 * x) + tau_1) * x;
     {
       for (i, commitment) in witness.commitments.iter().enumerate() {
-        tau_x += z[2 + i] * commitment.mask;
+        tau_x += z[2 + i] * commitment.mask.into();
       }
     }
     let mu = alpha + (rho * x);
@@ -297,7 +311,7 @@ impl<'a> AggregateRangeStatement<'a> {
     let x_ip = transcript;
 
     let decomp_mul_cofactor =
-      |p| CompressedPoint::decompress(&p).map(|p| EdwardsPoint::mul_by_cofactor(&p));
+      |p| CompressedPoint::decompress(&p).map(|p| EdwardsPoint::mul_by_cofactor(&p.into()));
 
     let (Some(A), Some(S), Some(T1), Some(T2)) = (
       decomp_mul_cofactor(A),
@@ -315,7 +329,7 @@ impl<'a> AggregateRangeStatement<'a> {
 
     // 65
     {
-      let weight = Scalar::random(&mut *rng);
+      let weight = monero_ed25519::Scalar::random(&mut *rng).into();
       verifier.0.h += weight * t_hat;
       verifier.0.g += weight * tau_x;
 
@@ -336,7 +350,7 @@ impl<'a> AggregateRangeStatement<'a> {
       verifier.0.other.push((weight * (x * x), T2));
     }
 
-    let ip_weight = Scalar::random(&mut *rng);
+    let ip_weight = monero_ed25519::Scalar::random(&mut *rng).into();
 
     // 66
     verifier.0.other.push((ip_weight, A));

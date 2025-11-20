@@ -2,10 +2,13 @@ use core::ops::Deref;
 
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE, Scalar, EdwardsPoint};
+#[cfg(feature = "compile-time-generators")]
+use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
+#[cfg(not(feature = "compile-time-generators"))]
+use curve25519_dalek::constants::ED25519_BASEPOINT_POINT as ED25519_BASEPOINT_TABLE;
 
 use crate::{
-  primitives::keccak256_to_scalar,
+  ed25519::{Scalar, Point},
   address::{Network, AddressType, SubaddressIndex, MoneroAddress},
 };
 
@@ -28,34 +31,34 @@ pub enum ViewPairError {
 /// This is composed of the public spend key and the private view key.
 #[derive(Clone, PartialEq, Eq, Zeroize, ZeroizeOnDrop)]
 pub struct ViewPair {
-  spend: EdwardsPoint,
+  pub(crate) spend: Point,
   pub(crate) view: Zeroizing<Scalar>,
 }
 
 impl ViewPair {
   /// Create a new ViewPair.
-  pub fn new(spend: EdwardsPoint, view: Zeroizing<Scalar>) -> Result<Self, ViewPairError> {
-    if !spend.is_torsion_free() {
+  pub fn new(spend: Point, view: Zeroizing<Scalar>) -> Result<Self, ViewPairError> {
+    if !spend.into().is_torsion_free() {
       Err(ViewPairError::TorsionedSpendKey)?;
     }
     Ok(ViewPair { spend, view })
   }
 
   /// The public spend key for this ViewPair.
-  pub fn spend(&self) -> EdwardsPoint {
+  pub fn spend(&self) -> Point {
     self.spend
   }
 
   /// The public view key for this ViewPair.
-  pub fn view(&self) -> EdwardsPoint {
-    self.view.deref() * ED25519_BASEPOINT_TABLE
+  pub fn view(&self) -> Point {
+    Point::from(Zeroizing::new((*self.view).into()).deref() * ED25519_BASEPOINT_TABLE)
   }
 
   pub(crate) fn subaddress_derivation(&self, index: SubaddressIndex) -> Scalar {
-    keccak256_to_scalar(Zeroizing::new(
+    Scalar::hash(Zeroizing::new(
       [
         b"SubAddr\0".as_slice(),
-        Zeroizing::new(self.view.to_bytes()).as_slice(),
+        Zeroizing::new(<[u8; 32]>::from(*self.view)).as_slice(),
         &index.account().to_le_bytes(),
         &index.address().to_le_bytes(),
       ]
@@ -63,11 +66,11 @@ impl ViewPair {
     ))
   }
 
-  pub(crate) fn subaddress_keys(&self, index: SubaddressIndex) -> (EdwardsPoint, EdwardsPoint) {
+  pub(crate) fn subaddress_keys(&self, index: SubaddressIndex) -> (Point, Point) {
     let scalar = self.subaddress_derivation(index);
-    let spend = self.spend + (&scalar * ED25519_BASEPOINT_TABLE);
-    let view = self.view.deref() * spend;
-    (spend, view)
+    let spend = self.spend.into() + (&scalar.into() * ED25519_BASEPOINT_TABLE);
+    let view = Zeroizing::new((*self.view).into()).deref() * spend;
+    (Point::from(spend), Point::from(view))
   }
 
   /// Derive a legacy address from this ViewPair.
@@ -98,22 +101,22 @@ impl ViewPair {
 /// 'Guaranteed' outputs, or transactions outputs to the burning bug, are not officially specified
 /// by the Monero project. They should only be used if necessary. No support outside of
 /// monero-wallet is promised.
-#[derive(Clone, PartialEq, Eq, Zeroize)]
+#[derive(Clone, PartialEq, Eq, Zeroize)] // Does not impl `ZeroizeOnDrop` since `ViewPair` does
 pub struct GuaranteedViewPair(pub(crate) ViewPair);
 
 impl GuaranteedViewPair {
   /// Create a new GuaranteedViewPair.
-  pub fn new(spend: EdwardsPoint, view: Zeroizing<Scalar>) -> Result<Self, ViewPairError> {
+  pub fn new(spend: Point, view: Zeroizing<Scalar>) -> Result<Self, ViewPairError> {
     ViewPair::new(spend, view).map(GuaranteedViewPair)
   }
 
   /// The public spend key for this GuaranteedViewPair.
-  pub fn spend(&self) -> EdwardsPoint {
+  pub fn spend(&self) -> Point {
     self.0.spend()
   }
 
   /// The public view key for this GuaranteedViewPair.
-  pub fn view(&self) -> EdwardsPoint {
+  pub fn view(&self) -> Point {
     self.0.view()
   }
 

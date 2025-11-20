@@ -111,12 +111,13 @@ test!(
     |rct_type, rpc: SimpleRequestRpc, _, _, outputs: Vec<WalletOutput>| async move {
       use monero_wallet::rpc::FeePriority;
 
-      let view_priv = Zeroizing::new(Scalar::random(&mut OsRng));
       let mut outgoing_view = Zeroizing::new([0; 32]);
       OsRng.fill_bytes(outgoing_view.as_mut());
-      let change_view =
-        ViewPair::new(&Scalar::random(&mut OsRng) * ED25519_BASEPOINT_TABLE, view_priv.clone())
-          .unwrap();
+      let change_view = ViewPair::new(
+        Point::from(&Scalar::random(&mut OsRng).into() * ED25519_BASEPOINT_TABLE),
+        Zeroizing::new(Scalar::random(&mut OsRng)),
+      )
+      .unwrap();
 
       let mut builder = SignableTransactionBuilder::new(
         rct_type,
@@ -128,7 +129,7 @@ test!(
 
       // Send to a subaddress
       let sub_view = ViewPair::new(
-        &Scalar::random(&mut OsRng) * ED25519_BASEPOINT_TABLE,
+        Point::from(&Scalar::random(&mut OsRng).into() * ED25519_BASEPOINT_TABLE),
         Zeroizing::new(Scalar::random(&mut OsRng)),
       )
       .unwrap();
@@ -359,12 +360,13 @@ test!(
     |rct_type, rpc: SimpleRequestRpc, _, _, outputs: Vec<WalletOutput>| async move {
       use monero_wallet::rpc::FeePriority;
 
-      let view_priv = Zeroizing::new(Scalar::random(&mut OsRng));
       let mut outgoing_view = Zeroizing::new([0; 32]);
       OsRng.fill_bytes(outgoing_view.as_mut());
-      let change_view =
-        ViewPair::new(&Scalar::random(&mut OsRng) * ED25519_BASEPOINT_TABLE, view_priv.clone())
-          .unwrap();
+      let change_view = ViewPair::new(
+        Point::from(&Scalar::random(&mut OsRng).into() * ED25519_BASEPOINT_TABLE),
+        Zeroizing::new(Scalar::random(&mut OsRng)),
+      )
+      .unwrap();
 
       let mut builder = SignableTransactionBuilder::new(
         rct_type,
@@ -376,7 +378,7 @@ test!(
 
       // Send to a random address
       let view = ViewPair::new(
-        &Scalar::random(&mut OsRng) * ED25519_BASEPOINT_TABLE,
+        Point::from(&Scalar::random(&mut OsRng).into() * ED25519_BASEPOINT_TABLE),
         Zeroizing::new(Scalar::random(&mut OsRng)),
       )
       .unwrap();

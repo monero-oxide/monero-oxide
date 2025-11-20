@@ -1,10 +1,12 @@
 use zeroize::Zeroizing;
 
-use curve25519_dalek::{Scalar, constants::ED25519_BASEPOINT_TABLE};
+#[cfg(feature = "compile-time-generators")]
+use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
+#[cfg(not(feature = "compile-time-generators"))]
+use curve25519_dalek::constants::ED25519_BASEPOINT_POINT as ED25519_BASEPOINT_TABLE;
 
 use crate::{
-  io::CompressedPoint,
-  Commitment,
+  ed25519::*,
   ringct::EncryptedAmount,
   transaction::{Timelock, Pruned, Transaction},
   block::Block,
@@ -36,28 +38,26 @@ fn wallet_output0() -> WalletOutput {
     },
     relative_id: RelativeId { index_on_blockchain: OUTPUT_INDEX_FOR_FIRST_RINGCT_OUTPUT },
     data: OutputData {
-      key: CompressedPoint(
-        hex::decode("ee8ca293511571c0005e1c144e49d09b8ff03046dbafb3e064a34cb9fc1994b6")
-          .unwrap()
-          .try_into()
-          .unwrap(),
+      key: CompressedPoint::from(
+        <[u8; 32]>::try_from(
+          hex::decode("ee8ca293511571c0005e1c144e49d09b8ff03046dbafb3e064a34cb9fc1994b6").unwrap(),
+        )
+        .unwrap(),
       )
       .decompress()
       .unwrap(),
-      key_offset: Scalar::from_canonical_bytes(
-        hex::decode("f1d21a76ea0bb228fbc5f0dece0597a8ffb59de7a04b29f70b7c0310446ea905")
+      key_offset: Scalar::read(
+        &mut hex::decode("f1d21a76ea0bb228fbc5f0dece0597a8ffb59de7a04b29f70b7c0310446ea905")
           .unwrap()
-          .try_into()
-          .unwrap(),
+          .as_slice(),
       )
       .unwrap(),
       commitment: Commitment {
         amount: 10000,
-        mask: Scalar::from_canonical_bytes(
-          hex::decode("05c2f142aaf3054cbff0a022f6c7cb75403fd92af0f9441c072ade3f273f7706")
+        mask: Scalar::read(
+          &mut hex::decode("05c2f142aaf3054cbff0a022f6c7cb75403fd92af0f9441c072ade3f273f7706")
             .unwrap()
-            .try_into()
-            .unwrap(),
+            .as_slice(),
         )
         .unwrap(),
       },
@@ -82,28 +82,26 @@ fn wallet_output1() -> WalletOutput {
     },
     relative_id: RelativeId { index_on_blockchain: OUTPUT_INDEX_FOR_FIRST_RINGCT_OUTPUT + 1 },
     data: OutputData {
-      key: CompressedPoint(
-        hex::decode("9e2e5cd08c8681dbcf2ce66071467e835f7e86613fbfed3c4fb170127b94e107")
-          .unwrap()
-          .try_into()
-          .unwrap(),
+      key: CompressedPoint::from(
+        <[u8; 32]>::try_from(
+          hex::decode("9e2e5cd08c8681dbcf2ce66071467e835f7e86613fbfed3c4fb170127b94e107").unwrap(),
+        )
+        .unwrap(),
       )
       .decompress()
       .unwrap(),
-      key_offset: Scalar::from_canonical_bytes(
-        hex::decode("c5189738c1cb40e68d464f1a1848a85f6ab2c09652a31849213dc0fefd212806")
+      key_offset: Scalar::read(
+        &mut hex::decode("c5189738c1cb40e68d464f1a1848a85f6ab2c09652a31849213dc0fefd212806")
           .unwrap()
-          .try_into()
-          .unwrap(),
+          .as_slice(),
       )
       .unwrap(),
       commitment: Commitment {
         amount: 10000,
-        mask: Scalar::from_canonical_bytes(
-          hex::decode("c8922ce32cb2bf454a6b77bc91423ba7a18412b71fa39a97a2a743c1fe0bad04")
+        mask: Scalar::read(
+          &mut hex::decode("c8922ce32cb2bf454a6b77bc91423ba7a18412b71fa39a97a2a743c1fe0bad04")
             .unwrap()
-            .try_into()
-            .unwrap(),
+            .as_slice(),
         )
         .unwrap(),
       },
@@ -121,12 +119,10 @@ fn wallet_output1() -> WalletOutput {
 fn scan_long_encrypted_amount() {
   // Parse strings
   let spend_key_buf = hex::decode(SPEND_KEY).unwrap();
-  let spend_key =
-    Zeroizing::new(Scalar::from_canonical_bytes(spend_key_buf.try_into().unwrap()).unwrap());
+  let spend_key = Zeroizing::new(Scalar::read(&mut spend_key_buf.as_slice()).unwrap());
 
   let view_key_buf = hex::decode(VIEW_KEY).unwrap();
-  let view_key =
-    Zeroizing::new(Scalar::from_canonical_bytes(view_key_buf.try_into().unwrap()).unwrap());
+  let view_key = Zeroizing::new(Scalar::read(&mut view_key_buf.as_slice()).unwrap());
 
   let tx_buf = hex::decode(PRUNED_TX_WITH_LONG_ENCRYPTED_AMOUNT).unwrap();
   let tx = Transaction::<Pruned>::read(&mut tx_buf.as_slice()).unwrap();
@@ -149,8 +145,8 @@ fn scan_long_encrypted_amount() {
   };
 
   // Prepare scanner
-  let spend_pub = &*spend_key * ED25519_BASEPOINT_TABLE;
-  let view: ViewPair = ViewPair::new(spend_pub, view_key).unwrap();
+  let spend_pub = Point::from(&(*spend_key).into() * ED25519_BASEPOINT_TABLE);
+  let view = ViewPair::new(spend_pub, view_key).unwrap();
   let mut scanner = Scanner::new(view);
 
   // Prepare scannable block

@@ -1,10 +1,10 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use monero_io as io;
-pub use monero_generators as generators;
+pub use monero_ed25519 as ed25519;
 pub use monero_primitives as primitives;
 
 /// Merkle tree functionality.

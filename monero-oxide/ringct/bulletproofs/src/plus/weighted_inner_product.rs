@@ -3,15 +3,16 @@ use std_shims::{vec, vec::Vec};
 use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use curve25519_dalek::{scalar::Scalar, edwards::EdwardsPoint};
+use curve25519_dalek::{Scalar, EdwardsPoint};
 
-use monero_io::CompressedPoint;
-use monero_primitives::{INV_EIGHT, keccak256_to_scalar};
+use monero_ed25519::CompressedPoint;
 use crate::{
   core::{multiexp, multiexp_vartime, challenge_products},
   batch_verifier::BulletproofsPlusBatchVerifier,
   plus::{ScalarVector, PointVector, GeneratorsList, BpPlusGenerators, padded_pow_of_2},
 };
+
+const INV_EIGHT: monero_ed25519::Scalar = monero_ed25519::Scalar::INV_EIGHT;
 
 // Figure 1 of the Bulletproofs+ paper
 #[derive(Clone, Debug)]
@@ -80,13 +81,17 @@ impl WipStatement {
   }
 
   fn transcript_L_R(transcript: &mut Scalar, L: CompressedPoint, R: CompressedPoint) -> Scalar {
-    let e = keccak256_to_scalar([transcript.to_bytes(), L.to_bytes(), R.to_bytes()].concat());
+    let e =
+      monero_ed25519::Scalar::hash([transcript.to_bytes(), L.to_bytes(), R.to_bytes()].concat())
+        .into();
     *transcript = e;
     e
   }
 
   fn transcript_A_B(transcript: &mut Scalar, A: CompressedPoint, B: CompressedPoint) -> Scalar {
-    let e = keccak256_to_scalar([transcript.to_bytes(), A.to_bytes(), B.to_bytes()].concat());
+    let e =
+      monero_ed25519::Scalar::hash([transcript.to_bytes(), A.to_bytes(), B.to_bytes()].concat())
+        .into();
     *transcript = e;
     e
   }
@@ -211,8 +216,8 @@ impl WipStatement {
       let y_n_hat = y[n_hat - 1];
       y.0.truncate(n_hat);
 
-      let d_l = Scalar::random(&mut *rng);
-      let d_r = Scalar::random(&mut *rng);
+      let d_l = monero_ed25519::Scalar::random(&mut *rng).into();
+      let d_r = monero_ed25519::Scalar::random(&mut *rng).into();
 
       let c_l = a1.clone().weighted_inner_product(&b2, &y);
       let c_r = (a2.clone() * y_n_hat).weighted_inner_product(&b1, &y);
@@ -229,7 +234,7 @@ impl WipStatement {
         .collect::<Vec<_>>();
       L_terms.push((c_l, g));
       L_terms.push((d_l, h));
-      let L = CompressedPoint::from((multiexp(&L_terms) * INV_EIGHT()).compress());
+      let L = CompressedPoint::from((multiexp(&L_terms) * INV_EIGHT.into()).compress().to_bytes());
       L_vec.push(L);
       L_terms.zeroize();
 
@@ -241,7 +246,7 @@ impl WipStatement {
         .collect::<Vec<_>>();
       R_terms.push((c_r, g));
       R_terms.push((d_r, h));
-      let R = CompressedPoint::from((multiexp(&R_terms) * INV_EIGHT()).compress());
+      let R = CompressedPoint::from((multiexp(&R_terms) * INV_EIGHT.into()).compress().to_bytes());
       R_vec.push(R);
       R_terms.zeroize();
 
@@ -265,20 +270,20 @@ impl WipStatement {
     debug_assert_eq!(a.len(), 1);
     debug_assert_eq!(b.len(), 1);
 
-    let r = Scalar::random(&mut *rng);
-    let s = Scalar::random(&mut *rng);
-    let delta = Scalar::random(&mut *rng);
-    let eta = Scalar::random(&mut *rng);
+    let r = monero_ed25519::Scalar::random(&mut *rng).into();
+    let s = monero_ed25519::Scalar::random(&mut *rng).into();
+    let delta = monero_ed25519::Scalar::random(&mut *rng).into();
+    let eta = monero_ed25519::Scalar::random(&mut *rng).into();
 
     let ry = r * y[0];
 
     let mut A_terms =
       vec![(r, g_bold[0]), (s, h_bold[0]), ((ry * b[0]) + (s * y[0] * a[0]), g), (delta, h)];
-    let A = CompressedPoint::from((multiexp(&A_terms) * INV_EIGHT()).compress());
+    let A = CompressedPoint::from((multiexp(&A_terms) * INV_EIGHT.into()).compress().to_bytes());
     A_terms.zeroize();
 
     let mut B_terms = vec![(ry * s, g), (eta, h)];
-    let B = CompressedPoint::from((multiexp(&B_terms) * INV_EIGHT()).compress());
+    let B = CompressedPoint::from((multiexp(&B_terms) * INV_EIGHT.into()).compress().to_bytes());
     B_terms.zeroize();
 
     let e = Self::transcript_A_B(&mut transcript, A, B);
@@ -297,7 +302,7 @@ impl WipStatement {
     mut transcript: Scalar,
     WipProof { L, R, A, B, r_answer, s_answer, delta_answer }: WipProof,
   ) -> bool {
-    let verifier_weight = Scalar::random(rng);
+    let verifier_weight = monero_ed25519::Scalar::random(rng).into();
 
     let WipStatement { generators, P, y } = self;
 
@@ -329,7 +334,7 @@ impl WipStatement {
     let mut R_decomp = Vec::with_capacity(R.len());
 
     let decomp_mul_cofactor =
-      |p| CompressedPoint::decompress(&p).map(|p| EdwardsPoint::mul_by_cofactor(&p));
+      |p| CompressedPoint::decompress(&p).map(|p| EdwardsPoint::mul_by_cofactor(&p.into()));
 
     for (L_i, R_i) in L.into_iter().zip(R.into_iter()) {
       e_is.push(Self::transcript_L_R(&mut transcript, L_i, R_i));

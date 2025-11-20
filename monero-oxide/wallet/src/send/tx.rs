@@ -1,13 +1,13 @@
 use std_shims::{vec, vec::Vec};
 
-use curve25519_dalek::{
-  constants::{ED25519_BASEPOINT_COMPRESSED, ED25519_BASEPOINT_TABLE},
-  Scalar,
-};
+#[cfg(feature = "compile-time-generators")]
+use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
+#[cfg(not(feature = "compile-time-generators"))]
+use curve25519_dalek::constants::ED25519_BASEPOINT_POINT as ED25519_BASEPOINT_TABLE;
 
 use crate::{
-  io::{varint_len, write_varint, CompressedPoint},
-  primitives::Commitment,
+  io::VarInt,
+  ed25519::*,
   ringct::{
     clsag::Clsag, bulletproofs::Bulletproof, EncryptedAmount, RctType, RctBase, RctPrunable,
     RctProofs,
@@ -40,10 +40,10 @@ impl SignableTransaction {
 
     let mut res = Vec::with_capacity(self.payments.len());
     for (payment, shared_key_derivations) in self.payments.iter().zip(&shared_key_derivations) {
-      let key =
-        (&shared_key_derivations.shared_key * ED25519_BASEPOINT_TABLE) + payment.address().spend();
+      let key = (&shared_key_derivations.shared_key.into() * ED25519_BASEPOINT_TABLE) +
+        payment.address().spend().into();
       res.push(Output {
-        key: CompressedPoint::from(key.compress()),
+        key: Point::from(key).compress(),
         amount: None,
         view_tag: (match self.rct_type {
           RctType::ClsagBulletproof => false,
@@ -64,7 +64,7 @@ impl SignableTransaction {
     debug_assert_eq!(self.payments.len(), payment_id_xors.len());
 
     let amount_of_keys = 1 + additional_keys.len();
-    let mut extra = Extra::new(tx_key, additional_keys);
+    let mut extra = Extra::new(tx_key.compress(), additional_keys);
 
     if let Some((id, id_xor)) =
       self.payments.iter().zip(&payment_id_xors).find_map(|(payment, payment_id_xor)| {
@@ -131,9 +131,9 @@ impl SignableTransaction {
       let mut clsags = Vec::with_capacity(self.inputs.len());
       let mut pseudo_outs = Vec::with_capacity(self.inputs.len());
       for _ in &self.inputs {
-        key_images.push(CompressedPoint::from(ED25519_BASEPOINT_COMPRESSED));
+        key_images.push(CompressedPoint::G);
         clsags.push(Clsag {
-          D: CompressedPoint::from(ED25519_BASEPOINT_COMPRESSED),
+          D: CompressedPoint::G,
           s: vec![
             Scalar::ZERO;
             match self.rct_type {
@@ -144,7 +144,7 @@ impl SignableTransaction {
           ],
           c1: Scalar::ZERO,
         });
-        pseudo_outs.push(CompressedPoint::from(ED25519_BASEPOINT_COMPRESSED));
+        pseudo_outs.push(CompressedPoint::G);
       }
       let mut encrypted_amounts = Vec::with_capacity(self.payments.len());
       let mut bp_commitments = Vec::with_capacity(self.payments.len());
@@ -152,7 +152,7 @@ impl SignableTransaction {
       for _ in &self.payments {
         encrypted_amounts.push(EncryptedAmount::Compact { amount: [0; 8] });
         bp_commitments.push(Commitment::zero());
-        commitments.push(CompressedPoint::from(ED25519_BASEPOINT_COMPRESSED));
+        commitments.push(CompressedPoint::G);
       }
 
       let padded_log2 = {
@@ -184,7 +184,7 @@ impl SignableTransaction {
             push_scalar(&mut bp);
           }
           for _ in 0 .. 2 {
-            write_varint(&lr_len, &mut bp)
+            VarInt::write(&lr_len, &mut bp)
               .expect("write failed but <Vec as io::Write> doesn't fail");
             for _ in 0 .. lr_len {
               push_point(&mut bp);
@@ -209,7 +209,7 @@ impl SignableTransaction {
             push_scalar(&mut bp);
           }
           for _ in 0 .. 2 {
-            write_varint(&lr_len, &mut bp)
+            VarInt::write(&lr_len, &mut bp)
               .expect("write failed but <Vec as io::Write> doesn't fail");
             for _ in 0 .. lr_len {
               push_point(&mut bp);
@@ -238,15 +238,17 @@ impl SignableTransaction {
     };
 
     // We now have the base weight, without the fee encoded
-    // The fee itself will impact the weight as its encoding is [1, 9] bytes long
-    let mut possible_weights = Vec::with_capacity(9);
-    for i in 1 ..= 9 {
+    // The fee itself will impact the weight as its encoding takes up a variable amount of bytes
+    let mut possible_weights = Vec::with_capacity(<u64 as VarInt>::UPPER_BOUND);
+    // Assert LOWER_BOUND == 1, which this code assumes
+    const _LOWER_BOUND_IS_LTE_ONE: [(); 1 - <u64 as VarInt>::LOWER_BOUND] = [(); _];
+    const _LOWER_BOUND_IS_GTE_ONE: [(); <u64 as VarInt>::LOWER_BOUND - 1] = [(); _];
+    for i in <u64 as VarInt>::LOWER_BOUND ..= <u64 as VarInt>::UPPER_BOUND {
       possible_weights.push(base_weight + i);
     }
-    debug_assert_eq!(possible_weights.len(), 9);
 
     // We now calculate the fee which would be used for each weight
-    let mut possible_fees = Vec::with_capacity(9);
+    let mut possible_fees = Vec::with_capacity(<u64 as VarInt>::UPPER_BOUND);
     for weight in possible_weights {
       possible_fees.push(self.fee_rate.calculate_fee_from_weight(weight));
     }
@@ -254,15 +256,14 @@ impl SignableTransaction {
     // We now look for the fee whose length matches the length used to derive it
     let mut weight_and_fee = None;
     for (fee_len, possible_fee) in possible_fees.into_iter().enumerate() {
+      // Increment by one as the enumeration is zero-indexed
       let fee_len = 1 + fee_len;
-      debug_assert!(1 <= fee_len);
-      debug_assert!(fee_len <= 9);
 
       // We use the first fee whose encoded length is not larger than the length used within this
       // weight
       // This should be because the lengths are equal, yet means if somehow none are equal, this
       // will still terminate successfully
-      if varint_len(possible_fee) <= fee_len {
+      if possible_fee.varint_len() <= fee_len {
         weight_and_fee = Some((base_weight + fee_len, possible_fee));
         break;
       }
@@ -280,7 +281,7 @@ impl SignableTransactionWithKeyImages {
     let mut bp_commitments = Vec::with_capacity(self.intent.payments.len());
     let mut encrypted_amounts = Vec::with_capacity(self.intent.payments.len());
     for (commitment, encrypted_amount) in commitments_and_encrypted_amounts {
-      commitments.push(CompressedPoint::from(commitment.calculate().compress()));
+      commitments.push(commitment.commit().compress());
       bp_commitments.push(commitment);
       encrypted_amounts.push(encrypted_amount);
     }

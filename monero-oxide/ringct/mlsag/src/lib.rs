@@ -1,22 +1,26 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(non_snake_case)]
 
 use std_shims::{
-  vec,
-  vec::Vec,
+  prelude::*,
+  sync::LazyLock,
   io::{self, Read, Write},
 };
 
 use zeroize::Zeroize;
 
-use curve25519_dalek::{traits::IsIdentity, Scalar, EdwardsPoint};
+use curve25519_dalek::EdwardsPoint;
 
 use monero_io::*;
-use monero_generators::{H, biased_hash_to_point};
-use monero_primitives::keccak256_to_scalar;
+use monero_ed25519::{Scalar, Point, CompressedPoint};
+
+// A static for `H` as it's frequently used yet this decompression is expensive.
+static H: LazyLock<EdwardsPoint> = LazyLock::new(|| {
+  CompressedPoint::H.decompress().expect("couldn't decompress `CompressedPoint::H`").into()
+});
 
 /// Errors when working with MLSAGs.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, thiserror::Error)]
@@ -69,7 +73,7 @@ impl RingMatrix {
   ) -> Result<Self, MlsagError> {
     let mut matrix = Vec::with_capacity(ring.len());
     for ring_member in ring {
-      let decomp = |p: CompressedPoint| p.decompress().ok_or(MlsagError::InvalidRing);
+      let decomp = |p: CompressedPoint| Ok(p.decompress().ok_or(MlsagError::InvalidRing)?.into());
 
       matrix.push(vec![decomp(ring_member[0])?, decomp(ring_member[1])? - decomp(pseudo_out)?]);
     }
@@ -107,18 +111,18 @@ impl Mlsag {
   /// Write a MLSAG.
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     for ss in &self.ss {
-      write_raw_vec(write_scalar, ss, w)?;
+      write_raw_vec(Scalar::write, ss, w)?;
     }
-    write_scalar(&self.cc, w)
+    self.cc.write(w)
   }
 
   /// Read a MLSAG.
   pub fn read<R: Read>(decoys: usize, ss_2_elements: usize, r: &mut R) -> io::Result<Mlsag> {
     Ok(Mlsag {
       ss: (0 .. decoys)
-        .map(|_| read_raw_vec(read_scalar, ss_2_elements, r))
+        .map(|_| read_raw_vec(Scalar::read, ss_2_elements, r))
         .collect::<Result<_, _>>()?,
-      cc: read_scalar(r)?,
+      cc: Scalar::read(r)?,
     })
   }
 
@@ -142,7 +146,7 @@ impl Mlsag {
     let mut buf = Vec::with_capacity(6 * 32);
     buf.extend_from_slice(msg);
 
-    let mut ci = self.cc;
+    let mut ci = self.cc.into();
 
     // This is an iterator over the key images as options with an added entry of `None` at the
     // end for the non-linkable layer
@@ -158,8 +162,9 @@ impl Mlsag {
       }
 
       for ((ring_member_entry, s), ki) in ring_member.iter().zip(ss).zip(key_images_iter.clone()) {
+        let s = (*s).into();
         #[allow(non_snake_case)]
-        let L = EdwardsPoint::vartime_double_scalar_mul_basepoint(&ci, ring_member_entry, s);
+        let L = EdwardsPoint::vartime_double_scalar_mul_basepoint(&ci, ring_member_entry, &s);
 
         let compressed_ring_member_entry = ring_member_entry.compress();
         buf.extend_from_slice(compressed_ring_member_entry.as_bytes());
@@ -171,23 +176,22 @@ impl Mlsag {
           let Some(ki) = ki.decompress() else {
             return Err(MlsagError::InvalidKeyImage);
           };
+          let ki = ki.key_image().ok_or(MlsagError::InvalidKeyImage)?;
 
-          if ki.is_identity() || (!ki.is_torsion_free()) {
-            Err(MlsagError::InvalidKeyImage)?;
-          }
-
+          // TODO: vartime_double_scalar_mul?
           #[allow(non_snake_case)]
-          let R = (s * biased_hash_to_point(compressed_ring_member_entry.to_bytes())) + (ci * ki);
+          let R =
+            (s * Point::biased_hash(compressed_ring_member_entry.to_bytes()).into()) + (ci * ki);
           buf.extend_from_slice(R.compress().as_bytes());
         }
       }
 
-      ci = keccak256_to_scalar(&buf);
+      ci = Scalar::hash(&buf).into();
       // keep the msg in the buffer.
       buf.drain(msg.len() ..);
     }
 
-    if ci != self.cc {
+    if ci != self.cc.into() {
       Err(MlsagError::InvalidCi)?
     }
     Ok(())
@@ -209,15 +213,16 @@ impl AggregateRingMatrixBuilder {
   ///
   /// This takes in the transaction's outputs' commitments and fee used.
   pub fn new(commitments: &[CompressedPoint], fee: u64) -> Result<Self, MlsagError> {
+    // TODO: Use a short mul for the fee
     Ok(AggregateRingMatrixBuilder {
       key_ring: vec![],
       amounts_ring: vec![],
       sum_out: commitments
         .iter()
-        .map(CompressedPoint::decompress)
+        .map(|compressed| compressed.decompress().map(Point::into))
         .sum::<Option<EdwardsPoint>>()
         .ok_or(MlsagError::InvalidRing)? +
-        (*H * Scalar::from(fee)),
+        (*H * curve25519_dalek::Scalar::from(fee)),
     })
   }
 
@@ -235,8 +240,8 @@ impl AggregateRingMatrixBuilder {
     }
 
     for (i, ring_member) in ring.iter().enumerate() {
-      self.key_ring[i].push(ring_member[0].decompress().ok_or(MlsagError::InvalidRing)?);
-      self.amounts_ring[i] += ring_member[1].decompress().ok_or(MlsagError::InvalidRing)?;
+      self.key_ring[i].push(ring_member[0].decompress().ok_or(MlsagError::InvalidRing)?.into());
+      self.amounts_ring[i] += ring_member[1].decompress().ok_or(MlsagError::InvalidRing)?.into();
     }
 
     Ok(())

@@ -1,18 +1,16 @@
-use curve25519_dalek::scalar::Scalar;
+use monero_ed25519::UnreducedScalar;
 
-use crate::UnreducedScalar;
+mod hex;
 
 #[test]
 fn recover_scalars() {
   let test_recover = |stored: &str, recovered: &str| {
-    let stored = UnreducedScalar(hex::decode(stored).unwrap().try_into().unwrap());
-    let recovered =
-      Scalar::from_canonical_bytes(hex::decode(recovered).unwrap().try_into().unwrap()).unwrap();
-    assert_eq!(stored.ref10_slide_scalar_vartime(), recovered);
+    let stored = UnreducedScalar::read(&mut hex::decode(stored).as_slice()).unwrap();
+    let recovered = curve25519_dalek::Scalar::from_canonical_bytes(hex::decode(recovered)).unwrap();
+    assert_eq!(<[u8; 32]>::from(stored.ref10_slide_scalar_vartime()), recovered.to_bytes());
   };
 
-  // https://www.moneroinflation.com/static/data_py/report_scalars_df.pdf
-  // Table 4.
+  // https://www.moneroinflation.com/static/data_py/report_scalars_df.pdf, Table 4
   test_recover(
     "cb2be144948166d0a9edb831ea586da0c376efa217871505ad77f6ff80f203f8",
     "b8ffd6a1aee47828808ab0d4c8524cb5c376efa217871505ad77f6ff80f20308",

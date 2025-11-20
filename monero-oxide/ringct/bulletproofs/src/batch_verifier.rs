@@ -7,9 +7,9 @@ use curve25519_dalek::{
   edwards::EdwardsPoint,
 };
 
-use monero_generators::{H as MONERO_H, Generators};
+use monero_bulletproofs_generators::Generators;
 
-use crate::{original, plus};
+use crate::{MONERO_H, original, plus};
 
 #[derive(Default)]
 pub(crate) struct InternalBatchVerifier {

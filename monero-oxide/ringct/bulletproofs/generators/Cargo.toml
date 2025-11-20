@@ -1,0 +1,38 @@
+[package]
+name = "monero-bulletproofs-generators"
+version = "0.1.0"
+description = "Monero's hash to point function and generators"
+license = "MIT"
+repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/ringct/bulletproofs/generators"
+authors = ["Luke Parker <lukeparker5132@gmail.com>"]
+edition = "2021"
+rust-version = "1.65"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
+
+[dependencies]
+std-shims = { version = "0.1.5", default-features = false }
+
+curve25519-dalek = { version = "4", default-features = false }
+
+monero-io = { path = "../../../io", version = "0.1", default-features = false }
+monero-ed25519 = { path = "../../../ed25519", version = "0.1", default-features = false }
+monero-primitives = { path = "../../../primitives", version = "0.1", default-features = false }
+
+[dev-dependencies]
+hex = "0.4"
+
+[features]
+std = [
+  "std-shims/std",
+
+  "monero-io/std",
+  "monero-ed25519/std",
+  "monero-primitives/std",
+]
+default = ["std"]

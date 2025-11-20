@@ -2,8 +2,9 @@
 
 use rand_core::OsRng;
 
-use curve25519_dalek::{traits::Identity, scalar::Scalar, edwards::EdwardsPoint};
+use curve25519_dalek::{traits::Identity, EdwardsPoint};
 
+use monero_ed25519::Scalar;
 use crate::{
   batch_verifier::BulletproofsPlusBatchVerifier,
   plus::{
@@ -16,13 +17,14 @@ use crate::{
 fn test_zero_weighted_inner_product() {
   #[allow(non_snake_case)]
   let P = EdwardsPoint::identity();
-  let y = Scalar::random(&mut OsRng);
+  let y = Scalar::random(&mut OsRng).into();
 
   let generators = BpPlusGenerators::new().reduce(1);
   let statement = WipStatement::new(generators, P, y);
-  let witness = WipWitness::new(ScalarVector::new(1), ScalarVector::new(1), Scalar::ZERO).unwrap();
+  let witness =
+    WipWitness::new(ScalarVector::new(1), ScalarVector::new(1), Scalar::ZERO.into()).unwrap();
 
-  let transcript = Scalar::random(&mut OsRng);
+  let transcript = Scalar::random(&mut OsRng).into();
   let proof = statement.clone().prove(&mut OsRng, transcript, &witness).unwrap();
 
   let mut verifier = BulletproofsPlusBatchVerifier::default();
@@ -51,9 +53,9 @@ fn test_weighted_inner_product() {
 
     let mut a = ScalarVector::new(i);
     let mut b = ScalarVector::new(i);
-    let alpha = Scalar::random(&mut OsRng);
+    let alpha = Scalar::random(&mut OsRng).into();
 
-    let y = Scalar::random(&mut OsRng);
+    let y = Scalar::random(&mut OsRng).into();
     let mut y_vec = ScalarVector::new(g_bold.len());
     y_vec[0] = y;
     for i in 1 .. y_vec.len() {
@@ -61,8 +63,8 @@ fn test_weighted_inner_product() {
     }
 
     for i in 0 .. i {
-      a[i] = Scalar::random(&mut OsRng);
-      b[i] = Scalar::random(&mut OsRng);
+      a[i] = Scalar::random(&mut OsRng).into();
+      b[i] = Scalar::random(&mut OsRng).into();
     }
 
     #[allow(non_snake_case)]
@@ -74,7 +76,7 @@ fn test_weighted_inner_product() {
     let statement = WipStatement::new(generators, P, y);
     let witness = WipWitness::new(a, b, alpha).unwrap();
 
-    let transcript = Scalar::random(&mut OsRng);
+    let transcript = Scalar::random(&mut OsRng).into();
     let proof = statement.clone().prove(&mut OsRng, transcript, &witness).unwrap();
     statement.verify(&mut OsRng, &mut verifier, transcript, proof);
   }

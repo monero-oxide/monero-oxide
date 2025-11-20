@@ -7,41 +7,11 @@ use zeroize::Zeroize;
 
 use crate::{
   io::*,
-  primitives::keccak256,
+  ed25519::*,
+  primitives::{UpperBound, LowerBound, keccak256},
   ring_signatures::RingSignature,
   ringct::{bulletproofs::Bulletproof, PrunedRctProofs},
 };
-
-/// The maximum size for a non-miner transaction.
-// https://github.com/monero-project/monero
-//   /blob/8d4c625713e3419573dfcc7119c8848f47cabbaa/src/cryptonote_config.h#L41
-pub const MAX_NON_MINER_TRANSACTION_SIZE: usize = 1_000_000;
-
-const MAX_MINER_TRANSACTION_INPUTS: usize = 1;
-
-const NON_MINER_TRANSACTION_INPUT_SIZE_LOWER_BOUND: usize = 32;
-const NON_MINER_TRANSACTION_INPUTS_UPPER_BOUND: usize =
-  MAX_NON_MINER_TRANSACTION_SIZE / NON_MINER_TRANSACTION_INPUT_SIZE_LOWER_BOUND;
-
-const fn const_max(a: usize, b: usize) -> usize {
-  if a > b {
-    a
-  } else {
-    b
-  }
-}
-
-/// An upper bound for the amount of inputs within a Monero transaction.
-///
-/// This is not guaranteed to be the maximum amount of inputs within a Monero transaction. It is a
-/// value greater than or equal to the maximum amount of inputs allowed within a Monero
-/// transaction.
-pub const INPUTS_UPPER_BOUND: usize =
-  const_max(MAX_MINER_TRANSACTION_INPUTS, NON_MINER_TRANSACTION_INPUTS_UPPER_BOUND);
-
-const NON_MINER_TRANSACTION_OUTPUT_SIZE_LOWER_BOUND: usize = 32;
-const MAX_NON_MINER_TRANSACTION_OUTPUTS: usize =
-  MAX_NON_MINER_TRANSACTION_SIZE / NON_MINER_TRANSACTION_OUTPUT_SIZE_LOWER_BOUND;
 
 /// An input in the Monero protocol.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -60,18 +30,23 @@ pub enum Input {
 }
 
 impl Input {
+  /// The lower bound for the size of an input which isn't `Input::Gen(_)`.
+  // `<usize as VarInt>::LOWER_BOUND` is used for the lower-bound of a `Vec`'s encoding's length
+  const NON_GEN_SIZE_LOWER_BOUND: LowerBound<usize> =
+    LowerBound(1 + <u64 as VarInt>::LOWER_BOUND + <usize as VarInt>::LOWER_BOUND + 32);
+
   /// Write the Input.
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     match self {
       Input::Gen(height) => {
         w.write_all(&[255])?;
-        write_varint(height, w)
+        VarInt::write(height, w)
       }
 
       Input::ToKey { amount, key_offsets, key_image } => {
         w.write_all(&[2])?;
-        write_varint(&amount.unwrap_or(0), w)?;
-        write_vec(write_varint, key_offsets, w)?;
+        VarInt::write(&amount.unwrap_or(0), w)?;
+        write_vec(VarInt::write, key_offsets, w)?;
         key_image.write(w)
       }
     }
@@ -87,9 +62,9 @@ impl Input {
   /// Read an Input.
   pub fn read<R: Read>(r: &mut R) -> io::Result<Input> {
     Ok(match read_byte(r)? {
-      255 => Input::Gen(read_varint(r)?),
+      255 => Input::Gen(VarInt::read(r)?),
       2 => {
-        let amount = read_varint(r)?;
+        let amount = VarInt::read(r)?;
         // https://github.com/monero-project/monero/
         //   blob/00fd416a99686f0956361d1cd0337fe56e58d4a7/
         //   src/cryptonote_basic/cryptonote_format_utils.cpp#L860-L863
@@ -99,7 +74,11 @@ impl Input {
         Input::ToKey {
           amount,
           // Each offset takes at least one byte, and this won't be in a miner transaction
-          key_offsets: read_vec(read_varint, Some(MAX_NON_MINER_TRANSACTION_SIZE), r)?,
+          key_offsets: read_vec(
+            VarInt::read,
+            Some(Transaction::<NotPruned>::NON_MINER_SIZE_UPPER_BOUND.0),
+            r,
+          )?,
           key_image: CompressedPoint::read(r)?,
         }
       }
@@ -120,9 +99,15 @@ pub struct Output {
 }
 
 impl Output {
+  /// The lower bound on the size of an output.
+  pub const SIZE_LOWER_BOUND: LowerBound<usize> = LowerBound(<u64 as VarInt>::LOWER_BOUND + 1 + 32);
+  /// The upper bound on the size of an output.
+  pub const SIZE_UPPER_BOUND: UpperBound<usize> =
+    UpperBound(<u64 as VarInt>::UPPER_BOUND + 1 + 32 + 1);
+
   /// Write the Output.
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
-    write_varint(&self.amount.unwrap_or(0), w)?;
+    VarInt::write(&self.amount.unwrap_or(0), w)?;
     w.write_all(&[2 + u8::from(self.view_tag.is_some())])?;
     w.write_all(&self.key.to_bytes())?;
     if let Some(view_tag) = self.view_tag {
@@ -133,14 +118,14 @@ impl Output {
 
   /// Write the Output to a `Vec<u8>`.
   pub fn serialize(&self) -> Vec<u8> {
-    let mut res = Vec::with_capacity(8 + 1 + 32);
+    let mut res = Vec::with_capacity(Self::SIZE_UPPER_BOUND.0);
     self.write(&mut res).expect("write failed but <Vec as io::Write> doesn't fail");
     res
   }
 
   /// Read an Output.
   pub fn read<R: Read>(rct: bool, r: &mut R) -> io::Result<Output> {
-    let amount = read_varint(r)?;
+    let amount = VarInt::read(r)?;
     let amount = if rct {
       if amount != 0 {
         Err(io::Error::other("RCT TX output wasn't 0"))?;
@@ -182,9 +167,9 @@ impl Timelock {
   /// Write the Timelock.
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     match self {
-      Timelock::None => write_varint(&0u8, w),
-      Timelock::Block(block) => write_varint(block, w),
-      Timelock::Time(time) => write_varint(time, w),
+      Timelock::None => VarInt::write(&0u8, w),
+      Timelock::Block(block) => VarInt::write(block, w),
+      Timelock::Time(time) => VarInt::write(time, w),
     }
   }
 
@@ -199,7 +184,7 @@ impl Timelock {
   pub fn read<R: Read>(r: &mut R) -> io::Result<Self> {
     const TIMELOCK_BLOCK_THRESHOLD: usize = 500_000_000;
 
-    let raw = read_varint::<_, u64>(r)?;
+    let raw = <u64 as VarInt>::read(r)?;
     Ok(if raw == 0 {
       Timelock::None
     } else if raw <
@@ -251,6 +236,24 @@ pub struct TransactionPrefix {
 }
 
 impl TransactionPrefix {
+  /// The amount of inputs within a miner transaction.
+  pub const MINER_INPUTS: usize = 1;
+  /// The amount of inputs allowed within a non-miner transaction.
+  // This is defined as the amount of whole (minimally-sized) inputs which would fit in the largest
+  // possible transaction.
+  pub const NON_MINER_INPUTS_UPPER_BOUND: UpperBound<usize> = UpperBound(
+    Transaction::<NotPruned>::NON_MINER_SIZE_UPPER_BOUND.0 / Input::NON_GEN_SIZE_LOWER_BOUND.0,
+  );
+  /// The upper bound for the amount of inputs allowed within a transaction.
+  pub const INPUTS_UPPER_BOUND: UpperBound<usize> = UpperBound(monero_primitives::const_max!(
+    Self::MINER_INPUTS,
+    Self::NON_MINER_INPUTS_UPPER_BOUND.0
+  ));
+
+  /// The upper bound for the amount of outputs allowed within a non-miner transaction.
+  pub const NON_MINER_OUTPUTS_UPPER_BOUND: UpperBound<usize> =
+    UpperBound(Transaction::<NotPruned>::NON_MINER_SIZE_UPPER_BOUND.0 / Output::SIZE_LOWER_BOUND.0);
+
   /// Write a TransactionPrefix.
   ///
   /// This is distinct from Monero in that it won't write any version.
@@ -258,7 +261,7 @@ impl TransactionPrefix {
     self.additional_timelock.write(w)?;
     write_vec(Input::write, &self.inputs, w)?;
     write_vec(Output::write, &self.outputs, w)?;
-    write_varint(&self.extra.len(), w)?;
+    VarInt::write(&self.extra.len(), w)?;
     w.write_all(&self.extra)
   }
 
@@ -273,27 +276,29 @@ impl TransactionPrefix {
   pub fn read<R: Read>(r: &mut R, version: u64) -> io::Result<TransactionPrefix> {
     let additional_timelock = Timelock::read(r)?;
 
-    let inputs = read_vec(|r| Input::read(r), Some(INPUTS_UPPER_BOUND), r)?;
+    let inputs = read_vec(|r| Input::read(r), Some(Self::INPUTS_UPPER_BOUND.0), r)?;
     if inputs.is_empty() {
       Err(io::Error::other("transaction had no inputs"))?;
     }
     let is_miner_tx = matches!(inputs[0], Input::Gen { .. });
 
-    let max_outputs = if is_miner_tx { None } else { Some(MAX_NON_MINER_TRANSACTION_OUTPUTS) };
+    let max_outputs = if is_miner_tx { None } else { Some(Self::NON_MINER_OUTPUTS_UPPER_BOUND.0) };
     let mut prefix = TransactionPrefix {
       additional_timelock,
       inputs,
       outputs: read_vec(|r| Output::read((!is_miner_tx) && (version == 2), r), max_outputs, r)?,
       extra: vec![],
     };
-    let max_extra = if is_miner_tx { None } else { Some(MAX_NON_MINER_TRANSACTION_SIZE) };
+    // Miner transactions have no limits on their size within the Monero protocol, unfortunately
+    let max_extra =
+      if is_miner_tx { None } else { Some(Transaction::<NotPruned>::NON_MINER_SIZE_UPPER_BOUND.0) };
     prefix.extra = read_vec(read_byte, max_extra, r)?;
     Ok(prefix)
   }
 
   fn hash(&self, version: u64) -> [u8; 32] {
     let mut buf = vec![];
-    write_varint(&version, &mut buf).expect("write failed but <Vec as io::Write> doesn't fail");
+    VarInt::write(&version, &mut buf).expect("write failed but <Vec as io::Write> doesn't fail");
     self.write(&mut buf).expect("write failed but <Vec as io::Write> doesn't fail");
     keccak256(buf)
   }
@@ -446,6 +451,11 @@ enum PrunableHash<'a> {
 
 #[allow(private_bounds)]
 impl<P: PotentiallyPruned> Transaction<P> {
+  /// The maximum size for a non-miner transaction.
+  // https://github.com/monero-project/monero
+  //   /blob/8d4c625713e3419573dfcc7119c8848f47cabbaa/src/cryptonote_config.h#L41
+  pub const NON_MINER_SIZE_UPPER_BOUND: UpperBound<usize> = UpperBound(1_000_000);
+
   /// Get the version of this transaction.
   pub fn version(&self) -> u8 {
     match self {
@@ -473,7 +483,7 @@ impl<P: PotentiallyPruned> Transaction<P> {
   /// Some writable transactions may not be readable if they're malformed, per Monero's consensus
   /// rules.
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
-    write_varint(&self.version(), w)?;
+    VarInt::write(&self.version(), w)?;
     match self {
       Transaction::V1 { prefix, signatures } => {
         prefix.write(w)?;
@@ -505,7 +515,7 @@ impl<P: PotentiallyPruned> Transaction<P> {
   /// deserializing. The result is not guaranteed to follow all Monero consensus rules or any
   /// specific set of consensus rules.
   pub fn read<R: Read>(r: &mut R) -> io::Result<Self> {
-    let version = read_varint(r)?;
+    let version = VarInt::read(r)?;
     let prefix = TransactionPrefix::read(r, version)?;
 
     if version == 1 {
@@ -541,7 +551,7 @@ impl<P: PotentiallyPruned> Transaction<P> {
         let mut buf = Vec::with_capacity(512);
 
         // We don't use `self.write` as that may write the signatures (if this isn't pruned)
-        write_varint(&self.version(), &mut buf)
+        VarInt::write(&self.version(), &mut buf)
           .expect("write failed but <Vec as io::Write> doesn't fail");
         prefix.write(&mut buf).expect("write failed but <Vec as io::Write> doesn't fail");
 
@@ -625,6 +635,36 @@ impl Transaction<NotPruned> {
         PrunableHash::V2(keccak256(buf))
       }),
     })
+  }
+
+  /// Splits this transaction into its pruned and serialized prunable part.
+  pub fn pruned_with_prunable(self) -> (Transaction<Pruned>, Vec<u8>) {
+    let mut buf = Vec::with_capacity(512);
+
+    match self {
+      Transaction::V1 { prefix, signatures } => {
+        for signature in signatures {
+          signature.write(&mut buf).expect("write failed but <Vec as io::Write> doesn't fail");
+        }
+
+        (Transaction::V1 { prefix, signatures: () }, buf)
+      }
+      Transaction::V2 { prefix, proofs } => {
+        match &proofs {
+          None => (),
+          Some(proofs) => proofs.prunable.write(&mut buf, proofs.rct_type()).unwrap(),
+        }
+
+        (
+          Transaction::V2 {
+            prefix,
+            proofs: proofs
+              .map(|proofs| PrunedRctProofs { rct_type: proofs.rct_type(), base: proofs.base }),
+          },
+          buf,
+        )
+      }
+    }
   }
 
   fn is_rct_bulletproof(&self) -> bool {

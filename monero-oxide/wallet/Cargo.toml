@@ -23,6 +23,7 @@ std-shims = { version = "0.1.5", default-features = false }
 
 thiserror = { version = "2", default-features = false }
 
+subtle = { version = "^2.4", default-features = false }
 zeroize = { version = "^1.5", default-features = false, features = ["zeroize_derive"] }
 
 rand_core = { version = "0.6", default-features = false }
@@ -32,7 +33,7 @@ rand_chacha = { version = "0.3", default-features = false }
 # Used to select decoys
 rand_distr = { version = "0.4", default-features = false }
 
-curve25519-dalek = { version = "4", default-features = false, features = ["alloc", "zeroize", "group"] }
+curve25519-dalek = { version = "4", default-features = false, features = ["alloc", "zeroize"] }
 
 # Multisig dependencies
 transcript = { package = "flexible-transcript", version = "0.3", default-features = false, features = ["recommended"], optional = true }

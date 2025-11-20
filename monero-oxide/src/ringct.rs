@@ -11,6 +11,7 @@ pub use monero_bulletproofs as bulletproofs;
 
 use crate::{
   io::*,
+  ed25519::*,
   ringct::{mlsag::Mlsag, clsag::Clsag, borromean::BorromeanRange, bulletproofs::Bulletproof},
 };
 
@@ -174,7 +175,7 @@ impl RctBase {
   pub fn write<W: Write>(&self, w: &mut W, rct_type: RctType) -> io::Result<()> {
     w.write_all(&[u8::from(rct_type)])?;
 
-    write_varint(&self.fee, w)?;
+    VarInt::write(&self.fee, w)?;
     if rct_type == RctType::MlsagBorromean {
       write_raw_vec(CompressedPoint::write, &self.pseudo_outs, w)?;
     }
@@ -217,7 +218,7 @@ impl RctBase {
     Ok(Some((
       rct_type,
       RctBase {
-        fee: read_varint(r)?,
+        fee: VarInt::read(r)?,
         // Only read pseudo_outs if they have yet to be moved to RctPrunable
         // This would apply to AggregateMlsagBorromean and MlsagBorromean, except
         // AggregateMlsagBorromean doesn't use pseudo_outs due to using the sum of the output
@@ -356,7 +357,7 @@ impl RctPrunable {
           if (if rct_type == RctType::MlsagBulletproofs {
             u64::from(read_u32(r)?)
           } else {
-            read_varint(r)?
+            VarInt::read(r)?
           }) != 1
           {
             Err(io::Error::other("n bulletproofs instead of one"))?;
@@ -375,7 +376,7 @@ impl RctPrunable {
       }
       RctType::ClsagBulletproof | RctType::ClsagBulletproofPlus => RctPrunable::Clsag {
         bulletproof: {
-          if read_varint::<_, u64>(r)? != 1 {
+          if read_byte(r)? != 1 {
             Err(io::Error::other("n bulletproofs instead of one"))?;
           }
           (if rct_type == RctType::ClsagBulletproof {

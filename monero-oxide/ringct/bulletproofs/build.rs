@@ -9,7 +9,7 @@ use std::{
 fn generators(prefix: &'static str, path: &str) {
   use curve25519_dalek::EdwardsPoint;
 
-  use monero_generators::bulletproofs_generators;
+  use monero_bulletproofs_generators::bulletproofs_generators;
 
   fn serialize(generators_string: &mut String, points: &[EdwardsPoint]) {
     for generator in points {
@@ -67,7 +67,7 @@ fn generators(prefix: &'static str, path: &str) {
       format!(
         r#"
         pub(crate) static GENERATORS: LazyLock<Generators> = LazyLock::new(|| {{
-          monero_generators::bulletproofs_generators(b"{prefix}")
+          monero_bulletproofs_generators::bulletproofs_generators(b"{prefix}")
         }});
       "#,
       )

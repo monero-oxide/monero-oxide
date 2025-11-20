@@ -8,7 +8,7 @@ use std_shims::{
 use rand_core::{RngCore, CryptoRng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
-use zeroize::{Zeroize, Zeroizing};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use curve25519_dalek::{scalar::Scalar, edwards::EdwardsPoint};
 
@@ -22,8 +22,7 @@ use frost::{
   algorithm::{WriteAddendum, Algorithm},
 };
 
-use monero_generators::biased_hash_to_point;
-use monero_io::CompressedPoint;
+use monero_ed25519::{Point, CompressedPoint};
 
 use crate::{ClsagContext, Clsag};
 
@@ -75,9 +74,19 @@ impl ClsagMultisigMaskSender {
 }
 impl ClsagMultisigMaskReceiver {
   fn recv(self) -> Option<Scalar> {
-    *self.buf.lock()
+    let mut lock = self.buf.lock();
+    // This is safe as this method may only be called once
+    let res = lock.take();
+    (*lock).zeroize();
+    res
   }
 }
+impl Drop for ClsagMultisigMaskReceiver {
+  fn drop(&mut self) {
+    (*self.buf.lock()).zeroize();
+  }
+}
+impl ZeroizeOnDrop for ClsagMultisigMaskReceiver {}
 
 /// Addendum produced during the signing process.
 #[derive(Clone, PartialEq, Eq, Zeroize, Debug)]
@@ -98,7 +107,7 @@ impl WriteAddendum for ClsagAddendum {
   }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Zeroize)]
 struct Interim {
   p: Scalar,
   c: Scalar,
@@ -116,15 +125,24 @@ struct Interim {
 ///
 /// The message signed is expected to be a 32-byte value. Per Monero, it's the keccak256 hash of
 /// the transaction data which is signed. This will panic if the message is not a 32-byte value.
+#[derive(Zeroize, ZeroizeOnDrop)]
 pub struct ClsagMultisig {
   transcript: RecommendedTranscript,
 
   key_image_generator: EdwardsPoint,
+  /*
+    This is fine to skip, even if not preferable. These are sent over the wire during signing and
+    accordingly reasonably public. Anyone who observes them could reconstruct the key image and see
+    the set who signed, but that's it.
+  */
+  #[zeroize(skip)]
   key_image_shares: HashMap<[u8; 32], dfg::EdwardsPoint>,
   image: dfg::EdwardsPoint,
 
   context: ClsagContext,
 
+  // `ClsagMultisigMaskReceiver` implements `Zeroize` within its `Drop` implementation
+  #[zeroize(skip)]
   mask_recv: Option<ClsagMultisigMaskReceiver>,
   mask: Option<Scalar>,
 
@@ -143,9 +161,10 @@ impl ClsagMultisig {
       ClsagMultisig {
         transcript,
 
-        key_image_generator: biased_hash_to_point(
-          context.decoys.signer_ring_members()[0].compress().0,
-        ),
+        key_image_generator: Point::biased_hash(
+          context.decoys.signer_ring_members()[0].compress().to_bytes(),
+        )
+        .into(),
         key_image_shares: HashMap::new(),
         image: dfg::EdwardsPoint::identity(),
 
@@ -301,7 +320,8 @@ impl Algorithm<Ed25519> for ClsagMultisig {
     let mut clsag = interim.clsag.clone();
     // We produced shares as `r - p x`, yet the signature is actually `r - p x - c x`
     // Substract `c x` (saved as `c`) now
-    clsag.s[usize::from(self.context.decoys.signer_index())] = sum - interim.c;
+    clsag.s[usize::from(self.context.decoys.signer_index())] =
+      monero_ed25519::Scalar::from(sum - interim.c);
     if clsag
       .verify(
         self
@@ -309,10 +329,10 @@ impl Algorithm<Ed25519> for ClsagMultisig {
           .decoys
           .ring()
           .iter()
-          .map(|m| [CompressedPoint::from(m[0].compress()), CompressedPoint::from(m[1].compress())])
+          .map(|m| [m[0].compress(), m[1].compress()])
           .collect::<Vec<_>>(),
-        &CompressedPoint::from(self.image.0.compress()),
-        &CompressedPoint::from(interim.pseudo_out.compress()),
+        &CompressedPoint::from(self.image.0.compress().to_bytes()),
+        &CompressedPoint::from(interim.pseudo_out.compress().to_bytes()),
         self.msg_hash.as_ref().expect("verify called before sign_share"),
       )
       .is_ok()
