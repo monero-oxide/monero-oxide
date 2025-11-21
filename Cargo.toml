@@ -39,6 +39,7 @@ multiexp = { opt-level = 3 }
 
 monero-io = { opt-level = 3 }
 monero-primitives = { opt-level = 3 }
+monero-ed25519 = { opt-level = 3 }
 monero-mlsag = { opt-level = 3 }
 monero-clsag = { opt-level = 3 }
 monero-borromean = { opt-level = 3 }
