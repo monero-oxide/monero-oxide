@@ -30,7 +30,7 @@ impl ConstantTimeEq for Commitment {
 }
 
 impl core::fmt::Debug for Commitment {
-  /// This implementation contains the `Commitment`'s amount.
+  /// This implementation reveals the `Commitment`'s amount.
   fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
     fmt.debug_struct("Commitment").field("amount", &self.amount).finish_non_exhaustive()
   }
@@ -65,8 +65,8 @@ impl Commitment {
 
   /// Write the `Commitment`.
   ///
-  /// This is not a Monero-protocol-defined struct, and this is accordingly not a
-  /// Monero-protocol-defined serialization.
+  /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
+  /// defined serialization. This may run in time variable to its value.
   pub fn write<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
     self.mask.write(w)?;
     w.write_all(&self.amount.to_le_bytes())
@@ -74,8 +74,8 @@ impl Commitment {
 
   /// Read a `Commitment`.
   ///
-  /// This is not a Monero-protocol-defined struct, and this is accordingly not a
-  /// Monero-protocol-defined serialization.
+  /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
+  /// defined serialization. This may run in time variable to its value.
   pub fn read<R: io::Read>(r: &mut R) -> io::Result<Commitment> {
     Ok(Commitment::new(Scalar::read(r)?, read_u64(r)?))
   }

@@ -23,6 +23,8 @@ use crate::{
 /// transaction will not match for multiple `Eventuality`s unless the `SignableTransaction`s they
 /// were built from were in conflict (and their intended transactions cannot simultaneously exist
 /// on-chain).
+///
+/// The `Debug` implementation may reveal every value within its memory.
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub struct Eventuality(SignableTransaction);
 
@@ -121,7 +123,7 @@ impl Eventuality {
   /// Write the Eventuality.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub fn write<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
     self.0.write(w)
   }
@@ -129,7 +131,7 @@ impl Eventuality {
   /// Serialize the Eventuality to a `Vec<u8>`.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub fn serialize(&self) -> Vec<u8> {
     self.0.serialize()
   }
@@ -137,7 +139,7 @@ impl Eventuality {
   /// Read a Eventuality.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub fn read<R: io::Read>(r: &mut R) -> io::Result<Eventuality> {
     Ok(Eventuality(SignableTransaction::read(r)?))
   }

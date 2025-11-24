@@ -51,7 +51,12 @@ multiple-versions = "warn"
 wildcards = "warn"
 highlight = "all"
 deny = [
+  # Contains a non-reproducible binary blob
+  # https://github.com/serde-rs/serde/pull/2514
+  # https://github.com/serde-rs/serde/issues/2575
   { name = "serde_derive", version = ">=1.0.172, <1.0.185" },
+  # Introduced an insecure implementation of `borsh` removed with `0.15.1`
+  # https://github.com/rust-lang/hashbrown/issues/576
   { name = "hashbrown", version = "=0.15.0" },
 ]
 

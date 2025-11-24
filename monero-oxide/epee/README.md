@@ -12,7 +12,7 @@ it, within this library and throughout our ecosystem. Thankfully, the
 Our library has the following exceptions:
 - We don't support the `Array` type (type 13) as it's unused in practice and
   lacking documentation. See
-  https://github.com/monero-project/monero/pull/10138 for a PR to Monero
+  [this PR](https://github.com/monero-project/monero/pull/10138) to Monero
   removing it entirely.
 - We may accept a _wider_ class of inputs than the `epee` library itself. Our
   definition of compatibility is explicitly if we can decode anything encoded

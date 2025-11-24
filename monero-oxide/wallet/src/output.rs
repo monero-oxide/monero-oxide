@@ -44,7 +44,7 @@ impl AbsoluteId {
   /// Write the AbsoluteId.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     w.write_all(&self.transaction)?;
     w.write_all(&self.index_in_transaction.to_le_bytes())
@@ -53,7 +53,7 @@ impl AbsoluteId {
   /// Read an AbsoluteId.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   fn read<R: Read>(r: &mut R) -> io::Result<AbsoluteId> {
     Ok(AbsoluteId { transaction: read_bytes(r)?, index_in_transaction: read_u64(r)? })
   }
@@ -82,7 +82,7 @@ impl RelativeId {
   /// Write the RelativeId.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     w.write_all(&self.index_on_blockchain.to_le_bytes())
   }
@@ -90,7 +90,7 @@ impl RelativeId {
   /// Read an RelativeId.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   fn read<R: Read>(r: &mut R) -> io::Result<Self> {
     Ok(RelativeId { index_on_blockchain: read_u64(r)? })
   }
@@ -141,7 +141,7 @@ impl OutputData {
   /// Write the OutputData.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub(crate) fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     w.write_all(&self.key.compress().to_bytes())?;
     self.key_offset.write(w)?;
@@ -150,6 +150,9 @@ impl OutputData {
 
   /* Commented as it's unused, due to self being private
   /// Serialize the OutputData to a `Vec<u8>`.
+  ///
+  /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
+  /// defined serialization. This may run in time variable to its value.
   pub fn serialize(&self) -> Vec<u8> {
     let mut res = Vec::with_capacity(32 + 32 + 40);
     self.write(&mut res).expect("write failed but <Vec as io::Write> doesn't fail");
@@ -160,7 +163,7 @@ impl OutputData {
   /// Read an OutputData.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub(crate) fn read<R: Read>(r: &mut R) -> io::Result<OutputData> {
     Ok(OutputData {
       key: CompressedPoint::read(r)?
@@ -204,7 +207,7 @@ impl Metadata {
   /// Write the Metadata.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     self.additional_timelock.write(w)?;
 
@@ -238,7 +241,7 @@ impl Metadata {
   /// Read a Metadata.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   fn read<R: Read>(r: &mut R) -> io::Result<Metadata> {
     let additional_timelock = Timelock::read(r)?;
 
@@ -292,6 +295,8 @@ impl Metadata {
 /// This struct is bound to a specific instance of the blockchain. If the blockchain reorganizes
 /// the block this struct is bound to, it MUST be discarded. If any outputs are mutual to both
 /// blockchains, scanning the new blockchain will yield those outputs again.
+///
+/// The `Debug` implementation may reveal every value within its memory.
 #[derive(Clone, Debug, Zeroize, ZeroizeOnDrop)]
 pub struct WalletOutput {
   /// The absolute ID for this transaction.
@@ -398,7 +403,7 @@ impl WalletOutput {
   /// Write the WalletOutput.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     self.absolute_id.write(w)?;
     self.relative_id.write(w)?;
@@ -409,7 +414,7 @@ impl WalletOutput {
   /// Serialize the WalletOutput to a `Vec<u8>`.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub fn serialize(&self) -> Vec<u8> {
     let mut serialized = Vec::with_capacity(128);
     self.write(&mut serialized).expect("write failed but <Vec as io::Write> doesn't fail");
@@ -419,7 +424,7 @@ impl WalletOutput {
   /// Read a WalletOutput.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub fn read<R: Read>(r: &mut R) -> io::Result<WalletOutput> {
     Ok(WalletOutput {
       absolute_id: AbsoluteId::read(r)?,

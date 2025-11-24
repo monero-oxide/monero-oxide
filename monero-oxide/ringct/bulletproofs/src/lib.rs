@@ -118,6 +118,8 @@ impl Bulletproof {
   }
 
   /// Prove the list of commitments are within [0 .. 2^64) with an aggregate Bulletproof.
+  ///
+  /// This function runs in time variable to the validity of the arguments and the public data.
   pub fn prove<R: RngCore + CryptoRng>(
     rng: &mut R,
     outputs: Vec<Commitment>,
@@ -145,6 +147,8 @@ impl Bulletproof {
   }
 
   /// Prove the list of commitments are within [0 .. 2^64) with an aggregate Bulletproof+.
+  ///
+  /// This function runs in time variable to the validity of the arguments and the public data.
   pub fn prove_plus<R: RngCore + CryptoRng>(
     rng: &mut R,
     outputs: Vec<Commitment>,

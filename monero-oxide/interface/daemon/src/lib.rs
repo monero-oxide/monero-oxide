@@ -319,7 +319,7 @@ impl<T: HttpTransport> MoneroDaemon<T> {
   ///
   /// Returns the hashes of the generated blocks and the last block's alleged number.
   ///
-  /// This is intended for testing purposes and does not validate the result.
+  /// This is intended for testing purposes and does not validate the result in any way.
   pub async fn generate_blocks<const ADDR_BYTES: u128>(
     &self,
     address: &Address<ADDR_BYTES>,

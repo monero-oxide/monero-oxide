@@ -14,7 +14,7 @@ use std_shims::{
 use rand_core::{RngCore, CryptoRng};
 
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
-use subtle::{ConstantTimeEq, ConditionallySelectable};
+use subtle::{Choice, ConstantTimeEq, ConditionallySelectable};
 
 use curve25519_dalek::{
   constants::ED25519_BASEPOINT_POINT,
@@ -94,13 +94,12 @@ pub struct ClsagContext {
 
 impl ClsagContext {
   /// Create a new context, as necessary for signing.
+  ///
+  /// This function runs in time variable to the length of the ring and the validity of the
+  /// arguments.
   pub fn new(decoys: Decoys, commitment: Commitment) -> Result<ClsagContext, ClsagError> {
-    if decoys.len() > u8::MAX.into() {
-      Err(ClsagError::InvalidRing)?;
-    }
-
     // Validate the commitment matches
-    if decoys.signer_ring_members()[1] != commitment.commit() {
+    if bool::from(!decoys.signer_ring_members()[1].ct_eq(&commitment.commit())) {
       Err(ClsagError::InvalidCommitment)?;
     }
 
@@ -189,12 +188,14 @@ fn core(
   // Configure the loop based on if we're signing or verifying
   let start;
   let end;
+  let iter_end;
   let mut c;
   match A_c1 {
     Mode::Sign { signer_index, A, AH } => {
       let signer_index = usize::from(*signer_index);
       start = signer_index + 1;
       end = signer_index + n;
+      iter_end = 2 * n;
       to_hash.extend(A.compress().to_bytes());
       to_hash.extend(AH.compress().to_bytes());
       c = Scalar::hash(&to_hash).into();
@@ -203,13 +204,19 @@ fn core(
     Mode::Verify { c1, .. } => {
       start = 0;
       end = n;
+      iter_end = n;
       c = *c1;
     }
   }
 
   // Perform the core loop
+  let mut in_range = Choice::from(0);
   let mut c1 = c;
-  for i in (start .. end).map(|i| i % n) {
+  for mut i in 0 .. iter_end {
+    in_range |= i.ct_eq(&start);
+    in_range ^= i.ct_eq(&end);
+    i %= n;
+
     let c_p = mu_P * c;
     let c_c = mu_C * c;
 
@@ -240,12 +247,9 @@ fn core(
     to_hash.truncate(((2 * n) + 3) * 32);
     to_hash.extend(L.compress().to_bytes());
     to_hash.extend(R.compress().to_bytes());
-    c = Scalar::hash(&to_hash).into();
+    c.conditional_assign(&Scalar::hash(&to_hash).into(), in_range);
 
-    // This will only execute once and shouldn't need to be constant time. Making it constant time
-    // removes the risk of branch prediction creating timing differences depending on ring index
-    // however
-    c1.conditional_assign(&c, i.ct_eq(&(n - 1)));
+    c1.conditional_assign(&c, in_range & i.ct_eq(&(n - 1)));
   }
 
   // This first tuple is needed to continue signing, the latter is the c to be tested/worked with
@@ -335,6 +339,8 @@ impl Clsag {
   ///
   /// `sum_outputs` is for the sum of the output commitments' masks.
   ///
+  /// This function runs in time variable to the validity of the arguments and the public data.
+  ///
   /// WARNING: This follows the Fiat-Shamir transcript format used by the Monero protocol, which
   /// makes assumptions on what has already been transcripted and bound to within `msg_hash`. Do
   /// not use this if you don't know what you're doing.
@@ -352,7 +358,7 @@ impl Clsag {
       let public_key = input.1.decoys.signer_ring_members()[0].into();
 
       // Check the key is consistent
-      if (ED25519_BASEPOINT_TABLE * key.deref()) != public_key {
+      if bool::from(!(ED25519_BASEPOINT_TABLE * key.deref()).ct_eq(&public_key)) {
         Err(ClsagError::InvalidKey)?;
       }
 

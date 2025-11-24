@@ -68,7 +68,7 @@ impl FeeRate {
   /// Write the FeeRate.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub fn write(&self, w: &mut impl io::Write) -> io::Result<()> {
     w.write_all(&self.per_weight.to_le_bytes())?;
     w.write_all(&self.mask.to_le_bytes())
@@ -77,14 +77,14 @@ impl FeeRate {
   /// Serialize the FeeRate to a `Vec<u8>`.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub fn serialize(&self) -> Vec<u8> {
     let mut res = Vec::with_capacity(16);
     self.write(&mut res).expect("write failed but <Vec as io::Write> doesn't fail");
     res
   }
 
-  /// The fee per weight.
+  /// The fee to pay per weight.
   pub fn per_weight(&self) -> u64 {
     self.per_weight
   }
@@ -92,7 +92,7 @@ impl FeeRate {
   /// Read a FeeRate.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub fn read(r: &mut impl io::Read) -> io::Result<FeeRate> {
     let per_weight = read_u64(r)?;
     let mask = read_u64(r)?;

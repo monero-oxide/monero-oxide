@@ -52,6 +52,8 @@ impl Scalar {
     ]);
 
   /// Write a Scalar.
+  ///
+  /// This may run in variable time.
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     w.write_all(&self.0)
   }
@@ -60,6 +62,8 @@ impl Scalar {
   ///
   /// Some scalars within the Monero protocol are not enforced to be canonically encoded. For such
   /// scalars, they should be represented as `[u8; 32]` and later converted to scalars as relevant.
+  ///
+  /// This may run in variable time.
   pub fn read<R: Read>(r: &mut R) -> io::Result<Scalar> {
     let bytes = read_bytes(r)?;
     Option::<curve25519_dalek::Scalar>::from(curve25519_dalek::Scalar::from_canonical_bytes(bytes))

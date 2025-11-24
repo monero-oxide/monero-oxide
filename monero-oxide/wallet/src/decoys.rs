@@ -261,6 +261,8 @@ async fn select_decoys<R: RngCore + CryptoRng>(
 }
 
 /// An output with decoys selected.
+///
+/// The `Debug` implementation may reveal every value within its memory.
 #[derive(Clone, Debug, Zeroize, ZeroizeOnDrop)]
 pub struct OutputWithDecoys {
   output: OutputData,
@@ -342,7 +344,7 @@ impl OutputWithDecoys {
   /// Write the OutputWithDecoys.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub fn write<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
     self.output.write(w)?;
     self.decoys.write(w)
@@ -351,7 +353,7 @@ impl OutputWithDecoys {
   /// Serialize the OutputWithDecoys to a `Vec<u8>`.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub fn serialize(&self) -> Vec<u8> {
     let mut serialized = Vec::with_capacity(128);
     self.write(&mut serialized).expect("write failed but <Vec as io::Write> doesn't fail");
@@ -361,7 +363,7 @@ impl OutputWithDecoys {
   /// Read an OutputWithDecoys.
   ///
   /// This is not a Monero protocol defined struct, and this is accordingly not a Monero protocol
-  /// defined serialization.
+  /// defined serialization. This may run in time variable to its value.
   pub fn read<R: io::Read>(r: &mut R) -> io::Result<Self> {
     Ok(Self { output: OutputData::read(r)?, decoys: Decoys::read(r)? })
   }

@@ -37,6 +37,8 @@ pub struct ViewPair {
 
 impl ViewPair {
   /// Create a new ViewPair.
+  ///
+  /// This function runs in time variable to the validity of the arguments.
   pub fn new(spend: Point, view: Zeroizing<Scalar>) -> Result<Self, ViewPairError> {
     if !spend.into().is_torsion_free() {
       Err(ViewPairError::TorsionedSpendKey)?;

@@ -73,6 +73,8 @@ impl SignableTransaction {
   /// The created machine is expected to be called with an empty message, as it will generate its
   /// own, and may panic if a message is provided. The created machine DOES NOT support caching and
   /// may panic if `cache`, `from_cache` are called.
+  ///
+  /// This function runs in time variable to the validity of the arguments and the public data.
   pub fn multisig(self, keys: ThresholdKeys<Ed25519>) -> Result<TransactionMachine, SendError> {
     let mut clsags = vec![];
 

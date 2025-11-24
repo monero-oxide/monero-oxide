@@ -13,13 +13,14 @@ use crate::Point;
 
 /// A compressed Ed25519 point.
 ///
-/// [`CompressedEdwardsY`], the [`curve25519_dalek`] version of this struct exposes a
-/// [`CompressedEdwardsY::decompress`] function that does not check the point is canonically
-/// encoded. This struct exposes a [`CompressedPoint::decompress`] function that does check
-/// the point is canonically encoded, check that function for details.
+/// [`curve25519_dalek::edwards::CompressedEdwardsY`], the [`curve25519_dalek`] version of this
+/// struct, exposes a [`curve25519_dalek::edwards::CompressedEdwardsY::decompress`] function that
+/// does not check the point is canonically encoded. This struct exposes a
+/// [`CompressedPoint::decompress`] function that does check the point is canonically encoded. For
+/// the exact details, please check its documentation.
 ///
-/// The implementations of `PartialOrd`, `Ord`, and `Hash` are not guaranteed to execute in
-/// variable time.
+/// The implementations of [`PartialOrd`], [`Ord`], and [`Hash`] are not guaranteed to execute in
+/// constant time.
 #[derive(Clone, Copy, Eq, Debug, Zeroize)]
 pub struct CompressedPoint([u8; 32]);
 
@@ -63,7 +64,6 @@ impl CompressedPoint {
     1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   ]);
   /// The `G` generator for the Monero protocol.
-  #[rustfmt::skip]
   pub const G: Self = Self(curve25519_dalek::constants::ED25519_BASEPOINT_COMPRESSED.to_bytes());
   /// The `H` generator for the Monero protocol.
   #[rustfmt::skip]
@@ -73,11 +73,15 @@ impl CompressedPoint {
   ]);
 
   /// Read a [`CompressedPoint`] without checking if this point can be decompressed.
+  ///
+  /// This may run in variable time.
   pub fn read<R: Read>(r: &mut R) -> io::Result<CompressedPoint> {
     Ok(CompressedPoint(read_bytes(r)?))
   }
 
   /// Write a compressed point.
+  ///
+  /// This may run in variable time.
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
     w.write_all(&self.0)
   }

@@ -8,6 +8,7 @@ use std_shims::{
 use rand_core::{RngCore, CryptoRng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
+use subtle::ConstantTimeEq;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use curve25519_dalek::{scalar::Scalar, edwards::EdwardsPoint};
@@ -229,6 +230,11 @@ impl Algorithm<Ed25519> for ClsagMultisig {
     l: Participant,
     addendum: ClsagAddendum,
   ) -> Result<(), FrostError> {
+    if bool::from(!view.group_key().0.ct_eq(&self.context.decoys.signer_ring_members()[0].into())) {
+      Err(FrostError::InternalError("CLSAG is being signed with a distinct key than intended"))?;
+    }
+
+    let mut offset = Scalar::ZERO;
     if let Some(mask_recv) = self.mask_recv.take() {
       self.transcript.domain_separate(b"CLSAG");
       // Transcript the ring
@@ -242,6 +248,9 @@ impl Algorithm<Ed25519> for ClsagMultisig {
       self.mask = Some(mask);
       // Transcript the mask
       self.transcript.append_message(b"mask", mask.to_bytes());
+
+      // Set the offset applied to the first participant
+      offset = view.offset();
     }
 
     // Transcript this participant's contribution
@@ -251,10 +260,12 @@ impl Algorithm<Ed25519> for ClsagMultisig {
       .append_message(b"key_image_share", addendum.key_image_share.compress().to_bytes());
 
     // Accumulate the interpolated share
-    let interpolated_key_image_share = addendum.key_image_share *
+    let interpolated_key_image_share = ((addendum.key_image_share *
       view
         .interpolation_factor(l)
-        .ok_or(FrostError::InternalError("processing addendum for non-participant"))?;
+        .ok_or(FrostError::InternalError("processing addendum for non-participant"))?) *
+      view.scalar()) +
+      dfg::EdwardsPoint(self.key_image_generator * offset);
     self.image += interpolated_key_image_share;
 
     self
@@ -275,9 +286,6 @@ impl Algorithm<Ed25519> for ClsagMultisig {
     nonces: Vec<Zeroizing<dfg::Scalar>>,
     msg_hash: &[u8],
   ) -> dfg::Scalar {
-    self.image =
-      (self.image * view.scalar()) + (dfg::EdwardsPoint(self.key_image_generator) * view.offset());
-
     // Use the transcript to get a seeded random number generator
     //
     // The transcript contains private data, preventing passive adversaries from recreating this

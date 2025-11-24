@@ -15,6 +15,12 @@ impl ConstantTimeEq for Point {
   }
 }
 
+impl ConditionallySelectable for Point {
+  fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+    Self(<_>::conditional_select(&a.0, &b.0, choice))
+  }
+}
+
 impl PartialEq for Point {
   /// This defers to `ConstantTimeEq::ct_eq`.
   fn eq(&self, other: &Self) -> bool {
@@ -34,14 +40,14 @@ impl Point {
   /// implementation runs in constant time.
   ///
   /// According to the original authors
-  /// (https://web.archive.org/web/20201028121818/https://cryptonote.org/whitepaper.pdf), this
-  /// would implement https://arxiv.org/abs/0706.1448. Shen Noether also describes the algorithm
-  /// (https://web.getmonero.org/resources/research-lab/pubs/ge_fromfe.pdf), yet without reviewing
-  /// its security and in a very straight-forward fashion.
+  /// (<https://web.archive.org/web/20201028121818/https://cryptonote.org/whitepaper.pdf>), this
+  /// would implement <https://arxiv.org/abs/0706.1448>. Shen Noether also describes the algorithm
+  /// (<https://web.getmonero.org/resources/research-lab/pubs/ge_fromfe.pdf>), yet without
+  /// reviewing its security and in a very straight-forward fashion.
   ///
   /// In reality, this implements Elligator 2 as detailed in
   /// "Elligator: Elliptic-curve points indistinguishable from uniform random strings"
-  /// (https://eprint.iacr.org/2013/325). Specifically, Section 5.5 details the application of
+  /// (<https://eprint.iacr.org/2013/325>). Specifically, Section 5.5 details the application of
   /// Elligator 2 to Curve25519, after which the result is mapped to Ed25519.
   ///
   /// As this only applies Elligator 2 once, it's limited to a subset of points where a certain
