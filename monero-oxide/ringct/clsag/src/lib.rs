@@ -14,7 +14,7 @@ use std_shims::{
 use rand_core::{RngCore, CryptoRng};
 
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
-use subtle::{ConstantTimeEq, ConditionallySelectable};
+use subtle::{Choice, ConstantTimeEq, ConditionallySelectable};
 
 use curve25519_dalek::{
   constants::ED25519_BASEPOINT_POINT,
