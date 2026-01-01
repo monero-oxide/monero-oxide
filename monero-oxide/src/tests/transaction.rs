@@ -82,12 +82,12 @@ fn parse() {
     assert_eq!(tx.prefix().outputs.len(), outputs.len());
     for (i, output) in tx.prefix().outputs.iter().enumerate() {
       assert_eq!(output.amount.unwrap_or(0), outputs[i]["amount"]);
-      if output.view_tag.is_some() {
+      if let Some(expected_view_tag) = output.view_tag {
         assert_eq!(output.key, compressed_point(&outputs[i]["target"]["tagged_key"]["key"]));
         let view_tag =
           hex::decode(outputs[i]["target"]["tagged_key"]["view_tag"].as_str().unwrap()).unwrap();
         assert_eq!(view_tag.len(), 1);
-        assert_eq!(output.view_tag.unwrap(), view_tag[0]);
+        assert_eq!(expected_view_tag, view_tag[0]);
       } else {
         assert_eq!(output.key, compressed_point(&outputs[i]["target"]["key"]));
       }

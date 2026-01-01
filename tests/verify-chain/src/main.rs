@@ -237,8 +237,7 @@ async fn main() {
   let mut specified_nodes = vec![];
   {
     let mut i = 0;
-    loop {
-      let Some(node) = args.get(3 + i) else { break };
+    while let Some(node) = args.get(3 + i) {
       specified_nodes.push(node.clone());
       i += 1;
     }
