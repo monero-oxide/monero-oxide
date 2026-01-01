@@ -16,14 +16,18 @@ on:
 jobs:
   # Only run these once since they will be consistent regardless of any node
   unit-tests:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-15-intel, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # 6.0.0
 
       - name: Test Dependencies
         uses: ./.github/actions/test-dependencies
 
       - name: Run Unit Tests With and Without `--all-features`
+        shell: bash
         run: |
           function check_workspace {
             # Get the members array from the workspace's `Cargo.toml`
@@ -46,7 +50,8 @@ jobs:
             members=$(echo "$members" | sed "$(($(echo "$members" | wc -l) - 1))s/\,//")
 
             echo $members | jq -r ".[]" | while read -r member; do
-              echo Testing $member
+              member=$(echo "$member" | tr -d "[:space:]")
+              echo "Testing $member"
 
               GITHUB_CI=true RUST_BACKTRACE=1 cargo test --manifest-path $member/Cargo.toml --lib
               correct=$?
@@ -64,14 +69,15 @@ jobs:
           check_workspace
 
   integration-tests:
-    runs-on: ubuntu-latest
-    # Test against all supported protocol versions
     strategy:
       matrix:
+        os: [ubuntu-latest, macos-15-intel, macos-latest, windows-latest]
+        # Test against all supported protocol versions
         version: [v0.17.3.2, v0.18.4.4]
+    runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # 6.0.0
 
       - name: Test Dependencies
         uses: ./.github/actions/test-dependencies
@@ -79,12 +85,14 @@ jobs:
           monero-version: ${{ matrix.version }}
 
       - name: Run Integration Tests
+        shell: bash
         run: |
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-oxide --test '*'
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --test '*'
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-wallet --test '*'
 
       - name: Run Integration Tests With All Features
+        shell: bash
         run: |
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-oxide --all-features --test '*'
           GITHUB_CI=true RUST_BACKTRACE=1 cargo test --package monero-simple-request-rpc --all-features --test '*'

@@ -45,7 +45,7 @@ async fn make_integrated_address(rpc: &Rpc, payment_id: [u8; 8]) -> String {
 }
 
 async fn initialize_rpcs() -> (Rpc, Rpc, MoneroAddress) {
-  let wallet_rpc = SimpleRequestTransport::new("http://127.0.0.1:18082".to_string()).await.unwrap();
+  let wallet_rpc = SimpleRequestTransport::new("http://127.0.0.1:18083".to_string()).await.unwrap();
   let daemon_rpc = runner::rpc().await;
 
   #[derive(Debug, Deserialize)]

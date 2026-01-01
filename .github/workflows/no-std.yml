@@ -17,9 +17,13 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-15-intel, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
     steps:
-      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # 6.0.0
 
       - name: Install Build Dependencies
         uses: ./.github/actions/build-dependencies
@@ -30,12 +34,16 @@ jobs:
         run: echo "version=$(cat .github/nightly-version)" >> $GITHUB_OUTPUT
 
       - name: Install RISC-V Toolchain
+        shell: bash
         run: |
-          sudo apt update
-          sudo apt install -y gcc-riscv64-unknown-elf gcc-multilib
-          rustup toolchain install ${{ steps.nightly.outputs.version }} --profile minimal --component rust-src --target riscv32imac-unknown-none-elf
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt update
+            sudo apt install -y gcc-riscv64-unknown-elf gcc-multilib
+          fi
+          rustup toolchain install ${{ steps.nightly.outputs.version }} --profile minimal --component rust-src
 
       - name: Verify no-std builds
+        shell: bash
         run: |
           CFLAGS=-I/usr/include cargo +${{ steps.nightly.outputs.version }} build --target riscv32imac-unknown-none-elf -Z build-std=core -p monero-oxide-no-std-tests
           CFLAGS=-I/usr/include cargo +${{ steps.nightly.outputs.version }} build --target riscv32imac-unknown-none-elf -Z build-std=core,alloc -p monero-oxide-no-std-tests --features "alloc"
