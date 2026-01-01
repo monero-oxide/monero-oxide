@@ -29,6 +29,10 @@ members = [
 # Always compile Monero (and a variety of dependencies) with optimizations
 [profile.dev.package]
 subtle = { opt-level = 3 }
+
+sha3 = { opt-level = 3 }
+blake2 = { opt-level = 3 }
+
 curve25519-dalek = { opt-level = 3 }
 
 ff = { opt-level = 3 }
@@ -49,8 +53,17 @@ monero-bulletproofs-generators = { opt-level = 3 }
 monero-bulletproofs = {opt-level = 3 }
 monero-oxide = { opt-level = 3 }
 
+[profile.dev]
+panic = "abort"
+overflow-checks = true
 [profile.release]
-panic = "unwind"
+panic = "abort"
+overflow-checks = true
+# These do not respect the `panic` configuration value, so we don't provide them
+[profile.test]
+# panic = "abort" # https://github.com/rust-lang/issues/67650
+overflow-checks = true
+[profile.bench]
 overflow-checks = true
 
 [workspace.lints.clippy]
