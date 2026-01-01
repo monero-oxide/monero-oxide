@@ -33,6 +33,9 @@ fn base58() {
   let max_decoded_block = "zzzzzzzzzzz";
   assert!(decode(max_decoded_block).is_none());
 
+  // Shifts into position without issue but fails to add the last character
+  assert!(decode("jpXCZedGfVz").is_none());
+
   let full_and_partial_block = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
   encode_decode(full_and_partial_block);
 }

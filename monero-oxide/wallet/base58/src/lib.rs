@@ -72,8 +72,10 @@ pub fn decode(data: &str) -> Option<Vec<u8>> {
     let mut sum = 0u64;
     for this_char in chunk {
       sum = sum.checked_mul(ALPHABET_LEN)?;
-      sum += u64::try_from(ALPHABET.iter().position(|a| a == this_char)?)
-        .expect("alphabet len exceeded 2**64");
+      sum = sum.checked_add(
+        u64::try_from(ALPHABET.iter().position(|a| a == this_char)?)
+          .expect("alphabet len exceeded 2**64"),
+      )?;
     }
 
     // From the size of the encoding, determine the size of the bytes
