@@ -189,12 +189,22 @@ async fn select_n(
 
       // If this is an unlocked output, push it to the result
       if let Some(output) = output.take() {
-        // Unless torsion is present
-        // https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a
-        //   /src/wallet/wallet2.cpp#L9050-L9060
         {
           let [key, commitment] = output;
+          // Unless torsion is present
+          // https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a
+          //   /src/wallet/wallet2.cpp#L9050-L9060
           if !(key.into().is_torsion_free() && commitment.into().is_torsion_free()) {
+            continue;
+          }
+          /*
+            Or the key is the identity, and accordingly cannot be signed for as a real ring member.
+
+            If Monero omits this check, then transactions may technically be fingerprinted as from
+            `wallet2` (and not `monero-wallet`). We accept this (arguable) fingerprint.
+          */
+          use curve25519_dalek::traits::IsIdentity as _;
+          if key.into().is_identity() {
             continue;
           }
         }

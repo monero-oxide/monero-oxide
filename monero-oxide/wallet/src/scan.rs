@@ -141,6 +141,17 @@ impl InternalScanner {
 
     let mut res = vec![];
     for (o, output) in tx.prefix().outputs.iter().enumerate() {
+      /*
+        Explicitly skip keys which are the identity.
+
+        These are theoretically able to be scanned (with negligible probability except for a
+        recipient who chooses their keys as to cause this), but are unspendable due to restrictions
+        the key image isn't the identity point (in place since the RingCT upgrade).
+      */
+      if output.key == CompressedPoint::IDENTITY {
+        continue;
+      }
+
       let Some(output_key) = output.key.decompress() else { continue };
 
       // Monero checks with each TX key and with the additional key for this output

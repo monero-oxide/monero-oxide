@@ -305,6 +305,20 @@ impl SignableTransaction {
       Err(SendError::InvalidInputs)?;
     }
     for input in &self.inputs {
+      // Checks for outputs we won't scan but are unusable if passed here
+      {
+        let key = input.key().into();
+        // Reject keys with torsion, which would need a bespoke signing algorithm to be complete
+        if !key.is_torsion_free() {
+          Err(SendError::InvalidInputs)?;
+        }
+        // Reject keys which are the identity and accordingly lack a usable a key image
+        use curve25519_dalek::traits::IsIdentity as _;
+        if key.is_identity() {
+          Err(SendError::InvalidInputs)?;
+        }
+      }
+
       if input.decoys().len() !=
         match self.rct_type {
           RctType::ClsagBulletproof => 11,
