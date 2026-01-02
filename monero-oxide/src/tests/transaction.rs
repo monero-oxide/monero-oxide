@@ -1,3 +1,5 @@
+#![allow(clippy::wildcard_enum_match_arm)]
+
 use serde_json::Value;
 
 use crate::{
@@ -247,7 +249,7 @@ fn clsag() {
     for out in &data {
       ring.push([compressed_point(&out.key), compressed_point(&out.mask)]);
     }
-    rings.push(ring)
+    rings.push(ring);
   }
 
   // gather key images

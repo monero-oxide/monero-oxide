@@ -1,6 +1,6 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
-#![deny(missing_docs)]
+#![allow(single_use_lifetimes, clippy::elidable_lifetime_names)] // Benefits clarity
 #![no_std]
 
 use core::marker::PhantomData;

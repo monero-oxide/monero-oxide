@@ -5,7 +5,7 @@ use std_shims::{
 };
 
 use zeroize::{Zeroize, ZeroizeOnDrop};
-use subtle::{Choice, ConstantTimeEq};
+use subtle::{Choice, ConstantTimeEq as _};
 
 use crate::{
   io::*,
@@ -228,6 +228,7 @@ impl Metadata {
 
     VarInt::write(&self.arbitrary_data.len(), w)?;
     for part in &self.arbitrary_data {
+      #[allow(clippy::as_conversions)]
       const _ASSERT_MAX_ARBITRARY_DATA_SIZE_FITS_WITHIN_U8: [();
         (u8::MAX as usize) - MAX_ARBITRARY_DATA_SIZE] = [(); _];
       w.write_all(&[

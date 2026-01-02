@@ -1,4 +1,4 @@
-#![allow(non_snake_case)]
+#![allow(non_snake_case, clippy::many_single_char_names)]
 
 use std_shims::sync::LazyLock;
 

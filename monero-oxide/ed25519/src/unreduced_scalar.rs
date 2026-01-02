@@ -149,11 +149,12 @@ impl UnreducedScalar {
       recovered += recovered;
       match numb.cmp(&0) {
         Ordering::Greater => {
-          recovered += PRECOMPUTED_SCALARS[usize::try_from(numb).expect("positive i8 -> usize") / 2]
+          recovered +=
+            PRECOMPUTED_SCALARS[usize::try_from(numb).expect("positive i8 -> usize") / 2];
         }
         Ordering::Less => {
           recovered -=
-            PRECOMPUTED_SCALARS[usize::try_from(-numb).expect("negated negative i8 -> usize") / 2]
+            PRECOMPUTED_SCALARS[usize::try_from(-numb).expect("negated negative i8 -> usize") / 2];
         }
         Ordering::Equal => (),
       }

@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use monero_ed25519::CompressedPoint;
 
 mod hex;

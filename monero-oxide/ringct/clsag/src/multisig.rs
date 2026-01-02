@@ -1,19 +1,19 @@
-use core::ops::Deref;
+use core::ops::Deref as _;
 use std_shims::{
   sync::{Arc, Mutex},
   io::{self, Read, Write},
   collections::HashMap,
 };
 
-use rand_core::{RngCore, CryptoRng, SeedableRng};
+use rand_core::{RngCore, CryptoRng, SeedableRng as _};
 use rand_chacha::ChaCha20Rng;
 
-use subtle::ConstantTimeEq;
+use subtle::ConstantTimeEq as _;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use curve25519_dalek::{scalar::Scalar, edwards::EdwardsPoint};
 
-use group::{ff::PrimeField, Group, GroupEncoding};
+use group::{ff::PrimeField as _, Group as _, GroupEncoding as _};
 
 use transcript::{Transcript, RecommendedTranscript};
 use dalek_ff_group as dfg;
@@ -42,7 +42,7 @@ impl ClsagContext {
       transcript.append_message(b"member", [u8::try_from(i).expect("ring size exceeded 255")]);
       // This also transcripts the key image generator since it's derived from this key
       transcript.append_message(b"key", pair[0].compress().to_bytes());
-      transcript.append_message(b"commitment", pair[1].compress().to_bytes())
+      transcript.append_message(b"commitment", pair[1].compress().to_bytes());
     }
 
     // Doesn't include the commitment's parts as the above ring + index includes the commitment

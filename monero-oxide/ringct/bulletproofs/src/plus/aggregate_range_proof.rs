@@ -3,7 +3,7 @@ use std_shims::{vec, vec::Vec};
 use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use curve25519_dalek::{traits::Identity, scalar::Scalar, edwards::EdwardsPoint};
+use curve25519_dalek::{traits::Identity as _, scalar::Scalar, edwards::EdwardsPoint};
 
 use monero_ed25519::{Point, CompressedPoint, Commitment};
 

@@ -1,5 +1,5 @@
 use core::{ops::RangeInclusive, future::Future};
-use alloc::{format, vec, vec::Vec, string::ToString};
+use alloc::{borrow::ToOwned as _, format, vec, vec::Vec};
 
 use monero_oxide::{
   transaction::{PotentiallyPruned, Transaction},
@@ -32,7 +32,7 @@ impl<T: HttpTransport> MoneroDaemon<T> {
     */
     if *range.start() == 0 {
       Err(InterfaceError::InternalError(
-        "attempting to fetch contiguous blocks from 0".to_string(),
+        "attempting to fetch contiguous blocks from 0".to_owned(),
       ))?;
     }
 
@@ -41,20 +41,20 @@ impl<T: HttpTransport> MoneroDaemon<T> {
     };
     let Some(requested_blocks) = requested_blocks_sub_one.checked_add(1) else {
       Err(InterfaceError::InternalError(
-        "requested more blocks than representable in a `usize`".to_string(),
+        "requested more blocks than representable in a `usize`".to_owned(),
       ))?
     };
     res.reserve(requested_blocks);
 
     let Ok(mut start) = u64::try_from(*range.start()) else {
-      Err(InterfaceError::InternalError("start block wasn't representable in a `u64`".to_string()))?
+      Err(InterfaceError::InternalError("start block wasn't representable in a `u64`".to_owned()))?
     };
     let Ok(end) = u64::try_from(*range.end()) else {
-      Err(InterfaceError::InternalError("end block wasn't representable in a `u64`".to_string()))?
+      Err(InterfaceError::InternalError("end block wasn't representable in a `u64`".to_owned()))?
     };
     let Ok(mut remaining_blocks) = u64::try_from(requested_blocks) else {
       Err(InterfaceError::InternalError(
-        "amount of requested blocks wasn't representable in a `u64`".to_string(),
+        "amount of requested blocks wasn't representable in a `u64`".to_owned(),
       ))?
     };
 
@@ -67,10 +67,12 @@ impl<T: HttpTransport> MoneroDaemon<T> {
 
     request.push(epee_key_len!("prune"));
     request.extend("prune".as_bytes());
+    #[allow(clippy::as_conversions)]
     request.push(epee::Type::Bool as u8);
     request.push(1);
     request.push(epee_key_len!("start_height"));
     request.extend("start_height".as_bytes());
+    #[allow(clippy::as_conversions)]
     request.push(epee::Type::Uint64 as u8);
     debug_assert_eq!(expected_request_header_len, request.len());
 
@@ -87,6 +89,7 @@ impl<T: HttpTransport> MoneroDaemon<T> {
       */
       request.push(epee_key_len!("max_block_count"));
       request.extend("max_block_count".as_bytes());
+      #[allow(clippy::as_conversions)]
       request.push(epee::Type::Uint64 as u8);
       request.extend(remaining_blocks.to_le_bytes());
 
@@ -116,7 +119,7 @@ impl<T: HttpTransport> MoneroDaemon<T> {
       };
       if blocks_received == 0 {
         Err(InterfaceError::InvalidInterface(
-          "received zero blocks when requesting multiple".to_string(),
+          "received zero blocks when requesting multiple".to_owned(),
         ))?;
       }
 
@@ -135,7 +138,7 @@ fn update_output_index<P: PotentiallyPruned>(
   if !matches!(tx, Transaction::V1 { .. }) {
     if next_ringct_output_index.is_none() && (!tx.prefix().outputs.is_empty()) {
       Err(InterfaceError::InternalError(
-        "RingCT transactions yet no RingCT output index".to_string(),
+        "RingCT transactions yet no RingCT output index".to_owned(),
       ))?;
     }
 
@@ -151,7 +154,7 @@ fn update_output_index<P: PotentiallyPruned>(
             .expect("amount of transaction outputs exceeded 2**64?"),
         )
         .ok_or_else(|| {
-          InterfaceError::InvalidInterface("output index exceeded `u64::MAX`".to_string())
+          InterfaceError::InvalidInterface("output index exceeded `u64::MAX`".to_owned())
         })?;
     }
   }
@@ -194,10 +197,10 @@ async fn expand<T: HttpTransport>(
       .map_err(|e| match e {
         TransactionsError::InterfaceError(e) => e,
         TransactionsError::TransactionNotFound => InterfaceError::InvalidInterface(
-          "daemon sent us a block it doesn't have the transactions for".to_string(),
+          "daemon sent us a block it doesn't have the transactions for".to_owned(),
         ),
         TransactionsError::PrunedTransaction => InterfaceError::InternalError(
-          "complaining about receiving a pruned transaction when".to_string() +
+          "complaining about receiving a pruned transaction when".to_owned() +
             " requesting a pruned transaction",
         ),
       })?;
@@ -244,7 +247,7 @@ impl<T: HttpTransport> ProvidesUnvalidatedScannableBlocks for MoneroDaemon<T> {
         let len_successfully_fetched =
           res.len().checked_sub(len_before_fetch).ok_or_else(|| {
             InterfaceError::InternalError(
-              "`fetch_contiguous_blocks` shortened the length of `res`".to_string(),
+              "`fetch_contiguous_blocks` shortened the length of `res`".to_owned(),
             )
           })?;
         let Some(new_start) = (*range.start()).checked_add(len_successfully_fetched) else {

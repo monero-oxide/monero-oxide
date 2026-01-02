@@ -1,7 +1,7 @@
 use std_shims::{vec, vec::Vec};
 
 use curve25519_dalek::{
-  traits::{MultiscalarMul, VartimeMultiscalarMul},
+  traits::{MultiscalarMul as _, VartimeMultiscalarMul as _},
   scalar::Scalar,
   edwards::EdwardsPoint,
 };

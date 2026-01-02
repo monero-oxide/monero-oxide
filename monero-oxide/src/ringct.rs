@@ -125,7 +125,7 @@ impl RctType {
   }
 
   /// True if this RctType uses a Bulletproof, false otherwise.
-  pub(crate) fn bulletproof(&self) -> bool {
+  pub(crate) fn bulletproof(self) -> bool {
     match self {
       RctType::MlsagBulletproofs |
       RctType::MlsagBulletproofsCompactAmount |
@@ -137,7 +137,7 @@ impl RctType {
   }
 
   /// True if this RctType uses a Bulletproof+, false otherwise.
-  pub(crate) fn bulletproof_plus(&self) -> bool {
+  pub(crate) fn bulletproof_plus(self) -> bool {
     match self {
       RctType::ClsagBulletproofPlus => true,
       RctType::AggregateMlsagBorromean |

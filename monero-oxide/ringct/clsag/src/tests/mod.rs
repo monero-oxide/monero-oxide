@@ -1,12 +1,12 @@
-use core::ops::Deref;
+use core::ops::Deref as _;
 
 use zeroize::Zeroizing;
-use rand_core::{RngCore, OsRng};
+use rand_core::{RngCore as _, OsRng};
 
 use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
 
 use monero_ed25519::{Scalar, CompressedPoint, Point, Commitment};
-use crate::{Decoys, ClsagContext, Clsag};
+use crate::{Decoys, ClsagError, ClsagContext, Clsag};
 
 #[cfg(feature = "multisig")]
 mod multisig;
@@ -69,7 +69,7 @@ fn clsag() {
 
       // Test verification fails if we malleate a ring member
       {
-        use curve25519_dalek::traits::IsIdentity;
+        use curve25519_dalek::traits::IsIdentity as _;
 
         let mut ring = ring.clone();
         let torsion = curve25519_dalek::edwards::CompressedEdwardsY([0; 32]).decompress().unwrap();
@@ -78,14 +78,20 @@ fn clsag() {
         ring[0][0] = CompressedPoint::from(
           (ring[0][0].decompress().unwrap().into() + torsion).compress().to_bytes(),
         );
-        assert!(clsag.verify(ring, &image, &pseudo_out, &msg_hash).is_err());
+        assert_eq!(
+          clsag.verify(ring, &image, &pseudo_out, &msg_hash).unwrap_err(),
+          ClsagError::InvalidC1
+        );
       }
 
       // make sure verification fails if we throw a random `c1` at it.
       {
         let mut clsag = clsag.clone();
         clsag.c1 = Scalar::random(&mut OsRng);
-        assert!(clsag.verify(ring, &image, &pseudo_out, &msg_hash).is_err());
+        assert_eq!(
+          clsag.verify(ring, &image, &pseudo_out, &msg_hash).unwrap_err(),
+          ClsagError::InvalidC1
+        );
       }
     }
   }

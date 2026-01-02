@@ -6,9 +6,9 @@ use std_shims::{
 
 use rand_core::{RngCore, CryptoRng};
 
-use curve25519_dalek::{traits::Identity, Scalar, EdwardsPoint};
+use curve25519_dalek::{traits::Identity as _, Scalar, EdwardsPoint};
 
-use transcript::{Transcript, RecommendedTranscript};
+use transcript::{Transcript as _, RecommendedTranscript};
 use frost::{
   curve::Ed25519,
   Participant, FrostError, ThresholdKeys,
@@ -210,10 +210,12 @@ impl SignMachine<Transaction> for TransactionSignMachine {
     mut commitments: HashMap<Participant, Self::Preprocess>,
     msg: &[u8],
   ) -> Result<(TransactionSignatureMachine, Self::SignatureShare), FrostError> {
-    if !msg.is_empty() {
-      panic!("message was passed to the TransactionMachine when it generates its own");
-    }
+    assert!(
+      msg.is_empty(),
+      "message was passed to the TransactionMachine when it generates its own"
+    );
 
+    #[allow(clippy::iter_over_hash_type)]
     for preprocess in commitments.values() {
       if preprocess.0.len() != self.clsags.len() {
         Err(FrostError::InternalError(
@@ -343,6 +345,7 @@ impl SignatureMachine<Transaction> for TransactionSignatureMachine {
     mut self,
     shares: HashMap<Participant, Self::SignatureShare>,
   ) -> Result<Transaction, FrostError> {
+    #[allow(clippy::iter_over_hash_type)]
     for share in shares.values() {
       if share.0.len() != self.clsags.len() {
         Err(FrostError::InternalError(
@@ -352,6 +355,7 @@ impl SignatureMachine<Transaction> for TransactionSignatureMachine {
     }
 
     let mut tx = self.tx;
+    #[allow(clippy::wildcard_enum_match_arm)]
     match tx {
       Transaction::V2 {
         proofs:

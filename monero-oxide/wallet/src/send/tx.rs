@@ -48,7 +48,10 @@ impl SignableTransaction {
         view_tag: (match self.rct_type {
           RctType::ClsagBulletproof => false,
           RctType::ClsagBulletproofPlus => true,
-          _ => panic!("unsupported RctType"),
+          RctType::AggregateMlsagBorromean |
+          RctType::MlsagBorromean |
+          RctType::MlsagBulletproofs |
+          RctType::MlsagBulletproofsCompactAmount => panic!("unsupported RctType"),
         })
         .then_some(shared_key_derivations.view_tag),
       });
@@ -139,7 +142,10 @@ impl SignableTransaction {
             match self.rct_type {
               RctType::ClsagBulletproof => 11,
               RctType::ClsagBulletproofPlus => 16,
-              _ => unreachable!("unsupported RCT type"),
+              RctType::AggregateMlsagBorromean |
+              RctType::MlsagBorromean |
+              RctType::MlsagBulletproofs |
+              RctType::MlsagBulletproofsCompactAmount => unreachable!("unsupported RCT type"),
             }
           ],
           c1: Scalar::ZERO,
@@ -217,7 +223,10 @@ impl SignableTransaction {
           }
           Bulletproof::read_plus(&mut bp.as_slice()).expect("made an invalid dummy BP+")
         }
-        _ => panic!("unsupported RctType"),
+        RctType::AggregateMlsagBorromean |
+        RctType::MlsagBorromean |
+        RctType::MlsagBulletproofs |
+        RctType::MlsagBulletproofsCompactAmount => panic!("unsupported RctType"),
       };
 
       // `- 1` to remove the one byte for the 0 fee
@@ -290,7 +299,10 @@ impl SignableTransactionWithKeyImages {
       (match self.intent.rct_type {
         RctType::ClsagBulletproof => Bulletproof::prove(&mut bp_rng, bp_commitments),
         RctType::ClsagBulletproofPlus => Bulletproof::prove_plus(&mut bp_rng, bp_commitments),
-        _ => panic!("unsupported RctType"),
+        RctType::AggregateMlsagBorromean |
+        RctType::MlsagBorromean |
+        RctType::MlsagBulletproofs |
+        RctType::MlsagBulletproofsCompactAmount => panic!("unsupported RctType"),
       })
       .expect("couldn't prove BP(+)s for this many payments despite checking in constructor?")
     };

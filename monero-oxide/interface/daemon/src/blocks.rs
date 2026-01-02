@@ -1,10 +1,6 @@
 use core::{ops::RangeInclusive, future::Future};
 
-use alloc::{
-  format, vec,
-  vec::Vec,
-  string::{String, ToString},
-};
+use alloc::{borrow::ToOwned as _, format, vec, vec::Vec, string::String};
 
 use serde::Deserialize;
 
@@ -144,7 +140,7 @@ impl<T: HttpTransport> ProvidesUnvalidatedBlockchain for MoneroDaemon<T> {
         })
         .map_err(|_| {
           InterfaceError::InvalidInterface(
-            "`get_block` response wasn't the expected JSON".to_string(),
+            "`get_block` response wasn't the expected JSON".to_owned(),
           )
         })?;
 
@@ -164,7 +160,7 @@ impl<T: HttpTransport> ProvidesUnvalidatedBlockchain for MoneroDaemon<T> {
           }
 
           let block = Block::read(&mut rpc_hex(&json.result.blob)?.as_slice())
-            .map_err(|_| InterfaceError::InvalidInterface("invalid block".to_string()))?;
+            .map_err(|_| InterfaceError::InvalidInterface("invalid block".to_owned()))?;
           res.push(block);
         }
 
@@ -208,7 +204,7 @@ impl<T: HttpTransport> ProvidesUnvalidatedBlockchain for MoneroDaemon<T> {
         .await?;
 
       Block::read(&mut rpc_hex(&res.blob)?.as_slice())
-        .map_err(|_| InterfaceError::InvalidInterface("invalid block".to_string()))
+        .map_err(|_| InterfaceError::InvalidInterface("invalid block".to_owned()))
     }
   }
 

@@ -1,5 +1,5 @@
 use core::{ops::RangeInclusive, future::Future};
-use alloc::{format, vec::Vec, string::ToString};
+use alloc::{borrow::ToOwned as _, format, vec::Vec};
 
 use monero_oxide::block::Block;
 
@@ -113,9 +113,10 @@ pub trait ProvidesBlockchain: ProvidesBlockchainMeta {
   ) -> impl Send + Future<Output = Result<[u8; 32], InterfaceError>>;
 }
 
-pub(crate) fn sanity_check_contiguous_blocks<'a>(
+#[expect(single_use_lifetimes)] // False positive, this can't be removed
+pub(crate) fn sanity_check_contiguous_blocks<'block>(
   range: RangeInclusive<usize>,
-  blocks: impl Iterator<Item = &'a Block>,
+  blocks: impl Iterator<Item = &'block Block>,
 ) -> Result<(), InterfaceError> {
   let mut parent = None;
   for (number, block) in range.zip(blocks) {
@@ -134,7 +135,7 @@ pub(crate) fn sanity_check_contiguous_blocks<'a>(
             interface returned a block which doesn't build on the prior block \
             when requesting a contiguous series
           "
-          .to_string(),
+          .to_owned(),
         ))?;
       }
     }
@@ -183,7 +184,7 @@ impl<P: ProvidesUnvalidatedBlockchain> ProvidesBlockchain for P {
       let expected_blocks =
         range.end().saturating_sub(*range.start()).checked_add(1).ok_or_else(|| {
           InterfaceError::InternalError(
-            "amount of blocks requested wasn't representable in a `usize`".to_string(),
+            "amount of blocks requested wasn't representable in a `usize`".to_owned(),
           )
         })?;
       if blocks.len() != expected_blocks {

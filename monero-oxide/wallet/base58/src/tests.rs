@@ -42,7 +42,7 @@ fn base58() {
 
 #[test]
 fn fuzz_base58() {
-  use rand_core::{RngCore, OsRng};
+  use rand_core::{RngCore as _, OsRng};
 
   for _ in 0 .. 1000 {
     for len in 1 .. 200 {

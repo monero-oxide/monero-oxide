@@ -53,7 +53,7 @@ impl Ord for CompressedPoint {
 impl Hash for CompressedPoint {
   /// This executes in variable time.
   fn hash<H: Hasher>(&self, hasher: &mut H) {
-    self.0.hash::<H>(hasher)
+    self.0.hash::<H>(hasher);
   }
 }
 

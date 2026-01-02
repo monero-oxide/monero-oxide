@@ -1,6 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
-#![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(non_snake_case)]
 
@@ -45,8 +44,10 @@ use crate::plus::{
 mod tests;
 
 // The logarithm (over 2) of the amount of bits a value within a commitment may use.
+#[allow(clippy::as_conversions)]
 const LOG_COMMITMENT_BITS: usize = COMMITMENT_BITS.ilog2() as usize;
 // The maximum length of L/R `Vec`s.
+#[allow(clippy::as_conversions)]
 const MAX_LR: usize = (MAX_COMMITMENTS.ilog2() as usize) + LOG_COMMITMENT_BITS;
 
 // A static for `H` as it's frequently used yet this decompression is expensive.

@@ -1,6 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
-#![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(non_snake_case)]
 
@@ -192,7 +191,7 @@ impl Mlsag {
     }
 
     if ci != self.cc.into() {
-      Err(MlsagError::InvalidCi)?
+      Err(MlsagError::InvalidCi)?;
     }
     Ok(())
   }

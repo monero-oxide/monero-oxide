@@ -1,8 +1,10 @@
 // The inner product relation is P = sum(g_bold * a, h_bold * b, g * (a * y * b), h * alpha)
 
+#![allow(clippy::many_single_char_names)]
+
 use rand_core::OsRng;
 
-use curve25519_dalek::{traits::Identity, EdwardsPoint};
+use curve25519_dalek::{traits::Identity as _, EdwardsPoint};
 
 use monero_ed25519::Scalar;
 use crate::{

@@ -1,7 +1,7 @@
 use subtle::{Choice, ConstantTimeEq, ConditionallySelectable};
 use zeroize::Zeroize;
 
-use sha3::{Digest, Keccak256};
+use sha3::{Digest as _, Keccak256};
 
 use crate::CompressedPoint;
 
@@ -54,7 +54,7 @@ impl Point {
   /// derivative of their `u` coordinates (in Montgomery form) are quadratic residues. It's biased
   /// accordingly. The yielded points SHOULD still have uniform relations to each other however.
   pub fn biased_hash(bytes: [u8; 32]) -> Self {
-    use crypto_bigint::{Encoding, modular::constant_mod::*, U256, impl_modulus, const_residue};
+    use crypto_bigint::{Encoding as _, modular::constant_mod::*, U256, impl_modulus, const_residue};
 
     const MODULUS_STR: &str = "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffed";
     impl_modulus!(Two25519, U256, MODULUS_STR);
@@ -67,7 +67,7 @@ impl Point {
       A Curve25519 point `(u, v)` may be mapped to an Ed25519 point `(x, y)` with the map
       `(sqrt(-(A + 2)) u / v, (u - 1) / (u + 1))`.
     */
-    const A_U256: U256 = U256::from_u64(486662);
+    const A_U256: U256 = U256::from_u64(486_662);
     const A: Two25519Residue = const_residue!(A_U256, Two25519);
     const NEGATIVE_A: Two25519Residue = A.neg();
 
@@ -171,7 +171,7 @@ impl Point {
   /// This is hidden as it is not part of our API commitment. No guarantees are made for it.
   #[doc(hidden)]
   pub fn key_image(self) -> Option<curve25519_dalek::EdwardsPoint> {
-    use curve25519_dalek::traits::IsIdentity;
+    use curve25519_dalek::traits::IsIdentity as _;
     if self.0.is_identity() || (!self.0.is_torsion_free()) {
       None?;
     }

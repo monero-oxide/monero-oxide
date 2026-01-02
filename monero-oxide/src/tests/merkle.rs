@@ -1,6 +1,6 @@
 use std_shims::vec::Vec;
 
-use rand_core::{RngCore, OsRng};
+use rand_core::{RngCore as _, OsRng};
 
 use crate::{primitives::keccak256, merkle::merkle_root};
 
@@ -113,8 +113,8 @@ fn block_202612() {
       .unwrap()
       .try_into()
       .unwrap(),
-    timestamp: 1409804570,
-    nonce: 1073744198,
+    timestamp: 1_409_804_570,
+    nonce: 1_073_744_198,
   };
 
   // The list of transactions present in block 202,612

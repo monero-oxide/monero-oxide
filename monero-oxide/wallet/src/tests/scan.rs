@@ -141,8 +141,8 @@ fn scan_long_encrypted_amount() {
         .iter()
         .all(|o| matches!(o, EncryptedAmount::Original { .. })));
     }
-    _ => panic!("Unexpected tx version"),
-  };
+    Transaction::V1 { .. } => panic!("Unexpected transaction version"),
+  }
 
   // Prepare scanner
   let spend_pub = Point::from(&(*spend_key).into() * ED25519_BASEPOINT_TABLE);

@@ -3,7 +3,7 @@ use std_shims::prelude::*;
 use std_shims::io;
 
 #[rustfmt::skip]
-use subtle::{Choice, ConstantTimeEq, ConstantTimeLess, ConstantTimeGreater, ConditionallySelectable};
+use subtle::{Choice, ConstantTimeEq as _, ConstantTimeLess as _, ConstantTimeGreater as _, ConditionallySelectable as _};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use monero_io::*;
@@ -60,11 +60,11 @@ impl Decoys {
   pub fn new(offsets: Vec<u64>, signer_index: u8, ring: Vec<[Point; 2]>) -> Option<Self> {
     // We check the low eight bits are equal, then check the remaining bits are zero,
     // due to the lack of `usize::ct_gt`
-    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
     let ring_len_does_not_exceed_max =
       (ring.len() >> 8).ct_eq(&0) & (!(ring.len() as u8).ct_gt(&MAX_RING_SIZE));
     // This cast is safe `ring.len()` is checked to not exceed a `u8` constant
-    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
     let signer_index_points_to_ring_member = signer_index.ct_lt(&(ring.len() as u8));
     let offsets_align_with_ring = offsets.len().ct_eq(&ring.len());
 

@@ -1,10 +1,9 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
-#![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(non_snake_case)]
 
-use core::ops::Deref;
+use core::ops::Deref as _;
 use std_shims::{
   vec,
   vec::Vec,
@@ -14,12 +13,12 @@ use std_shims::{
 use rand_core::{RngCore, CryptoRng};
 
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
-use subtle::{Choice, ConstantTimeEq, ConditionallySelectable};
+use subtle::{Choice, ConstantTimeEq as _, ConditionallySelectable as _};
 
 use curve25519_dalek::{
   constants::ED25519_BASEPOINT_POINT,
   scalar::Scalar as DScalar,
-  traits::{IsIdentity, MultiscalarMul, VartimePrecomputedMultiscalarMul},
+  traits::{IsIdentity as _, MultiscalarMul as _, VartimePrecomputedMultiscalarMul as _},
   edwards::{EdwardsPoint, VartimeEdwardsPrecomputation},
 };
 #[cfg(feature = "compile-time-generators")]

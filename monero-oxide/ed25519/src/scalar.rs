@@ -1,4 +1,4 @@
-use core::ops::DerefMut;
+use core::ops::DerefMut as _;
 
 #[allow(unused_imports)]
 use std_shims::prelude::*;
@@ -9,7 +9,7 @@ use zeroize::{Zeroize, Zeroizing};
 
 use rand_core::{RngCore, CryptoRng};
 
-use sha3::{Digest, Keccak256};
+use sha3::{Digest as _, Keccak256};
 
 use monero_io::*;
 

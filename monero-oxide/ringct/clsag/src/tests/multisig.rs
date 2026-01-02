@@ -1,11 +1,13 @@
+#![allow(clippy::iter_over_hash_type)]
+
 use std_shims::collections::HashMap;
 
-use rand_core::{RngCore, OsRng};
+use rand_core::{RngCore as _, OsRng};
 
 use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
 use dalek_ff_group::Scalar as DScalar;
 
-use transcript::{Transcript, RecommendedTranscript};
+use transcript::{Transcript as _, RecommendedTranscript};
 
 use frost::{
   dkg::{Participant, ThresholdKeys},
@@ -29,7 +31,7 @@ fn setup(
   HashMap<Participant, AlgorithmMachine<Ed25519, ClsagMultisig>>,
 ) {
   let amount = OsRng.next_u64();
-  #[allow(clippy::cast_possible_truncation)]
+  #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
   let ring_len = (OsRng.next_u64() as u8).saturating_add(1);
   let ring_index = u8::try_from(OsRng.next_u64() % u64::from(ring_len)).unwrap();
 

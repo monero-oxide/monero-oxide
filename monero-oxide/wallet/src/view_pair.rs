@@ -1,4 +1,4 @@
-use core::ops::Deref;
+use core::ops::Deref as _;
 
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 

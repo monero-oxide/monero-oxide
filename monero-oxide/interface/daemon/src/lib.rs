@@ -1,15 +1,15 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
-#![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::{fmt::Debug, future::Future};
 
 extern crate alloc;
 use alloc::{
+  borrow::ToOwned as _,
   format, vec,
   vec::Vec,
-  string::{String, ToString},
+  string::{String, ToString as _},
 };
 
 use serde::{Deserialize, de::DeserializeOwned};
@@ -57,6 +57,7 @@ const MAX_REQUEST_SIZE: usize = 1024 * 1024;
 const MAX_RESPONSE_SIZE: usize = 100 * 1024 * 1024;
 
 // These are our own constants used for determining our own bounds on response sizes
+#[allow(clippy::as_conversions)]
 const HTTP_OVERHEAD_ESTIMATE: usize = u16::MAX as usize;
 const REQUEST_SIZE_TARGET: usize = MAX_REQUEST_SIZE - HTTP_OVERHEAD_ESTIMATE - 2048;
 const JSON_BYTE_OVERHEAD_FACTOR_ESTIMATE: usize = 8;
@@ -85,13 +86,13 @@ const TRANSACTION_SIZE_BOUND: usize = monero_oxide::primitives::const_max!(
 
 fn rpc_hex(value: &str) -> Result<Vec<u8>, InterfaceError> {
   hex::decode(value)
-    .map_err(|_| InterfaceError::InvalidInterface("expected hex wasn't hex".to_string()))
+    .map_err(|_| InterfaceError::InvalidInterface("expected hex wasn't hex".to_owned()))
 }
 
 fn hash_hex(hash: &str) -> Result<[u8; 32], InterfaceError> {
   rpc_hex(hash)?
     .try_into()
-    .map_err(|_| InterfaceError::InvalidInterface("hash wasn't 32-bytes".to_string()))
+    .map_err(|_| InterfaceError::InvalidInterface("hash wasn't 32-bytes".to_owned()))
 }
 
 #[derive(Deserialize)]
@@ -156,7 +157,7 @@ impl<T: HttpTransport> MoneroDaemon<T> {
        { "jsonrpc": "2.0", "method": "on_get_block_hash", "params": [1], "id": 1 }
       ]"#;
       let response: serde_json::Value =
-        result.rpc_call_internal("json_rpc", Some(BATCH_REQUEST.to_string()), 0).await?;
+        result.rpc_call_internal("json_rpc", Some(BATCH_REQUEST.to_owned()), 0).await?;
       if let Some(error) = response.get("error") {
         /*
           If the server failed to parse our valid JSON, we assume it's because it's expecting an
@@ -233,7 +234,7 @@ impl<T: HttpTransport> MoneroDaemon<T> {
     res.truncate(response_size_limit);
 
     std_shims::string::String::from_utf8(res)
-      .map_err(|_| InterfaceError::InvalidInterface("response wasn't utf-8".to_string()))
+      .map_err(|_| InterfaceError::InvalidInterface("response wasn't utf-8".to_owned()))
   }
 
   async fn rpc_call_internal<Response: DeserializeOwned>(
@@ -243,9 +244,8 @@ impl<T: HttpTransport> MoneroDaemon<T> {
     response_size_limit: usize,
   ) -> Result<Response, InterfaceError> {
     let res = self.rpc_call_core(route, params, response_size_limit).await?;
-    serde_json::from_str(&res).map_err(|_| {
-      InterfaceError::InvalidInterface("response wasn't the expected json".to_string())
-    })
+    serde_json::from_str(&res)
+      .map_err(|_| InterfaceError::InvalidInterface("response wasn't the expected json".to_owned()))
   }
 
   /// Perform a RPC call to the specified route with the provided parameters.
@@ -357,7 +357,7 @@ impl<T: HttpTransport> ProvidesBlockchainMeta for MoneroDaemon<T> {
       let res = self.rpc_call_internal::<HeightResponse>("get_height", None, 0).await?.height;
       res.checked_sub(1).ok_or_else(|| {
         InterfaceError::InvalidInterface(
-          "node claimed the blockchain didn't even have the genesis block".to_string(),
+          "node claimed the blockchain didn't even have the genesis block".to_owned(),
         )
       })
     }
@@ -416,7 +416,7 @@ mod provides_transaction {
         while !hashes_hex.is_empty() {
           let this_count = TRANSACTIONS_LIMIT.min(hashes_hex.len());
 
-          let txs = "\"".to_string() + &hashes_hex.drain(.. this_count).collect::<Vec<_>>().join("\",\"") + "\"";
+          let txs = "\"".to_owned() + &hashes_hex.drain(.. this_count).collect::<Vec<_>>().join("\",\"") + "\"";
           let txs: TransactionsResponse = self
             .rpc_call_internal(
               "get_transactions",
@@ -430,7 +430,7 @@ mod provides_transaction {
           }
           if txs.txs.len() != this_count {
             Err(InterfaceError::InvalidInterface(
-              "not missing any transactions yet didn't return all transactions".to_string(),
+              "not missing any transactions yet didn't return all transactions".to_owned(),
             ))?;
           }
 
@@ -451,7 +451,7 @@ mod provides_transaction {
               ))
             })?;
             if !buf.is_empty() {
-              Err(InterfaceError::InvalidInterface("transaction had extra bytes after it".to_string()))?;
+              Err(InterfaceError::InvalidInterface("transaction had extra bytes after it".to_owned()))?;
             }
 
             // We check this to ensure we didn't read a pruned transaction when we meant to read an
@@ -482,7 +482,7 @@ mod provides_transaction {
         while !hashes_hex.is_empty() {
           let this_count = TRANSACTIONS_LIMIT.min(hashes_hex.len());
 
-          let txs = "\"".to_string() + &hashes_hex.drain(.. this_count).collect::<Vec<_>>().join("\",\"") + "\"";
+          let txs = "\"".to_owned() + &hashes_hex.drain(.. this_count).collect::<Vec<_>>().join("\",\"") + "\"";
           let txs: TransactionsResponse = self
             .rpc_call_internal(
               "get_transactions",
@@ -496,7 +496,7 @@ mod provides_transaction {
           }
           if txs.txs.len() != this_count {
             Err(InterfaceError::InvalidInterface(
-              "not missing any transactions yet didn't return all pruned transactions".to_string(),
+              "not missing any transactions yet didn't return all pruned transactions".to_owned(),
             ))?;
           }
 
@@ -516,7 +516,7 @@ mod provides_transaction {
             })?;
             if !buf.is_empty() {
               Err(InterfaceError::InvalidInterface(
-                "pruned transaction had extra bytes after it".to_string(),
+                "pruned transaction had extra bytes after it".to_owned(),
               ))?;
             }
             let prunable_hash = (!matches!(tx, Transaction::V1 { .. }))
@@ -541,7 +541,7 @@ impl<T: HttpTransport> PublishTransaction for MoneroDaemon<T> {
     tx: &Transaction,
   ) -> impl Send + Future<Output = Result<(), PublishTransactionError>> {
     async move {
-      #[allow(dead_code)]
+      #[allow(dead_code, clippy::struct_excessive_bools)]
       #[derive(Deserialize)]
       struct SendRawResponse {
         status: String,

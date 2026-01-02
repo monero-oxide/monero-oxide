@@ -1,4 +1,6 @@
-use sha3::{Digest, Keccak256};
+#![allow(missing_docs)]
+
+use sha3::{Digest as _, Keccak256};
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY};
 use monero_ed25519::{Scalar, CompressedPoint};
 

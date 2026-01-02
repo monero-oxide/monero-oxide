@@ -1,3 +1,5 @@
+#![allow(clippy::many_single_char_names)]
+
 use std_shims::{sync::LazyLock, vec::Vec};
 
 use rand_core::{RngCore, CryptoRng};
@@ -65,7 +67,7 @@ impl AggregateRangeWitness {
   }
 }
 
-impl<'a> AggregateRangeStatement<'a> {
+impl AggregateRangeStatement<'_> {
   fn initial_transcript(&self) -> (Scalar, Vec<EdwardsPoint>) {
     let V = self.commitments.iter().map(|c| c * INV_EIGHT.into()).collect::<Vec<_>>();
     (
@@ -124,8 +126,8 @@ impl<'a> AggregateRangeStatement<'a> {
     if self.commitments !=
       witness.commitments.iter().map(|commitment| commitment.commit().into()).collect::<Vec<_>>()
     {
-      None?
-    };
+      None?;
+    }
 
     let generators = &GENERATORS;
 

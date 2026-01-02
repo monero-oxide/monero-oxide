@@ -1,5 +1,8 @@
+//! Builds the generators within the Constant Reference String for Bulletproofs(+) at compile-time,
+//! allowing apps to solely deserialize them (without having to calculate them).
+
 use std::{
-  io::Write,
+  io::Write as _,
   env,
   path::Path,
   fs::{File, remove_file},

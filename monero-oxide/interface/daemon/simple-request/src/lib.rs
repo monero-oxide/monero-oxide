@@ -1,9 +1,10 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
-#![deny(missing_docs)]
 
-use core::future::Future;
-use std::{sync::Arc, io::Read, time::Duration};
+use core::{future::Future, time::Duration};
+extern crate alloc;
+use alloc::sync::Arc;
+use std::io::Read as _;
 
 use tokio::sync::Mutex;
 
@@ -49,11 +50,9 @@ impl SimpleRequestTransport {
     Ok(if let Some(header) = response.headers().get("www-authenticate") {
       Some((
         digest_auth::parse(header.to_str().map_err(|_| {
-          InterfaceError::InvalidInterface("www-authenticate header wasn't a string".to_string())
+          InterfaceError::InvalidInterface("www-authenticate header wasn't a string".to_owned())
         })?)
-        .map_err(|_| {
-          InterfaceError::InvalidInterface("invalid digest-auth response".to_string())
-        })?,
+        .map_err(|_| InterfaceError::InvalidInterface("invalid digest-auth response".to_owned()))?,
         0,
       ))
     } else {
@@ -95,17 +94,17 @@ impl SimpleRequestTransport {
         let split_userpass = userpass.split("://").collect::<Vec<_>>();
         if split_userpass.len() != 2 {
           Err(InterfaceError::InterfaceError(
-            "invalid amount of protocol specifications".to_string(),
+            "invalid amount of protocol specifications".to_owned(),
           ))?;
         }
-        url = split_userpass[0].to_string() + "://" + &url;
+        url = split_userpass[0].to_owned() + "://" + &url;
         userpass = split_userpass[1];
       }
 
       let split_userpass = userpass.split(':').collect::<Vec<_>>();
 
       let client = Client::without_connection_pool(&url)
-        .map_err(|_| InterfaceError::InterfaceError("invalid URL".to_string()))?;
+        .map_err(|_| InterfaceError::InterfaceError("invalid URL".to_owned()))?;
       // Obtain the initial challenge, which also somewhat validates this connection
       // TODO: We don't enforce any response size limit here yet should
       let challenge = Self::digest_auth_challenge(
@@ -120,7 +119,7 @@ impl SimpleRequestTransport {
         .map_err(|e| InterfaceError::InterfaceError(format!("{e:?}")))?,
       )?;
       Authentication::Authenticated {
-        username: Zeroizing::new(split_userpass[0].to_string()),
+        username: Zeroizing::new(split_userpass[0].to_owned()),
         password: Zeroizing::new(split_userpass[1 ..].join(":")),
         connection: Arc::new(Mutex::new((challenge, client))),
       }
@@ -181,7 +180,7 @@ impl SimpleRequestTransport {
         Authentication::Unauthenticated(client) => {
           body_from_response(
             client
-              .request(apply_response_size_limit(request_fn("/".to_string() + route)?))
+              .request(apply_response_size_limit(request_fn("/".to_owned() + route)?))
               .await
               .map_err(|e| InterfaceError::InterfaceError(format!("{e:?}")))?,
           )
@@ -190,7 +189,7 @@ impl SimpleRequestTransport {
         Authentication::Authenticated { username, password, connection } => {
           let mut connection_lock = connection.lock().await;
 
-          let mut request = request_fn("/".to_string() + route)?;
+          let mut request = request_fn("/".to_owned() + route)?;
 
           // If we don't have an auth challenge, obtain one
           if connection_lock.0.is_none() {
@@ -201,7 +200,7 @@ impl SimpleRequestTransport {
                 .await
                 .map_err(|e| InterfaceError::InterfaceError(format!("{e:?}")))?,
             )?;
-            request = request_fn("/".to_string() + route)?;
+            request = request_fn("/".to_owned() + route)?;
           }
 
           // Insert the challenge response, if we have a challenge
@@ -213,7 +212,7 @@ impl SimpleRequestTransport {
             let mut context = AuthContext::new_post::<_, _, _, &[u8]>(
               <_ as AsRef<str>>::as_ref(username),
               <_ as AsRef<str>>::as_ref(password),
-              "/".to_string() + route,
+              "/".to_owned() + route,
               None,
             );
             context.set_custom_cnonce(hex::encode(cnonce.to_le_bytes()));
@@ -225,7 +224,7 @@ impl SimpleRequestTransport {
                   .respond(&context)
                   .map_err(|_| {
                     InterfaceError::InvalidInterface(
-                      "couldn't respond to digest-auth challenge".to_string(),
+                      "couldn't respond to digest-auth challenge".to_owned(),
                     )
                   })?
                   .to_header_string(),
@@ -233,7 +232,7 @@ impl SimpleRequestTransport {
               .map_err(|_| {
                 InterfaceError::InternalError(
                   "digest-auth challenge response wasn't a valid string for an HTTP header"
-                    .to_string(),
+                    .to_owned(),
                 )
               })?,
             );
@@ -255,7 +254,7 @@ impl SimpleRequestTransport {
                     .to_str()
                     .map_err(|_| {
                       InterfaceError::InvalidInterface(
-                        "www-authenticate header wasn't a string".to_string(),
+                        "www-authenticate header wasn't a string".to_owned(),
                       )
                     })?
                     .contains("stale")
@@ -283,7 +282,7 @@ impl SimpleRequestTransport {
             } else {
               debug_assert!(is_stale);
               Err(InterfaceError::InvalidInterface(
-                "node claimed fresh connection had stale authentication".to_string(),
+                "node claimed fresh connection had stale authentication".to_owned(),
               ))?
             }
           } else {

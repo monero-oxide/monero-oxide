@@ -1,4 +1,4 @@
-use rand_core::{RngCore, OsRng};
+use rand_core::{RngCore as _, OsRng};
 
 use monero_ed25519::{Scalar, Commitment};
 use crate::{batch_verifier::BatchVerifier, Bulletproof, BulletproofError};

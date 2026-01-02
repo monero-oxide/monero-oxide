@@ -33,7 +33,7 @@ fn read_u64_array_from_epee(len: usize, mut epee: &[u8]) -> Result<Vec<u64>, Int
   for _ in 0 .. len {
     res.push(read_u64(&mut epee).map_err(|_| {
       InterfaceError::InternalError(
-        "incomplete array despite precondition the array is complete".to_string(),
+        "incomplete array despite precondition the array is complete".to_owned(),
       )
     })?);
   }
@@ -77,7 +77,7 @@ macro_rules! field {
 // Unfortunately, callers cannot simply use a lambda due to needing to define these lifetimes.
 struct FixedLenStr(usize);
 impl FixedLenStr {
-  #[allow(clippy::wrong_self_convention)]
+  #[allow(single_use_lifetimes, clippy::elidable_lifetime_names, clippy::wrong_self_convention)]
   fn to_fixed_len_str<'encoding, 'parent>(
     self,
     entry: EpeeEntry<'encoding, 'parent, &'encoding [u8]>,
@@ -92,7 +92,7 @@ pub(super) fn check_status(epee: &[u8]) -> Result<(), InterfaceError> {
   let mut epee = epee.entry().map_err(EpeeError)?.fields().map_err(EpeeError)?;
   let status = field!(epee, "status", EpeeEntry::to_str)?;
   if status.consume() != b"OK" {
-    return Err(InterfaceError::InvalidInterface("epee `status` wasn't \"OK\"".to_string()));
+    return Err(InterfaceError::InvalidInterface("epee `status` wasn't \"OK\"".to_owned()));
   }
   Ok(())
 }
@@ -110,7 +110,7 @@ pub(super) fn extract_start_height(epee: &[u8]) -> Result<usize, InterfaceError>
   let mut distributions = field!(epee, "distributions", EpeeEntry::fields)?;
   let start_height = field!(distributions, "start_height", EpeeEntry::to_u64)?;
   usize::try_from(start_height).map_err(|_| {
-    InterfaceError::InvalidInterface("`start_height` did not fit within a `usize`".to_string())
+    InterfaceError::InvalidInterface("`start_height` did not fit within a `usize`".to_owned())
   })
 }
 
@@ -127,7 +127,7 @@ pub(super) fn extract_distribution(
 
   let fixed_len_str = FixedLenStr(expected_len.checked_mul(8).ok_or_else(|| {
     InterfaceError::InternalError(
-      "requested a distribution whose byte length doesn't fit within a `usize`".to_string(),
+      "requested a distribution whose byte length doesn't fit within a `usize`".to_owned(),
     )
   })?);
   let distribution =
@@ -135,6 +135,7 @@ pub(super) fn extract_distribution(
   read_u64_array_from_epee(expected_len, distribution)
 }
 
+#[allow(single_use_lifetimes, clippy::elidable_lifetime_names)]
 fn epee_32<'encoding, 'parent>(
   entry: EpeeEntry<'encoding, 'parent, &'encoding [u8]>,
 ) -> Result<[u8; 32], EpeeError> {
@@ -184,17 +185,17 @@ pub(super) fn accumulate_outs(
       (|| Some((block_number?, key?, commitment?, transaction?, unlocked?)))()
     else {
       Err(InterfaceError::InvalidInterface(
-        "missing field in output from `get_outs.bin`".to_string(),
+        "missing field in output from `get_outs.bin`".to_owned(),
       ))?
     };
 
     let block_number = usize::try_from(block_number).map_err(|_| {
       InterfaceError::InvalidInterface(
-        "`get_outs.bin` returned an block number not representable within a `usize`".to_string(),
+        "`get_outs.bin` returned an block number not representable within a `usize`".to_owned(),
       )
     })?;
     let commitment = commitment.decompress().ok_or_else(|| {
-      InterfaceError::InvalidInterface("`get_outs.bin` returned an invalid commitment".to_string())
+      InterfaceError::InvalidInterface("`get_outs.bin` returned an invalid commitment".to_owned())
     })?;
 
     res.push(RingCtOutputInformation { block_number, key, commitment, transaction, unlocked });
@@ -202,7 +203,7 @@ pub(super) fn accumulate_outs(
 
   if res.len() != (start + amount) {
     Err(InterfaceError::InvalidInterface(
-      "`get_outs.bin` had a distinct amount of outs than expected".to_string(),
+      "`get_outs.bin` had a distinct amount of outs than expected".to_owned(),
     ))?;
   }
 
@@ -237,7 +238,7 @@ pub(super) fn extract_blocks_from_blocks_bin(
                 })?);
                 if !encoding.is_empty() {
                   Err(InterfaceError::InvalidInterface(
-                    "block had extraneous bytes after it".to_string(),
+                    "block had extraneous bytes after it".to_owned(),
                   ))?;
                 }
               }
@@ -258,7 +259,7 @@ pub(super) fn extract_blocks_from_blocks_bin(
                           })?);
                         if !encoding.is_empty() {
                           Err(InterfaceError::InvalidInterface(
-                            "transaction had extraneous bytes after it".to_string(),
+                            "transaction had extraneous bytes after it".to_owned(),
                           ))?;
                         }
                       }
@@ -268,7 +269,7 @@ pub(super) fn extract_blocks_from_blocks_bin(
                   }
                   let Some(transaction) = transaction else {
                     Err(InterfaceError::InvalidInterface(
-                      "transaction without transaction encoding".to_string(),
+                      "transaction without transaction encoding".to_owned(),
                     ))?
                   };
 
@@ -294,7 +295,7 @@ pub(super) fn extract_blocks_from_blocks_bin(
                     PrunedTransactionWithPrunableHash::new(transaction, prunable_hash).ok_or_else(
                       || {
                         InterfaceError::InvalidInterface(
-                          "non-v1 transaction missing prunable hash".to_string(),
+                          "non-v1 transaction missing prunable hash".to_owned(),
                         )
                       },
                     )?;
@@ -307,7 +308,7 @@ pub(super) fn extract_blocks_from_blocks_bin(
 
           let Some(block) = block else {
             Err(InterfaceError::InvalidInterface(
-              "block entry itself was missing the block".to_string(),
+              "block entry itself was missing the block".to_owned(),
             ))?
           };
           res.push((block, transactions));
@@ -354,7 +355,7 @@ pub(super) fn extract_blocks_from_blocks_bin(
     let outputs = transaction.prefix().outputs.len();
     if all_output_indexes.len() < outputs {
       return Err(InterfaceError::InvalidInterface(
-        "block entry omitted output indexes for present transactions".to_string(),
+        "block entry omitted output indexes for present transactions".to_owned(),
       ));
     }
 
@@ -384,7 +385,7 @@ pub(super) fn extract_blocks_from_blocks_bin(
   if !all_output_indexes.is_empty() {
     Err(InterfaceError::InvalidInterface(
       "`get_blocks.bin` had a distinct amount of output indexes than transaction outputs"
-        .to_string(),
+        .to_owned(),
     ))?;
   }
 

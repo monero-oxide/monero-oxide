@@ -7,6 +7,7 @@ use zeroize::Zeroize;
 
 use crate::{io::*, ed25519::*};
 
+#[allow(clippy::cfg_not_test)]
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub(crate) struct Signature {
   #[cfg(test)]
@@ -34,6 +35,7 @@ impl Signature {
 /// A ring signature.
 ///
 /// This was used by the original Cryptonote transaction protocol and was deprecated with RingCT.
+#[allow(clippy::cfg_not_test)]
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub struct RingSignature {
   #[cfg(test)]

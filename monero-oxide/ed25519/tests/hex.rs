@@ -1,7 +1,11 @@
+#![allow(missing_docs)]
+
+/// Decode a hex string, panicking if it's invalid.
 #[allow(dead_code)]
 pub(crate) fn decode(hex: &str) -> [u8; 32] {
   let mut point = [0; 32];
   assert_eq!(hex.len(), 64);
+  #[allow(clippy::as_conversions)]
   for (i, c) in hex.chars().enumerate() {
     point[i / 2] |= (match c {
       '0' ..= '9' => (c as u8) - b'0',

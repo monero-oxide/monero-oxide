@@ -78,10 +78,13 @@ impl BlockHeader {
 
 /// A Monero block.
 #[derive(Clone, PartialEq, Eq, Debug)]
+#[allow(clippy::partial_pub_fields)]
 pub struct Block {
   /// The block's header.
   pub header: BlockHeader,
   /// The miner's transaction.
+  ///
+  /// This is private so we can ensure [`Block::number`] is infallible.
   miner_transaction: Transaction,
   /// The transactions within this block.
   pub transactions: Vec<[u8; 32]>,
@@ -105,7 +108,7 @@ impl Block {
     calculation of the Merkle tree representing all transactions will fail if this many
     transactions is consumed by the `transactions` field alone.
   */
-  pub const MAX_TRANSACTIONS: usize = 0x10000000;
+  pub const MAX_TRANSACTIONS: usize = 0x1000_0000;
 
   /// Construct a new `Block`.
   ///
@@ -127,7 +130,7 @@ impl Block {
       }
       match inputs[0] {
         Input::Gen(_number) => {}
-        _ => None?,
+        Input::ToKey { .. } => None?,
       }
     }
 
@@ -210,7 +213,7 @@ impl Block {
     //   /src/cryptonote_basic/cryptonote_format_utils.cpp#L1468-L1477
     if hash == CORRECT_BLOCK_HASH_202612 {
       return EXISTING_BLOCK_HASH_202612;
-    };
+    }
     hash
   }
 

@@ -1,6 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
-#![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(non_snake_case)]
 
@@ -13,7 +12,7 @@ use std_shims::{
 
 use zeroize::Zeroize;
 
-use curve25519_dalek::{traits::Identity, EdwardsPoint, edwards::CompressedEdwardsY};
+use curve25519_dalek::{traits::Identity as _, EdwardsPoint, edwards::CompressedEdwardsY};
 
 use monero_io::*;
 use monero_ed25519::{UnreducedScalar, Scalar, Point, CompressedPoint};

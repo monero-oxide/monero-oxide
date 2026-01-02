@@ -1,16 +1,16 @@
-use core::{ops::Deref, fmt};
+use core::{ops::Deref as _, fmt};
 use std_shims::{
   io, vec,
   vec::Vec,
-  string::{String, ToString},
+  string::{String, ToString as _},
   collections::HashSet,
 };
 
-use subtle::ConstantTimeEq;
+use subtle::ConstantTimeEq as _;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use rand_core::{RngCore, CryptoRng};
-use rand::seq::SliceRandom;
+use rand::seq::SliceRandom as _;
 
 #[cfg(feature = "compile-time-generators")]
 use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
@@ -293,7 +293,10 @@ impl SignableTransaction {
   fn validate(&self) -> Result<(), SendError> {
     match self.rct_type {
       RctType::ClsagBulletproof | RctType::ClsagBulletproofPlus => {}
-      _ => Err(SendError::UnsupportedRctType)?,
+      RctType::AggregateMlsagBorromean |
+      RctType::MlsagBorromean |
+      RctType::MlsagBulletproofs |
+      RctType::MlsagBulletproofsCompactAmount => Err(SendError::UnsupportedRctType)?,
     }
 
     if self.inputs.is_empty() {
@@ -323,7 +326,10 @@ impl SignableTransaction {
         match self.rct_type {
           RctType::ClsagBulletproof => 11,
           RctType::ClsagBulletproofPlus => 16,
-          _ => panic!("unsupported RctType"),
+          RctType::AggregateMlsagBorromean |
+          RctType::MlsagBorromean |
+          RctType::MlsagBulletproofs |
+          RctType::MlsagBulletproofsCompactAmount => panic!("unsupported RctType"),
         }
       {
         Err(SendError::InvalidDecoyQuantity)?;
@@ -637,8 +643,8 @@ impl SignableTransaction {
   /// This returns `None` if an improper amount of key images is provided.
   pub fn unsigned_transaction(self, key_images: Vec<CompressedPoint>) -> Option<Transaction> {
     if self.inputs.len() != key_images.len() {
-      None?
-    };
+      None?;
+    }
     Some(self.with_key_images(key_images).transaction_without_signatures())
   }
 

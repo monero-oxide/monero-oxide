@@ -60,11 +60,12 @@ impl PackedTypes {
   fn set(&mut self, i: usize, kind: TypeOrEntry) {
     let four_bits = match kind {
       TypeOrEntry::Entry => 0,
+      #[allow(clippy::as_conversions)]
       TypeOrEntry::Type(kind) => kind as u8,
     };
     let shift = (i & 1) * 4;
     // Clear the existing value in this slot
-    self.0[i / 2] &= 0b11110000 >> shift;
+    self.0[i / 2] &= 0b1111_0000 >> shift;
     // Set the new value
     self.0[i / 2] |= four_bits << shift;
   }

@@ -1,5 +1,5 @@
 use core::{ops::RangeInclusive, future::Future};
-use alloc::{format, vec::Vec, string::ToString};
+use alloc::{borrow::ToOwned as _, format, vec::Vec};
 
 use monero_oxide::{
   transaction::{Pruned, Transaction},
@@ -101,7 +101,7 @@ pub trait ExpandToScannableBlock: ProvidesTransactions + ProvidesOutputs {
         let index =
           *ProvidesOutputs::output_indexes(self, *hash).await?.first().ok_or_else(|| {
             InterfaceError::InvalidInterface(
-              "requested output indexes for a TX with outputs and got none".to_string(),
+              "requested output indexes for a TX with outputs and got none".to_owned(),
             )
           })?;
         output_index_for_first_ringct_output = Some(index);
@@ -234,11 +234,11 @@ async fn validate_scannable_block<P: ProvidesTransactions + ProvidesUnvalidatedS
     Err(e) => Err(match e {
       TransactionsError::InterfaceError(e) => e,
       TransactionsError::TransactionNotFound => InterfaceError::InvalidInterface(
-        "interface sent us a scannable block it doesn't have the transactions for".to_string(),
+        "interface sent us a scannable block it doesn't have the transactions for".to_owned(),
       ),
       TransactionsError::PrunedTransaction => InterfaceError::InvalidInterface(
         // This happens if we're sent a pruned V1 transaction after requesting it in full
-        "interface sent us pruned transaction when validating a scannable block".to_string(),
+        "interface sent us pruned transaction when validating a scannable block".to_owned(),
       ),
     })?,
   };
@@ -257,7 +257,7 @@ impl<P: ProvidesTransactions + ProvidesUnvalidatedScannableBlocks> ProvidesScann
       let expected_blocks =
         range.end().saturating_sub(*range.start()).checked_add(1).ok_or_else(|| {
           InterfaceError::InternalError(
-            "amount of blocks requested wasn't representable in a `usize`".to_string(),
+            "amount of blocks requested wasn't representable in a `usize`".to_owned(),
           )
         })?;
       if blocks.len() != expected_blocks {

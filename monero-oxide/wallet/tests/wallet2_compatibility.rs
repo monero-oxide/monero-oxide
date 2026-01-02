@@ -1,4 +1,6 @@
-use rand_core::{OsRng, RngCore};
+#![allow(missing_docs)]
+
+use rand_core::{RngCore as _, OsRng};
 
 use serde::Deserialize;
 use serde_json::json;
@@ -45,7 +47,7 @@ async fn make_integrated_address(rpc: &Rpc, payment_id: [u8; 8]) -> String {
 }
 
 async fn initialize_rpcs() -> (Rpc, Rpc, MoneroAddress) {
-  let wallet_rpc = SimpleRequestTransport::new("http://127.0.0.1:18083".to_string()).await.unwrap();
+  let wallet_rpc = SimpleRequestTransport::new("http://127.0.0.1:18083".to_owned()).await.unwrap();
   let daemon_rpc = runner::rpc().await;
 
   #[derive(Debug, Deserialize)]
@@ -150,7 +152,7 @@ async fn from_wallet_rpc_to_self(spec: AddressSpec) {
       assert_eq!(output.payment_id(), Some(PaymentId::Encrypted([0u8; 8])));
     }
   }
-  assert_eq!(output.commitment().amount, 1000000000000);
+  assert_eq!(output.commitment().amount, 1_000_000_000_000);
 }
 
 async_sequential!(
@@ -191,15 +193,15 @@ struct TransfersResponse {
 test!(
   send_to_wallet_rpc_standard,
   (
-    |_, mut builder: Builder, _| async move {
+    async |_, mut builder: Builder, _| {
       // initialize rpc
       let (wallet_rpc, _, wallet_rpc_addr) = initialize_rpcs().await;
 
       // add destination
-      builder.add_payment(wallet_rpc_addr, 1000000);
+      builder.add_payment(wallet_rpc_addr, 1_000_000);
       (builder.build().unwrap(), wallet_rpc)
     },
-    |_, _, tx: Transaction, _, data: Rpc| async move {
+    async |_, _, tx: Transaction, _, data: Rpc| {
       // confirm receipt
       data.json_rpc_call("refresh", None, usize::MAX).await.unwrap();
       let transfer: TransfersResponse = serde_json::from_str(
@@ -214,7 +216,7 @@ test!(
       )
       .unwrap();
       assert_eq!(transfer.transfer.subaddr_index, Index { major: 0, minor: 0 });
-      assert_eq!(transfer.transfer.amount, 1000000);
+      assert_eq!(transfer.transfer.amount, 1_000_000);
       assert_eq!(transfer.transfer.payment_id, hex::encode([0u8; 8]));
     },
   ),
@@ -223,7 +225,7 @@ test!(
 test!(
   send_to_wallet_rpc_subaddress,
   (
-    |_, mut builder: Builder, _| async move {
+    async |_, mut builder: Builder, _| {
       // initialize rpc
       let (wallet_rpc, _, _) = initialize_rpcs().await;
 
@@ -240,10 +242,10 @@ test!(
       assert!(addr.account_index != 0);
 
       builder
-        .add_payment(MoneroAddress::from_str(Network::Mainnet, &addr.address).unwrap(), 1000000);
+        .add_payment(MoneroAddress::from_str(Network::Mainnet, &addr.address).unwrap(), 1_000_000);
       (builder.build().unwrap(), (wallet_rpc, addr.account_index))
     },
-    |_, _, tx: Transaction, _, data: (Rpc, u32)| async move {
+    async |_, _, tx: Transaction, _, data: (Rpc, u32)| {
       // confirm receipt
       data.0.json_rpc_call("refresh", None, usize::MAX).await.unwrap();
       let transfer: TransfersResponse = serde_json::from_str(
@@ -259,7 +261,7 @@ test!(
       )
       .unwrap();
       assert_eq!(transfer.transfer.subaddr_index, Index { major: data.1, minor: 0 });
-      assert_eq!(transfer.transfer.amount, 1000000);
+      assert_eq!(transfer.transfer.amount, 1_000_000);
       assert_eq!(transfer.transfer.payment_id, hex::encode([0u8; 8]));
 
       // Make sure only one R was included in TX extra
@@ -271,7 +273,7 @@ test!(
 test!(
   send_to_wallet_rpc_subaddresses,
   (
-    |_, mut builder: Builder, _| async move {
+    async |_, mut builder: Builder, _| {
       // initialize rpc
       let (wallet_rpc, daemon_rpc, _) = initialize_rpcs().await;
 
@@ -296,12 +298,12 @@ test!(
       assert!(addrs.addresses.len() == 2);
 
       builder.add_payments(&[
-        (MoneroAddress::from_str(Network::Mainnet, &addrs.addresses[0]).unwrap(), 1000000),
-        (MoneroAddress::from_str(Network::Mainnet, &addrs.addresses[1]).unwrap(), 2000000),
+        (MoneroAddress::from_str(Network::Mainnet, &addrs.addresses[0]).unwrap(), 1_000_000),
+        (MoneroAddress::from_str(Network::Mainnet, &addrs.addresses[1]).unwrap(), 2_000_000),
       ]);
       (builder.build().unwrap(), (wallet_rpc, daemon_rpc, addrs.address_index))
     },
-    |_, _, tx: Transaction, _, data: (Rpc, Rpc, u32)| async move {
+    async |_, _, tx: Transaction, _, data: (Rpc, Rpc, u32)| {
       // confirm receipt
       data.0.json_rpc_call("refresh", None, usize::MAX).await.unwrap();
       let transfer: TransfersResponse = serde_json::from_str(
@@ -320,8 +322,8 @@ test!(
       assert_eq!(transfer.transfers.len(), 2);
       for t in transfer.transfers {
         match t.amount {
-          1000000 => assert_eq!(t.subaddr_index, Index { major: 0, minor: data.2 }),
-          2000000 => assert_eq!(t.subaddr_index, Index { major: 0, minor: data.2 + 1 }),
+          1_000_000 => assert_eq!(t.subaddr_index, Index { major: 0, minor: data.2 }),
+          2_000_000 => assert_eq!(t.subaddr_index, Index { major: 0, minor: data.2 + 1 }),
           _ => unreachable!(),
         }
       }
@@ -337,7 +339,7 @@ test!(
 test!(
   send_to_wallet_rpc_integrated,
   (
-    |_, mut builder: Builder, _| async move {
+    async |_, mut builder: Builder, _| {
       // initialize rpc
       let (wallet_rpc, _, _) = initialize_rpcs().await;
 
@@ -346,10 +348,10 @@ test!(
       OsRng.fill_bytes(&mut payment_id);
       let addr = make_integrated_address(&wallet_rpc, payment_id).await;
 
-      builder.add_payment(MoneroAddress::from_str(Network::Mainnet, &addr).unwrap(), 1000000);
+      builder.add_payment(MoneroAddress::from_str(Network::Mainnet, &addr).unwrap(), 1_000_000);
       (builder.build().unwrap(), (wallet_rpc, payment_id))
     },
-    |_, _, tx: Transaction, _, data: (Rpc, [u8; 8])| async move {
+    async |_, _, tx: Transaction, _, data: (Rpc, [u8; 8])| {
       // confirm receipt
       data.0.json_rpc_call("refresh", None, usize::MAX).await.unwrap();
       let transfer: TransfersResponse = serde_json::from_str(
@@ -366,7 +368,7 @@ test!(
       .unwrap();
       assert_eq!(transfer.transfer.subaddr_index, Index { major: 0, minor: 0 });
       assert_eq!(transfer.transfer.payment_id, hex::encode(data.1));
-      assert_eq!(transfer.transfer.amount, 1000000);
+      assert_eq!(transfer.transfer.amount, 1_000_000);
     },
   ),
 );
@@ -374,12 +376,12 @@ test!(
 test!(
   send_to_wallet_rpc_with_arb_data,
   (
-    |_, mut builder: Builder, _| async move {
+    async |_, mut builder: Builder, _| {
       // initialize rpc
       let (wallet_rpc, _, wallet_rpc_addr) = initialize_rpcs().await;
 
       // add destination
-      builder.add_payment(wallet_rpc_addr, 1000000);
+      builder.add_payment(wallet_rpc_addr, 1_000_000);
 
       // Make 2 data that is the full 255 bytes
       for _ in 0 .. 2 {
@@ -389,7 +391,7 @@ test!(
 
       (builder.build().unwrap(), wallet_rpc)
     },
-    |_, _, tx: Transaction, _, data: Rpc| async move {
+    async |_, _, tx: Transaction, _, data: Rpc| {
       // confirm receipt
       data.json_rpc_call("refresh", None, usize::MAX).await.unwrap();
       let transfer: TransfersResponse = serde_json::from_str(
@@ -404,7 +406,7 @@ test!(
       )
       .unwrap();
       assert_eq!(transfer.transfer.subaddr_index, Index { major: 0, minor: 0 });
-      assert_eq!(transfer.transfer.amount, 1000000);
+      assert_eq!(transfer.transfer.amount, 1_000_000);
     },
   ),
 );

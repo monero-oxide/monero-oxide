@@ -1,5 +1,5 @@
 use core::{ops::RangeBounds, future::Future};
-use alloc::{format, vec::Vec, string::ToString};
+use alloc::{borrow::ToOwned as _, format, vec::Vec};
 
 use monero_oxide::ed25519::Point;
 
@@ -80,7 +80,7 @@ impl<P: ProvidesUnvalidatedDecoys> ProvidesDecoys for P {
       for d in &distribution {
         if *d < monotonic {
           Err(InterfaceError::InvalidInterface(
-            "received output distribution didn't increase monotonically".to_string(),
+            "received output distribution didn't increase monotonically".to_owned(),
           ))?;
         }
         monotonic = *d;

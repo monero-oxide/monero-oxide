@@ -65,8 +65,10 @@ impl Type {
     let kind = reader.read_byte()?;
 
     // Check if the array bit is set
+    #[allow(clippy::as_conversions)]
     let array = kind & (Array::Array as u8);
     // Clear the array bit
+    #[allow(clippy::as_conversions)]
     let kind = kind & (!(Array::Array as u8));
 
     let kind = match kind {

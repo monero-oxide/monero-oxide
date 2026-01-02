@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use core::time::Duration;
 use std::sync::LazyLock;
 use tokio::sync::Mutex;
@@ -16,7 +18,7 @@ async fn test_blockchain() {
   let _guard = SEQUENTIAL.lock().await;
 
   let rpc = SimpleRequestTransport::with_custom_timeout(
-    "http://monero:oxide@127.0.0.1:18081".to_string(),
+    "http://monero:oxide@127.0.0.1:18081".to_owned(),
     Duration::from_secs(4400),
   )
   .await
@@ -25,7 +27,7 @@ async fn test_blockchain() {
   let current_block_number = rpc.latest_block_number().await.unwrap();
   let latest_block = rpc.block_by_number(current_block_number).await.unwrap();
   assert_eq!(latest_block.number(), current_block_number);
-  assert!(rpc.block_by_number(current_block_number + 1).await.is_err());
+  rpc.block_by_number(current_block_number + 1).await.unwrap_err();
 
   let (hashes, number) = rpc
     .generate_blocks(&MoneroAddress::from_str(Network::Mainnet, ADDRESS).unwrap(), 1)
@@ -74,11 +76,11 @@ async fn test_fee_rates() {
   let _guard = SEQUENTIAL.lock().await;
 
   let rpc =
-    SimpleRequestTransport::new("http://monero:oxide@127.0.0.1:18081".to_string()).await.unwrap();
+    SimpleRequestTransport::new("http://monero:oxide@127.0.0.1:18081".to_owned()).await.unwrap();
 
   let fee_rate = rpc.fee_rate(FeePriority::Normal, u64::MAX).await.unwrap();
   rpc.fee_rate(FeePriority::Normal, fee_rate.per_weight()).await.unwrap();
-  assert!(rpc.fee_rate(FeePriority::Normal, fee_rate.per_weight() - 1).await.is_err());
+  rpc.fee_rate(FeePriority::Normal, fee_rate.per_weight() - 1).await.unwrap_err();
 }
 
 #[tokio::test]
@@ -86,7 +88,7 @@ async fn test_decoys() {
   let _guard = SEQUENTIAL.lock().await;
 
   let rpc = SimpleRequestTransport::with_custom_timeout(
-    "http://monero:oxide@127.0.0.1:18081".to_string(),
+    "http://monero:oxide@127.0.0.1:18081".to_owned(),
     Duration::from_secs(220),
   )
   .await
@@ -181,9 +183,9 @@ async fn test_block_hash_for_non_existent_block() {
   let _guard = SEQUENTIAL.lock().await;
 
   let rpc =
-    SimpleRequestTransport::new("http://monero:oxide@127.0.0.1:18081".to_string()).await.unwrap();
+    SimpleRequestTransport::new("http://monero:oxide@127.0.0.1:18081".to_owned()).await.unwrap();
   let non_existent = rpc.latest_block_number().await.unwrap() + 1;
-  assert!(rpc.block_hash(non_existent).await.is_err());
+  rpc.block_hash(non_existent).await.unwrap_err();
 }
 
 /*
@@ -193,7 +195,7 @@ async fn test_output_indexes_with_transaction_with_no_outputs() {
   let _guard = SEQUENTIAL.lock().await;
 
   let rpc =
-    SimpleRequestTransport::new("https://node.sethforprivacy.com".to_string()).await.unwrap();
+    SimpleRequestTransport::new("https://node.sethforprivacy.com".to_owned()).await.unwrap();
 
   assert_eq!(
     rpc

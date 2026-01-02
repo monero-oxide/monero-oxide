@@ -1,4 +1,4 @@
-use core::ops::Deref;
+use core::ops::Deref as _;
 use std_shims::{vec, vec::Vec, collections::HashMap};
 
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
@@ -87,6 +87,7 @@ struct InternalScanner {
 }
 
 impl Zeroize for InternalScanner {
+  #[allow(clippy::iter_over_hash_type)]
   fn zeroize(&mut self) {
     self.pair.zeroize();
     self.guaranteed.zeroize();
@@ -170,11 +171,7 @@ impl InternalScanner {
           Zeroizing::new(Point::from(dalek_view.deref() * key.into()))
         };
         let output_derivations = SharedKeyDerivations::output_derivations(
-          if self.guaranteed {
-            Some(SharedKeyDerivations::uniqueness(&tx.prefix().inputs))
-          } else {
-            None
-          },
+          self.guaranteed.then(|| SharedKeyDerivations::uniqueness(&tx.prefix().inputs)),
           ecdh.clone(),
           o,
         );
@@ -360,7 +357,7 @@ impl Scanner {
   /// This function runs in variable time, notably with regards to the distribution of subaddress
   /// derivations (which should be reasonably uniform) and the amount of subaddresses registered.
   pub fn register_subaddress(&mut self, subaddress: SubaddressIndex) {
-    self.0.register_subaddress(subaddress)
+    self.0.register_subaddress(subaddress);
   }
 
   /// Scan a block.
@@ -395,7 +392,7 @@ impl GuaranteedScanner {
   /// This function runs in variable time, notably with regards to the distribution of subaddress
   /// derivations (which should be reasonably uniform) and the amount of subaddresses registered.
   pub fn register_subaddress(&mut self, subaddress: SubaddressIndex) {
-    self.0.register_subaddress(subaddress)
+    self.0.register_subaddress(subaddress);
   }
 
   /// Scan a block.

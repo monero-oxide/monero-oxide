@@ -66,53 +66,93 @@ overflow-checks = true
 [profile.bench]
 overflow-checks = true
 
+[workspace.lints.rust]
+# https://doc.rust-lang.org/rustc/lints/listing/allowed-by-default.html
+ambiguous_negative_literals = "warn"
+closure_returning_async_block = "warn"
+deprecated_safe = "warn"
+deref_into_dyn_supertrait = "warn"
+explicit_outlives_requirements = "warn"
+impl_trait_redundant_captures = "warn"
+macro_use_extern_crate = "warn"
+meta_variable_misuse = "warn"
+missing_docs = "warn"
+non_ascii_idents = "warn"
+redundant_lifetimes = "warn"
+single_use_lifetimes = "warn"
+trivial_casts = "warn"
+unit_bindings = "warn"
+unsafe_attr_outside_unsafe = "warn"
+unused_extern_crates = "warn"
+unused_import_braces = "warn"
+unused_lifetimes = "warn"
+unused_macro_rules = "warn"
+
 [workspace.lints.clippy]
-incompatible_msrv = "allow" # Manually checked with a GitHub workflow
+# Manually verified with a GitHub workflow
+incompatible_msrv = "allow"
+# `x % 2` is simple and straightforward
+manual_is_multiple_of = "allow"
+# `.unwrap_or(x)` unwraps to `x`. This lint then errors if `x == Default::default()`
+# Wanting to unwrap to `x` does not mean the caller wants to unwrap to `Default::default()`.
+# While this asserts the current value of `Default::default()`, it doesn't guarantee that value
+# will remain the default moving forward, which risks the unwrapped value changing unexpectedly.
 unwrap_or_default = "allow"
-borrow_as_ptr = "deny"
-cast_lossless = "deny"
-cast_possible_truncation = "deny"
-cast_possible_wrap = "deny"
-cast_precision_loss = "deny"
-cast_ptr_alignment = "deny"
-cast_sign_loss = "deny"
-checked_conversions = "deny"
-cloned_instead_of_copied = "deny"
-enum_glob_use = "deny"
-expl_impl_clone_on_copy = "deny"
-explicit_into_iter_loop = "deny"
-explicit_iter_loop = "deny"
-flat_map_option = "deny"
-float_cmp = "deny"
-fn_params_excessive_bools = "deny"
-ignored_unit_patterns = "deny"
-implicit_clone = "deny"
-inefficient_to_string = "deny"
-invalid_upcast_comparisons = "deny"
-large_stack_arrays = "deny"
-linkedlist = "deny"
-macro_use_imports = "deny"
-manual_instant_elapsed = "deny"
-manual_let_else = "deny"
-manual_ok_or = "deny"
-manual_string_new = "deny"
-map_unwrap_or = "deny"
-match_bool = "deny"
-match_same_arms = "deny"
-missing_fields_in_debug = "deny"
-needless_pass_by_value = "deny"
-ptr_cast_constness = "deny"
-range_minus_one = "deny"
-range_plus_one = "deny"
-redundant_closure_for_method_calls = "deny"
-redundant_else = "deny"
-string_add_assign = "deny"
-unchecked_time_subtraction = "deny"
-uninlined_format_args = "deny"
-unnecessary_box_returns = "deny"
-unnecessary_join = "deny"
-unnecessary_wraps = "deny"
-unnested_or_patterns = "deny"
-unused_async = "deny"
-unused_self = "deny"
-zero_sized_map_values = "deny"
+# `.map(f).unwrap_or(x)` is clearer than `.map_or(x, f)`.
+map_unwrap_or = "allow"
+# Explicit `continue`s can increase readability.
+needless_continue = "allow"
+
+# Enable the off-by-default lint categories, before disabling those we don't want
+pedantic = { level = "warn", priority = -1 }
+explicit_deref_methods = "allow"
+if_not_else = "allow"
+inline_always = "allow"
+items_after_statements = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+naive_bytecount = "allow" # We don't want a suggestion to add an external dependency
+similar_names = "allow"
+# This triggers on the exhaustive `match opt { Some => {}, None => {} }`, which is excessive
+single_match_else = "allow"
+too_many_lines = "allow"
+wildcard_imports = "allow"
+
+style = { level = "warn", priority = -1 }
+items_after_test_module = "allow"
+
+# Cherry-pick lints from the `restrictions` group
+alloc_instead_of_core = "warn"
+as_conversions = "warn" # Checked conversions are preferred.
+as_pointer_underscore = "warn"
+as_underscore = "warn"
+assertions_on_result_states = "warn"
+cfg_not_test = "warn"
+create_dir = "warn"
+dbg_macro = "warn"
+filetype_is_file = "warn"
+float_arithmetic = "warn"
+float_cmp_const = "warn"
+fn_to_numeric_cast_any = "warn"
+get_unwrap = "warn"
+if_then_some_else_none = "warn"
+iter_over_hash_type = "warn"
+lossy_float_literal = "warn"
+partial_pub_fields = "warn"
+precedence_bits = "warn"
+rc_mutex = "warn"
+same_name_method = "warn"
+std_instead_of_alloc = "warn"
+std_instead_of_core = "warn"
+str_to_string = "warn"
+string_slice = "warn"
+suspicious_xor_used_as_pow = "warn"
+todo = "warn"
+unnecessary_self_imports = "warn"
+unused_trait_names = "warn"
+wildcard_enum_match_arm = "warn"
+
+# The following lints are marked as "TODO". We do not believe they should be
+# set to their current setting. They are for now however.
+doc_markdown = "allow" # Raises a shocking amount of warnings against the current codebase.

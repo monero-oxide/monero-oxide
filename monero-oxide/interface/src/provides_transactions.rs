@@ -23,7 +23,7 @@ impl PrunedTransactionWithPrunableHash {
     match &transaction {
       Transaction::V1 { .. } => {
         if prunable_hash.is_some() {
-          None?
+          None?;
         }
       }
       Transaction::V2 { proofs, .. } => {
@@ -226,7 +226,7 @@ pub(crate) async fn validate_pruned_transactions<P: ProvidesTransactions>(
           v1_indexes.push(txs.len());
           v1_hashes.push(*expected_hash);
         }
-        txs.push(tx)
+        txs.push(tx);
       }
       Err(hash) => Err(InterfaceError::InvalidInterface(format!(
         "interface returned TX {} when {} was requested",

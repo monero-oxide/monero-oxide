@@ -1,9 +1,9 @@
-use core::ops::Deref;
+use core::ops::Deref as _;
 use std_shims::{vec, vec::Vec};
 
-use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
+use zeroize::{Zeroize as _, ZeroizeOnDrop, Zeroizing};
 
-use rand_core::{RngCore, SeedableRng};
+use rand_core::{RngCore as _, SeedableRng as _};
 use rand_chacha::ChaCha20Rng;
 
 #[cfg(feature = "compile-time-generators")]

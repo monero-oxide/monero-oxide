@@ -29,7 +29,7 @@ mod sealed {
 ///
 /// This is a private function only called at compile-time, hence why it panics on unexpected
 /// input.
-#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
 const fn upper_bound(bits: u32) -> usize {
   // This assert ensures the following cast is correct even on 8-bit platforms
   assert!(bits <= 256, "defining a number exceeding u256 as a VarInt");
@@ -146,6 +146,7 @@ impl VarInt for u64 {
 impl sealed::Sealed for usize {
   fn into_u64(self) -> u64 {
     // Ensure the falling conversion is infallible
+    #[allow(clippy::as_conversions)]
     const _NO_128_BIT_PLATFORMS: [(); (u64::BITS - usize::BITS) as usize] =
       [(); (u64::BITS - usize::BITS) as usize];
 
