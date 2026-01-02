@@ -29,12 +29,12 @@ impl core::fmt::Debug for Decoys {
 }
 
 /*
-  The max ring size the monero-oxide libraries is programmed to support creating.
+  The max ring size the `monero-oxide` libraries are programmed to support creating.
 
   This exceeds the current Monero protocol's ring size of `16`, with the next hard fork planned to
   remove rings entirely, making this without issue.
 */
-const MAX_RING_SIZE: u8 = u8::MAX;
+pub(crate) const MAX_RING_SIZE: u8 = u8::MAX;
 
 #[allow(clippy::len_without_is_empty)]
 impl Decoys {

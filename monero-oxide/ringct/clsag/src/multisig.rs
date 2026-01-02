@@ -8,7 +8,7 @@ use std_shims::{
 use rand_core::{RngCore, CryptoRng, SeedableRng as _};
 use rand_chacha::ChaCha20Rng;
 
-use subtle::ConstantTimeEq as _;
+use subtle::{ConstantTimeEq as _, ConditionallySelectable as _};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use curve25519_dalek::{scalar::Scalar, edwards::EdwardsPoint};
@@ -25,7 +25,7 @@ use frost::{
 
 use monero_ed25519::{Point, CompressedPoint};
 
-use crate::{ClsagContext, Clsag};
+use crate::{MAX_RING_SIZE, ClsagContext, Clsag};
 
 impl ClsagContext {
   fn transcript<T: Transcript>(&self, transcript: &mut T) {
@@ -326,10 +326,18 @@ impl Algorithm<Ed25519> for ClsagMultisig {
   ) -> Option<Self::Signature> {
     let interim = self.interim.as_ref().expect("verify called before sign_share");
     let mut clsag = interim.clsag.clone();
-    // We produced shares as `r - p x`, yet the signature is actually `r - p x - c x`
-    // Substract `c x` (saved as `c`) now
-    clsag.s[usize::from(self.context.decoys.signer_index())] =
-      monero_ed25519::Scalar::from(sum - interim.c);
+    {
+      // We produced shares as `r - p x`, yet the signature is actually `r - p x - c x`
+      // Substract `c x` (saved as `c`) now
+      let signer_s = monero_ed25519::Scalar::from(sum - interim.c);
+      for s_index in 0 ..= MAX_RING_SIZE {
+        if usize::from(s_index) == clsag.s.len() {
+          break;
+        }
+        let signer_index = s_index.ct_eq(&self.context.decoys.signer_index());
+        clsag.s[usize::from(s_index)].conditional_assign(&signer_s, signer_index);
+      }
+    }
     if clsag
       .verify(
         self
