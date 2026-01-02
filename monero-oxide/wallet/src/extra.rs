@@ -1,4 +1,4 @@
-use core::ops::BitXor;
+use core::{ops::BitXor, num::NonZero};
 use std_shims::{
   vec,
   vec::Vec,
@@ -12,7 +12,6 @@ use monero_oxide::{
   ed25519::{CompressedPoint, Point},
 };
 
-pub(crate) const MAX_TX_EXTRA_PADDING_COUNT: usize = 255;
 const MAX_TX_EXTRA_NONCE_SIZE: usize = 255;
 
 const PAYMENT_ID_MARKER: u8 = 0;
@@ -93,7 +92,7 @@ pub enum ExtraField {
   /// Padding.
   ///
   /// This is a block of zeroes within the TX extra.
-  Padding(usize),
+  Padding(NonZero<u8>),
   /// The transaction key.
   ///
   /// This is a commitment to the randomness used for deriving outputs.
@@ -128,7 +127,7 @@ impl ExtraField {
     match self {
       ExtraField::Padding(size) => {
         w.write_all(&[0])?;
-        for _ in 1 .. *size {
+        for _ in 1 .. u8::from(*size) {
           write_byte(&0u8, w)?;
         }
       }
@@ -188,7 +187,7 @@ impl ExtraField {
     Ok(match read_byte(r)? {
       0 => ExtraField::Padding({
         // Read until either non-zero, max padding count, or end of buffer
-        let mut size: usize = 1;
+        let mut size = 1u8;
         loop {
           let buf = r.fill_buf()?;
           let mut n_consume = 0;
@@ -197,17 +196,19 @@ impl ExtraField {
               Err(io::Error::other("non-zero value after padding"))?
             }
             n_consume += 1;
-            size += 1;
-            if size > MAX_TX_EXTRA_PADDING_COUNT {
-              Err(io::Error::other("padding exceeded max count"))?
+            // https://github.com/monero-project/monero
+            //   /blob/02357fe53fbcab3f5102183f0837feed68cf5355/src/cryptonote_basic/tx_extra.h#L43
+            if size == u8::MAX {
+              Err(io::Error::other("padding exceeded max count"))?;
             }
+            size += 1;
           }
           if n_consume == 0 {
             break;
           }
           r.consume(n_consume);
         }
-        size
+        NonZero::new(size).expect("size started at 1 but incremented to 0?")
       }),
       1 => ExtraField::PublicKey(CompressedPoint::read(r)?),
       2 => ExtraField::Nonce(read_vec(read_byte, Some(MAX_TX_EXTRA_NONCE_SIZE), r)?),
