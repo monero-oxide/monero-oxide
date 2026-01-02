@@ -78,7 +78,7 @@ impl BlockHeader {
 
 /// A Monero block.
 #[derive(Clone, PartialEq, Eq, Debug)]
-#[allow(clippy::partial_pub_fields)]
+#[expect(clippy::partial_pub_fields)]
 pub struct Block {
   /// The block's header.
   pub header: BlockHeader,

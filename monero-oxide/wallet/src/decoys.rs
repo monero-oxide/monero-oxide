@@ -1,4 +1,4 @@
-#![allow(clippy::as_conversions, clippy::float_arithmetic)]
+#![expect(clippy::as_conversions, clippy::float_arithmetic)]
 
 use std_shims::{prelude::*, io, vec::Vec, collections::HashSet};
 
@@ -20,7 +20,7 @@ use crate::{
 
 const RECENT_WINDOW: u64 = 15;
 const BLOCKS_PER_YEAR: usize = (365 * 24 * 60 * 60) / BLOCK_TIME;
-#[allow(clippy::cast_precision_loss)]
+#[expect(clippy::cast_precision_loss)]
 const TIP_APPLICATION: f64 = (DEFAULT_LOCK_WINDOW * BLOCK_TIME) as f64;
 
 async fn select_n(
@@ -57,7 +57,7 @@ async fn select_n(
   }
 
   // Determine the outputs per second
-  #[allow(clippy::cast_precision_loss)]
+  #[expect(clippy::cast_precision_loss)]
   let per_second = {
     let blocks = distribution.len().min(BLOCKS_PER_YEAR);
     let initial = distribution[distribution.len().saturating_sub(blocks + 1)];
@@ -84,7 +84,7 @@ async fn select_n(
     {
       iters += 1;
       const MAX_ITERS: usize = {
-        #[cfg_attr(test, allow(unused))]
+        #[cfg_attr(test, expect(unused))]
         let max_iters = 10;
         // When testing on fresh chains, increased iterations can be useful and we don't
         // necessitate reasonable performance
@@ -115,7 +115,7 @@ async fn select_n(
         .expect("constant Gamma distribution could no longer be created")
         .sample(rng)
         .exp();
-      #[allow(clippy::cast_precision_loss)]
+      #[expect(clippy::cast_precision_loss)]
       if age > TIP_APPLICATION {
         age -= TIP_APPLICATION;
       } else {
@@ -125,7 +125,7 @@ async fn select_n(
           as f64;
       }
 
-      #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+      #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
       let o = (age * per_second) as u64;
       if o < highest_output_exclusive_bound {
         // Find which block this points to

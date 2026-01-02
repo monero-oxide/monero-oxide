@@ -1,6 +1,6 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
-#![allow(single_use_lifetimes, clippy::elidable_lifetime_names)] // Benefits clarity
+#![expect(single_use_lifetimes, clippy::elidable_lifetime_names)] // Benefits clarity
 #![no_std]
 
 use core::marker::PhantomData;
@@ -145,7 +145,7 @@ impl<'encoding, 'parent, B: BytesLike<'encoding>> FieldIterator<'encoding, 'pare
   /// solutions (primarily using inlined code instead of functions, callbacks) before presenting
   /// itself as a complete solution. Please refer to it if you have difficulties calling this
   /// method for context.
-  #[allow(clippy::type_complexity, clippy::should_implement_trait)]
+  #[expect(clippy::type_complexity, clippy::should_implement_trait)]
   pub fn next(
     &mut self,
   ) -> Option<Result<(String<'encoding, B>, EpeeEntry<'encoding, '_, B>), EpeeError>> {
@@ -196,7 +196,7 @@ impl<'encoding, 'parent, B: BytesLike<'encoding>> ArrayIterator<'encoding, 'pare
   /// solutions (primarily using inlined code instead of functions, callbacks) before presenting
   /// itself as a complete solution. Please refer to it if you have difficulties calling this
   /// method for context.
-  #[allow(clippy::should_implement_trait)]
+  #[expect(clippy::should_implement_trait)]
   pub fn next(&mut self) -> Option<Result<EpeeEntry<'encoding, '_, B>, EpeeError>> {
     if let Some(err) = self.root.error {
       return Some(Err(err));
@@ -215,7 +215,7 @@ impl<'encoding, 'parent, B: BytesLike<'encoding>> EpeeEntry<'encoding, 'parent, 
   }
 
   /// The amount of items present within this entry.
-  #[allow(clippy::len_without_is_empty)]
+  #[expect(clippy::len_without_is_empty)]
   #[inline(always)]
   pub fn len(&self) -> usize {
     self.len
@@ -256,7 +256,7 @@ impl<'encoding, 'parent, B: BytesLike<'encoding>> EpeeEntry<'encoding, 'parent, 
     Ok(ArrayIterator { root, kind: self.kind, len: self.len })
   }
 
-  #[allow(clippy::wrong_self_convention)]
+  #[expect(clippy::wrong_self_convention)]
   #[inline(always)]
   fn to_primitive(mut self, kind: Type, slice: &mut [u8]) -> Result<&mut [u8], EpeeError> {
     if (self.kind != kind) || (self.len != 1) {

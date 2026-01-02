@@ -57,7 +57,7 @@ const MAX_REQUEST_SIZE: usize = 1024 * 1024;
 const MAX_RESPONSE_SIZE: usize = 100 * 1024 * 1024;
 
 // These are our own constants used for determining our own bounds on response sizes
-#[allow(clippy::as_conversions)]
+#[expect(clippy::as_conversions)]
 const HTTP_OVERHEAD_ESTIMATE: usize = u16::MAX as usize;
 const REQUEST_SIZE_TARGET: usize = MAX_REQUEST_SIZE - HTTP_OVERHEAD_ESTIMATE - 2048;
 const JSON_BYTE_OVERHEAD_FACTOR_ESTIMATE: usize = 8;
@@ -541,7 +541,7 @@ impl<T: HttpTransport> PublishTransaction for MoneroDaemon<T> {
     tx: &Transaction,
   ) -> impl Send + Future<Output = Result<(), PublishTransactionError>> {
     async move {
-      #[allow(dead_code, clippy::struct_excessive_bools)]
+      #[expect(dead_code, clippy::struct_excessive_bools)]
       #[derive(Deserialize)]
       struct SendRawResponse {
         status: String,

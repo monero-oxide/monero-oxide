@@ -7,7 +7,7 @@ use zeroize::Zeroize;
 
 use crate::{io::*, ed25519::*};
 
-#[allow(clippy::cfg_not_test)]
+#[cfg_attr(not(test), expect(clippy::cfg_not_test))]
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub(crate) struct Signature {
   #[cfg(test)]
@@ -35,7 +35,7 @@ impl Signature {
 /// A ring signature.
 ///
 /// This was used by the original Cryptonote transaction protocol and was deprecated with RingCT.
-#[allow(clippy::cfg_not_test)]
+#[cfg_attr(not(test), expect(clippy::cfg_not_test))]
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub struct RingSignature {
   #[cfg(test)]
@@ -107,14 +107,14 @@ impl RingSignature {
         return false;
       };
 
-      #[allow(non_snake_case)]
+      #[expect(non_snake_case)]
       let Li = curve25519_dalek::EdwardsPoint::vartime_double_scalar_mul_basepoint(
         &sig.c.into(),
         &decomp_ring_member.into(),
         &sig.s.into(),
       );
       buf.extend_from_slice(Li.compress().as_bytes());
-      #[allow(non_snake_case)]
+      #[expect(non_snake_case)]
       let Ri = (sig.s.into() * Point::biased_hash(ring_member.to_bytes()).into()) +
         (sig.c.into() * key_image);
       buf.extend_from_slice(Ri.compress().as_bytes());

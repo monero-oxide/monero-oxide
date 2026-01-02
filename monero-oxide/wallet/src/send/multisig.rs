@@ -215,7 +215,7 @@ impl SignMachine<Transaction> for TransactionSignMachine {
       "message was passed to the TransactionMachine when it generates its own"
     );
 
-    #[allow(clippy::iter_over_hash_type)]
+    #[expect(clippy::iter_over_hash_type)]
     for preprocess in commitments.values() {
       if preprocess.0.len() != self.clsags.len() {
         Err(FrostError::InternalError(
@@ -345,7 +345,7 @@ impl SignatureMachine<Transaction> for TransactionSignatureMachine {
     mut self,
     shares: HashMap<Participant, Self::SignatureShare>,
   ) -> Result<Transaction, FrostError> {
-    #[allow(clippy::iter_over_hash_type)]
+    #[expect(clippy::iter_over_hash_type)]
     for share in shares.values() {
       if share.0.len() != self.clsags.len() {
         Err(FrostError::InternalError(
@@ -355,7 +355,7 @@ impl SignatureMachine<Transaction> for TransactionSignatureMachine {
     }
 
     let mut tx = self.tx;
-    #[allow(clippy::wildcard_enum_match_arm)]
+    #[expect(clippy::wildcard_enum_match_arm)]
     match tx {
       Transaction::V2 {
         proofs:

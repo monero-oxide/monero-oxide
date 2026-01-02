@@ -1,4 +1,3 @@
-#[allow(unused_imports)]
 use std_shims::prelude::*;
 
 use monero_oxide::{
@@ -77,7 +76,7 @@ macro_rules! field {
 // Unfortunately, callers cannot simply use a lambda due to needing to define these lifetimes.
 struct FixedLenStr(usize);
 impl FixedLenStr {
-  #[allow(single_use_lifetimes, clippy::elidable_lifetime_names, clippy::wrong_self_convention)]
+  #[expect(single_use_lifetimes, clippy::elidable_lifetime_names, clippy::wrong_self_convention)]
   fn to_fixed_len_str<'encoding, 'parent>(
     self,
     entry: EpeeEntry<'encoding, 'parent, &'encoding [u8]>,
@@ -135,7 +134,7 @@ pub(super) fn extract_distribution(
   read_u64_array_from_epee(expected_len, distribution)
 }
 
-#[allow(single_use_lifetimes, clippy::elidable_lifetime_names)]
+#[expect(single_use_lifetimes, clippy::elidable_lifetime_names)]
 fn epee_32<'encoding, 'parent>(
   entry: EpeeEntry<'encoding, 'parent, &'encoding [u8]>,
 ) -> Result<[u8; 32], EpeeError> {

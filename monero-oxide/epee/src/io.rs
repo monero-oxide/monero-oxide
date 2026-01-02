@@ -5,7 +5,6 @@ use core::marker::PhantomData;
 use crate::EpeeError;
 
 /// An item which is like a `&[u8]`.
-#[allow(clippy::len_without_is_empty)]
 pub trait BytesLike<'encoding>: Sized {
   /// The type representing the length of a _read_ `BytesLike`, if a `BytesLike` does not
   /// inherently know its length.

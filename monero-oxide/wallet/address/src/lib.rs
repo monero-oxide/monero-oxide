@@ -144,7 +144,7 @@ impl AddressBytes {
     Some(AddressBytes { legacy, legacy_integrated, subaddress, featured })
   }
 
-  #[allow(clippy::as_conversions)]
+  #[expect(clippy::as_conversions)]
   const fn to_const_generic(self) -> u32 {
     ((self.legacy as u32) << 24) +
       ((self.legacy_integrated as u32) << 16) +
@@ -152,7 +152,7 @@ impl AddressBytes {
       (self.featured as u32)
   }
 
-  #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
+  #[expect(clippy::as_conversions, clippy::cast_possible_truncation)]
   const fn from_const_generic(const_generic: u32) -> Self {
     let legacy = (const_generic >> 24) as u8;
     let legacy_integrated = ((const_generic >> 16) & (u8::MAX as u32)) as u8;
@@ -241,7 +241,7 @@ pub struct NetworkedAddressBytes {
 
 impl NetworkedAddressBytes {
   /// Create a new set of address bytes, one for each network.
-  #[allow(clippy::as_conversions)] // Required as this is a `const fn`
+  #[expect(clippy::as_conversions)] // Required as this is a `const fn`
   pub const fn new(
     mainnet: AddressBytes,
     stagenet: AddressBytes,
@@ -277,14 +277,14 @@ impl NetworkedAddressBytes {
   /// Convert this set of address bytes to its representation as a u128.
   ///
   /// We cannot use this struct directly as a const generic unfortunately.
-  #[allow(clippy::as_conversions)]
+  #[expect(clippy::as_conversions)]
   pub const fn to_const_generic(self) -> u128 {
     ((self.mainnet.to_const_generic() as u128) << 96) +
       ((self.stagenet.to_const_generic() as u128) << 64) +
       ((self.testnet.to_const_generic() as u128) << 32)
   }
 
-  #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
+  #[expect(clippy::as_conversions, clippy::cast_possible_truncation)]
   const fn from_const_generic(const_generic: u128) -> Self {
     let mainnet = AddressBytes::from_const_generic((const_generic >> 96) as u32);
     let stagenet =

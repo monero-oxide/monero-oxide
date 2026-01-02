@@ -22,7 +22,7 @@ mod epee;
 
 macro_rules! epee_key_len {
   ($key: literal) => {{
-    #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
+    #[expect(clippy::as_conversions, clippy::cast_possible_truncation)]
     {
       // Check this cast is well-formed when compiling
       const _KEY_LEN_IS_LESS_THAN_256: [(); 255 - $key.len()] = [(); _];
@@ -79,7 +79,7 @@ impl<T: HttpTransport> ProvidesUnvalidatedOutputs for MoneroDaemon<T> {
     hash: [u8; 32],
   ) -> impl Send + Future<Output = Result<Vec<u64>, InterfaceError>> {
     async move {
-      #[allow(clippy::as_conversions)]
+      #[expect(clippy::as_conversions)]
       let request = [
         epee::HEADER.as_slice(),
         &[epee::VERSION],
@@ -122,7 +122,7 @@ impl<T: HttpTransport> ProvidesUnvalidatedOutputs for MoneroDaemon<T> {
       request.push(1 << 2);
       request.push(epee_key_len!("outputs"));
       request.extend("outputs".as_bytes());
-      #[allow(clippy::as_conversions)]
+      #[expect(clippy::as_conversions)]
       request.push((epee::Type::Object as u8) | (epee::Array::Array as u8));
       debug_assert_eq!(request.len(), expected_request_header_len);
 
@@ -144,13 +144,13 @@ impl<T: HttpTransport> ProvidesUnvalidatedOutputs for MoneroDaemon<T> {
 
             request.push(epee_key_len!("amount"));
             request.extend("amount".as_bytes());
-            #[allow(clippy::as_conversions)]
+            #[expect(clippy::as_conversions)]
             request.push(epee::Type::Uint8 as u8);
             request.push(0);
 
             request.push(epee_key_len!("index"));
             request.extend("index".as_bytes());
-            #[allow(clippy::as_conversions)]
+            #[expect(clippy::as_conversions)]
             request.push(epee::Type::Uint64 as u8);
             request.extend(&index.to_le_bytes());
           }
@@ -205,7 +205,7 @@ impl<T: HttpTransport> ProvidesUnvalidatedDecoys for MoneroDaemon<T> {
 
       let zero_zero_case = (from == 0) && (to == 0);
 
-      #[allow(clippy::as_conversions)]
+      #[expect(clippy::as_conversions)]
       let request = [
         epee::HEADER.as_slice(),
         &[epee::VERSION],

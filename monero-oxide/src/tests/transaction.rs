@@ -1,4 +1,4 @@
-#![allow(clippy::wildcard_enum_match_arm)]
+#![expect(clippy::wildcard_enum_match_arm)]
 
 use serde_json::Value;
 

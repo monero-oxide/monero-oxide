@@ -418,7 +418,6 @@ impl Extra {
   ///
   /// This is not of deterministic length nor length-prefixed. It should only be read from a buffer
   /// already delimited.
-  #[allow(clippy::unnecessary_wraps)]
   pub fn read<R: BufRead>(r: &mut R) -> io::Result<Extra> {
     let mut res = Extra(vec![]);
     // Extra reads until EOF

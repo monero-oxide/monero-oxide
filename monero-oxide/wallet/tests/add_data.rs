@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use monero_oxide::transaction::Transaction;
 use monero_simple_request_rpc::{prelude::MoneroDaemon, SimpleRequestTransport};

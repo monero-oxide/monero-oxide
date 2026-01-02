@@ -67,12 +67,12 @@ impl<T: HttpTransport> MoneroDaemon<T> {
 
     request.push(epee_key_len!("prune"));
     request.extend("prune".as_bytes());
-    #[allow(clippy::as_conversions)]
+    #[expect(clippy::as_conversions)]
     request.push(epee::Type::Bool as u8);
     request.push(1);
     request.push(epee_key_len!("start_height"));
     request.extend("start_height".as_bytes());
-    #[allow(clippy::as_conversions)]
+    #[expect(clippy::as_conversions)]
     request.push(epee::Type::Uint64 as u8);
     debug_assert_eq!(expected_request_header_len, request.len());
 
@@ -89,7 +89,7 @@ impl<T: HttpTransport> MoneroDaemon<T> {
       */
       request.push(epee_key_len!("max_block_count"));
       request.extend("max_block_count".as_bytes());
-      #[allow(clippy::as_conversions)]
+      #[expect(clippy::as_conversions)]
       request.push(epee::Type::Uint64 as u8);
       request.extend(remaining_blocks.to_le_bytes());
 

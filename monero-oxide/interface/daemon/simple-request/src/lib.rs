@@ -30,7 +30,7 @@ enum Authentication {
   Authenticated {
     username: Zeroizing<String>,
     password: Zeroizing<String>,
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     connection: Arc<Mutex<(Option<(WwwAuthenticateHeader, u64)>, Client)>>,
   },
 }

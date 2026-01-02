@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use curve25519_dalek::constants::ED25519_BASEPOINT_POINT;
 

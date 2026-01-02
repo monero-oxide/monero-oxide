@@ -1,5 +1,4 @@
 use core::cmp::Ordering;
-#[allow(unused_imports)]
 use std_shims::prelude::*;
 use std_shims::io::{self, Read, Write};
 
@@ -304,7 +303,7 @@ impl TransactionPrefix {
   }
 }
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 mod sealed {
   use core::fmt::Debug;
   use crate::ringct::*;
@@ -427,7 +426,6 @@ mod sealed {
 pub use sealed::*;
 
 /// A Monero transaction.
-#[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Transaction<P: PotentiallyPruned = NotPruned> {
   /// A version 1 transaction, used by the original Cryptonote codebase.
@@ -451,7 +449,6 @@ enum PrunableHash<'a> {
   V2([u8; 32]),
 }
 
-#[allow(private_bounds)]
 impl<P: PotentiallyPruned> Transaction<P> {
   /// Get the version of this transaction.
   pub fn version(&self) -> u8 {
@@ -541,7 +538,7 @@ impl<P: PotentiallyPruned> Transaction<P> {
   }
 
   // The hash of the transaction.
-  #[allow(clippy::needless_pass_by_value)]
+  #[expect(clippy::needless_pass_by_value)]
   fn hash_with_prunable_hash_internal(&self, prunable: PrunableHash<'_>) -> [u8; 32] {
     match self {
       Transaction::V1 { prefix, .. } => {

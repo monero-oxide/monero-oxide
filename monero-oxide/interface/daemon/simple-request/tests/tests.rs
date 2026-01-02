@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use core::time::Duration;
 use std::sync::LazyLock;
@@ -129,7 +129,7 @@ async fn test_decoys() {
     assert_eq!(rpc.ringct_output_distribution(1 ..= 1).await.unwrap().len(), 1);
 
     rpc.ringct_output_distribution(0 .. 0).await.unwrap_err();
-    #[allow(clippy::reversed_empty_ranges)]
+    #[expect(clippy::reversed_empty_ranges)]
     rpc.ringct_output_distribution(1 .. 0).await.unwrap_err();
   }
 

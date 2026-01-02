@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::collections::HashSet;
 
@@ -87,7 +87,7 @@ test!(
 );
 
 test!(
-  // Ideally, this would be single_R, yet it isn't feasible to apply allow(non_snake_case) here
+  // Ideally, this would be single_R, yet it isn't feasible to apply expect(non_snake_case) here
   single_r_subaddress_send,
   (
     // Consume this builder for an output we can use in the future

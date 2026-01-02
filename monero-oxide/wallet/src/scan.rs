@@ -87,7 +87,7 @@ struct InternalScanner {
 }
 
 impl Zeroize for InternalScanner {
-  #[allow(clippy::iter_over_hash_type)]
+  #[expect(clippy::iter_over_hash_type)]
   fn zeroize(&mut self) {
     self.pair.zeroize();
     self.guaranteed.zeroize();

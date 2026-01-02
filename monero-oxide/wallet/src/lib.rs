@@ -66,7 +66,7 @@ impl SharedKeyDerivations {
     keccak256(u)
   }
 
-  #[allow(clippy::needless_pass_by_value)]
+  #[expect(clippy::needless_pass_by_value)]
   fn output_derivations(
     uniqueness: Option<[u8; 32]>,
     ecdh: Zeroizing<Point>,
@@ -98,7 +98,7 @@ impl SharedKeyDerivations {
   }
 
   // H(8Ra || 0x8d)
-  #[allow(clippy::needless_pass_by_value)]
+  #[expect(clippy::needless_pass_by_value)]
   fn payment_id_xor(ecdh: Zeroizing<Point>) -> [u8; 8] {
     // 8Ra
     let output_derivation = Zeroizing::new(
