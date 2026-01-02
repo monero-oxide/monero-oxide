@@ -32,7 +32,7 @@ jobs:
       - name: Run Clippy
         shell: bash
         run: |
-          RUSTFLAGS="$RUSTFLAGS -D warnings"
+          RUSTFLAGS="$RUSTFLAGS -D warnings --cfg monero_oxide_rust_nightly"
           cargo clippy --all-features --all-targets
           cargo +${{ steps.nightly.outputs.version }} clippy --all-features --all-targets
 

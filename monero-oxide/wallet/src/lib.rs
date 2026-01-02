@@ -1,4 +1,6 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![expect(unexpected_cfgs)]
+#![cfg_attr(monero_oxide_rust_nightly, feature(variant_count))]
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]

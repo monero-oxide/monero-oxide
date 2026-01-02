@@ -192,12 +192,11 @@ fn extra_mysterious_minergate_only_wrong_size() {
 
 #[test]
 fn extra_mysterious_minergate_and_pub_key() {
-  let mut buf: Vec<u8> = vec![222, 1, 42];
-  buf.extend(PUB_KEY_BYTES.to_vec());
+  let buf = [PUB_KEY_BYTES.as_slice(), &[222, 1, 42]].concat();
   let extra = Extra::read(&mut buf.as_slice()).unwrap();
   assert_eq!(
     extra.0,
-    vec![ExtraField::MysteriousMinergate(vec![42]), ExtraField::PublicKey(pub_key())]
+    vec![ExtraField::PublicKey(pub_key()), ExtraField::MysteriousMinergate(vec![42])]
   );
   test_write_buf(&extra, &buf);
 }

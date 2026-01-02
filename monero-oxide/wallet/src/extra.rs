@@ -365,16 +365,45 @@ impl Extra {
 
   /// Write the Extra.
   ///
+  /// This will write the value in a sorted fashion.
+  ///
   /// This is not of deterministic length nor length-prefixed. It should only be written to a
   /// buffer which will be delimited.
   pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
-    for field in &self.0 {
-      field.write(w)?;
+    #[cfg(debug_assertions)]
+    let mut written = 0;
+    // https://github.com/monero-project/monero/blob/02357fe53fbcab3f5102183f0837feed68cf5355
+    //   /src/cryptonote_basic/cryptonote_format_utils.cpp#L618-L624
+    const SORT_ORDER: [fn(&ExtraField) -> bool; 6] = [
+      |field: &ExtraField| matches!(field, ExtraField::PublicKey(_)),
+      |field: &ExtraField| matches!(field, ExtraField::PublicKeys(_)),
+      |field: &ExtraField| matches!(field, ExtraField::Nonce(_)),
+      |field: &ExtraField| matches!(field, ExtraField::MergeMining(_, _)),
+      |field: &ExtraField| matches!(field, ExtraField::MysteriousMinergate(_)),
+      |field: &ExtraField| matches!(field, ExtraField::Padding(_)),
+    ];
+    // Ensure the length of the `SORT_ORDER` array corresponds to the amount of variants
+    #[cfg(monero_oxide_rust_nightly)]
+    const _SORT_LEN: [(); 0 - core::mem::variant_count::<ExtraField>().abs_diff(SORT_ORDER.len())] =
+      [(); _];
+    for selection in SORT_ORDER {
+      for field in &self.0 {
+        if selection(field) {
+          field.write(w)?;
+          #[cfg(debug_assertions)]
+          {
+            written += 1;
+          }
+        }
+      }
     }
+    debug_assert_eq!(written, self.0.len());
     Ok(())
   }
 
   /// Serialize the Extra to a `Vec<u8>`.
+  ///
+  /// This will write the value in a sorted fashion.
   pub fn serialize(&self) -> Vec<u8> {
     let mut buf = vec![];
     self.write(&mut buf).expect("write failed but <Vec as io::Write> doesn't fail");
