@@ -140,10 +140,11 @@ impl ExtraField {
         w.write_all(&[2])?;
         write_vec(write_byte, data, w)?;
       }
-      ExtraField::MergeMining(height, merkle) => {
+      ExtraField::MergeMining(depth, merkle_root) => {
         w.write_all(&[3])?;
-        VarInt::write(height, w)?;
-        w.write_all(merkle)?;
+        VarInt::write(&(depth.varint_len() + merkle_root.len()), w)?;
+        VarInt::write(depth, w)?;
+        w.write_all(merkle_root)?;
       }
       ExtraField::PublicKeys(keys) => {
         w.write_all(&[4])?;
@@ -165,6 +166,9 @@ impl ExtraField {
   }
 
   /// Read an ExtraField.
+  ///
+  /// This may be lossy in that `ExtraField::read(&mut buf.as_slice()).serialize() == buf` is not
+  /// guaranteed to hold true.
   pub fn read<R: BufRead>(r: &mut R) -> io::Result<ExtraField> {
     Ok(match read_byte(r)? {
       0 => ExtraField::Padding({
@@ -192,7 +196,21 @@ impl ExtraField {
       }),
       1 => ExtraField::PublicKey(CompressedPoint::read(r)?),
       2 => ExtraField::Nonce(read_vec(read_byte, Some(MAX_TX_EXTRA_NONCE_SIZE), r)?),
-      3 => ExtraField::MergeMining(VarInt::read(r)?, read_bytes(r)?),
+      3 => {
+        let field_len = <usize as VarInt>::read(r)?;
+        let depth = <u64 as VarInt>::read(r)?;
+        let merkle_root = read_bytes(r)?;
+
+        match field_len.checked_sub(depth.varint_len() + merkle_root.len()) {
+          Some(remaining) => {
+            for _ in 0 .. remaining {
+              read_byte(r)?;
+            }
+          }
+          None => Err(io::Error::other("`MergeMining` tag had a length smaller than its fields"))?,
+        }
+        ExtraField::MergeMining(depth, merkle_root)
+      }
       4 => ExtraField::PublicKeys(read_vec(CompressedPoint::read, None, r)?),
       0xDE => ExtraField::MysteriousMinergate(read_vec(read_byte, None, r)?),
       _ => Err(io::Error::other("unknown extra field"))?,
@@ -201,6 +219,11 @@ impl ExtraField {
 }
 
 /// The result of decoding a transaction's extra field.
+///
+/// Note that the Monero protocol defines a transaction's `extra` field as a byte vector. This is a
+/// parsed view of such a byte vector, yet the Monero protocol does not require the `extra` field
+/// be parseable. The parsing is also lossy in that
+/// `Extra::read(&mut buf.as_slice()).serialize() == buf` is not guaranteed to hold true.
 #[derive(Clone, PartialEq, Eq, Debug, Zeroize)]
 pub struct Extra(pub(crate) Vec<ExtraField>);
 impl Extra {
