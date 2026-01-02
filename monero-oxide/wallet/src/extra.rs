@@ -138,6 +138,21 @@ impl ExtraField {
       }
       ExtraField::Nonce(data) => {
         w.write_all(&[2])?;
+        /*
+          This uses `write_vec`, where the `Vec` will be length-prefixed with a VarInt, which
+          differs from Monero's `add_extra_nonce_to_tx_extra`:
+
+          https://github.com/monero-project/monero/blob/02357fe53fbcab3f5102183f0837feed68cf5355
+            /src/cryptonote_basic/cryptonote_format_utils.cpp#L726
+
+          This is because the definition in `tx_extra.h` is followed which does consider this a
+          `VarInt`-length-prefixed container:
+
+          https://github.com/monero-project/monero/blob/02357fe53fbcab3f5102183f0837feed68cf5355
+            /src/cryptonote_basic/tx_extra.h#L112-L115
+
+          The former is considered faulty. See https://github.com/monero-project/monero/pull/10220.
+        */
         write_vec(write_byte, data, w)?;
       }
       ExtraField::MergeMining(depth, merkle_root) => {
