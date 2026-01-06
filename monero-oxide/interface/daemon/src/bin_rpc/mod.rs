@@ -133,7 +133,7 @@ impl<T: HttpTransport> ProvidesUnvalidatedOutputs for MoneroDaemon<T> {
 
           let indexes_len_u64 =
             u64::try_from(indexes.len()).expect("requesting more than 2**64 indexes?");
-          // TODO: This can truncate if the responses if an absurd amount is requested
+          // TODO: This can truncate some of the indexes requested if an absurd amount is requested
           // https://github.com/monero-oxide/monero-oxide/issues/93
           request.extend(((indexes_len_u64 << 2) | 0b11).to_le_bytes());
 
@@ -328,8 +328,7 @@ impl<T: HttpTransport> ProvidesUnvalidatedDecoys for MoneroDaemon<T> {
               EvaluateUnlocked::Normal => out.unlocked,
               EvaluateUnlocked::FingerprintableDeterministic { block_number } => {
                 // https://github.com/monero-project/monero/blob
-                //   /cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_core
-                //   /blockchain.cpp#L90
+                //   /cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_config.h#L90
                 const ACCEPTED_TIMELOCK_DELTA: usize = 1;
 
                 let global_timelock_satisfied = out

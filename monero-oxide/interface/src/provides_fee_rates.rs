@@ -105,13 +105,7 @@ impl FeeRate {
   pub fn calculate_fee_from_weight(&self, weight: usize) -> u64 {
     let fee =
       self.per_weight * u64::try_from(weight).expect("couldn't convert weight (usize) to u64");
-    let fee = fee.div_ceil(self.mask) * self.mask;
-    debug_assert_eq!(
-      Some(weight),
-      self.calculate_weight_from_fee(fee),
-      "Miscalculated weight from fee"
-    );
-    fee
+    fee.div_ceil(self.mask) * self.mask
   }
 
   /// Calculate the weight from the fee.

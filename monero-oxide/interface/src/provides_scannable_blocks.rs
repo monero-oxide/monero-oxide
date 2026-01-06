@@ -12,6 +12,8 @@ use crate::{
 };
 
 /// A block which is able to be scanned.
+///
+/// As this `struct`'s fields are public, no internal consistency is enforced.
 // TODO: Should these fields be private so we can check their integrity within a constructor?
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct ScannableBlock {
@@ -37,7 +39,8 @@ pub struct ScannableBlock {
 pub trait ExpandToScannableBlock: ProvidesTransactions + ProvidesOutputs {
   /// Expand a `Block` to a `ScannableBlock`.
   ///
-  /// The resulting block will be validated to have the expected transactions associated.
+  /// The resulting block will be validated to have the transactions corresponding to the block's
+  /// list of transactions.
   fn expand_to_scannable_block(
     &self,
     block: Block,
@@ -186,7 +189,7 @@ pub trait ProvidesScannableBlocks: Sync {
   /// Get a contiguous range of `ScannableBlock`s.
   ///
   /// The blocks will be validated to build upon each other, as expected, have the expected
-  /// numbers, and have the expected transactions.
+  /// numbers, and have the expected transactions according to the block's list of transactions.
   fn contiguous_scannable_blocks(
     &self,
     range: RangeInclusive<usize>,
@@ -195,7 +198,7 @@ pub trait ProvidesScannableBlocks: Sync {
   /// Get a `ScannableBlock` by its hash.
   ///
   /// The block will be validated to be the requested block with a well-formed number and have the
-  /// expected transactions.
+  /// expected transactions according to the block's list of transactions.
   fn scannable_block(
     &self,
     hash: [u8; 32],
@@ -207,7 +210,7 @@ pub trait ProvidesScannableBlocks: Sync {
   /// `number = 0`.
   ///
   /// The block will be validated to be a block with the requested number and have the expected
-  /// transactions.
+  /// transactions according to the block's list of transactions.
   fn scannable_block_by_number(
     &self,
     number: usize,
