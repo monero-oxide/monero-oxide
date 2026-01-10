@@ -759,8 +759,8 @@ dependencies = [
 name = "monero-base58"
 version = "0.1.0"
 dependencies = [
- "monero-primitives",
  "rand_core",
+ "sha3",
  "std-shims",
 ]
 

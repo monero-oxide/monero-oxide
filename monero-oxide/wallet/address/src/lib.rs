@@ -7,6 +7,7 @@ use core::fmt::{self, Write};
 extern crate alloc;
 use alloc::{
   vec,
+  vec::Vec,
   string::{String, ToString},
 };
 
@@ -405,7 +406,7 @@ impl<const ADDRESS_BYTES: u128> Address<ADDRESS_BYTES> {
   /// The upper bound on an address's data, when represented as bytes with a checksum.
   const CHECKSUMMED_UPPER_BOUND: UpperBound<usize> = UpperBound(Self::BASE_256_UPPER_BOUND.0 + 4);
   /// The maximum size of an encoded address.
-  // This alleges each 8-bit byte will be encoded into 5-bit chunks, when in reality Base 58 is
+  // This alleges each 8-bit byte will be encoded into 5-bit chunks, when in reality Base58 is
   // ~5.85 bits.
   pub const SIZE_UPPER_BOUND: UpperBound<usize> =
     UpperBound((Self::CHECKSUMMED_UPPER_BOUND.0 * 8).div_ceil(5));
@@ -417,7 +418,13 @@ impl<const ADDRESS_BYTES: u128> Address<ADDRESS_BYTES> {
 
   /// Parse an address from a String, accepting any network it is.
   pub fn from_str_with_unchecked_network(s: &str) -> Result<Self, AddressError> {
-    let raw = decode_check(s).ok_or(AddressError::InvalidEncoding)?;
+    if s.len() > Self::SIZE_UPPER_BOUND.0 {
+      Err(AddressError::InvalidLength)?;
+    }
+
+    let raw = decode_check(s.as_bytes())
+      .collect::<Option<Vec<_>>>()
+      .ok_or(AddressError::InvalidEncoding)?;
     let mut raw = raw.as_slice();
 
     let address_bytes: NetworkedAddressBytes =

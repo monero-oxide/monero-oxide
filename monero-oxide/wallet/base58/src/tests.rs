@@ -12,14 +12,17 @@ fn test_encoded_len_for_bytes() {
 }
 
 fn encode_decode(bytes: &[u8]) {
-  assert_eq!(decode(&encode(bytes)).unwrap(), bytes);
-  assert_eq!(decode_check(&encode_check(bytes.to_vec())).unwrap(), bytes);
+  assert_eq!(decode(encode(bytes).as_bytes()).collect::<Option<Vec<u8>>>().unwrap(), bytes);
+  assert_eq!(
+    decode_check(encode_check(bytes.to_vec()).as_bytes()).collect::<Option<Vec<u8>>>().unwrap(),
+    bytes
+  );
 }
 
 #[test]
 fn base58() {
   assert_eq!(encode(&[]), String::new());
-  assert!(decode("").unwrap().is_empty());
+  assert!(decode("".as_bytes()).collect::<Option<Vec<u8>>>().unwrap().is_empty());
 
   let full_block = &[1, 2, 3, 4, 5, 6, 7, 8];
   encode_decode(full_block);
@@ -31,7 +34,7 @@ fn base58() {
   encode_decode(max_encoded_block);
 
   let max_decoded_block = "zzzzzzzzzzz";
-  assert!(decode(max_decoded_block).is_none());
+  assert_eq!(decode(max_decoded_block.as_bytes()).next(), Some(None));
 
   let full_and_partial_block = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
   encode_decode(full_and_partial_block);
@@ -57,8 +60,8 @@ fn fuzz_base58() {
         }
         let str = String::from_utf8(str).unwrap();
         // We don't care what the results are, solely that it doesn't panic
-        let _ = core::hint::black_box(decode(&str));
-        let _ = core::hint::black_box(decode_check(&str));
+        let _ = core::hint::black_box(decode(str.as_bytes()).collect::<Option<Vec<u8>>>());
+        let _ = core::hint::black_box(decode_check(str.as_bytes()).collect::<Option<Vec<u8>>>());
       }
     }
   }

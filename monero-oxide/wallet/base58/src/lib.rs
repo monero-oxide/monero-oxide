@@ -3,9 +3,10 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(test), no_std)]
 
+use core::borrow::Borrow;
 use std_shims::prelude::*;
 
-use monero_primitives::keccak256;
+use sha3::{Digest, Keccak256};
 
 #[cfg(test)]
 mod tests;
@@ -43,7 +44,7 @@ pub fn encode(bytes: &[u8]) -> String {
     fixed_len_chunk[(BLOCK_LEN - chunk.len()) ..].copy_from_slice(chunk);
     let mut val = u64::from_be_bytes(fixed_len_chunk);
 
-    // Convert to the base58 encoding
+    // Convert to the Base58 encoding
     let mut chunk_str = [char::from(ALPHABET[0]); ENCODED_BLOCK_LEN];
     let mut i = 0;
     while val > 0 {
@@ -63,52 +64,186 @@ pub fn encode(bytes: &[u8]) -> String {
   res
 }
 
-/// Decode an arbitrary-length stream of data.
-pub fn decode(data: &str) -> Option<Vec<u8>> {
-  let mut res = Vec::with_capacity((data.len() / ENCODED_BLOCK_LEN) * BLOCK_LEN);
-
-  for chunk in data.as_bytes().chunks(ENCODED_BLOCK_LEN) {
-    // Convert the chunk back to a u64
-    let mut sum = 0u64;
-    for this_char in chunk {
-      sum = sum.checked_mul(ALPHABET_LEN)?;
-      sum += u64::try_from(ALPHABET.iter().position(|a| a == this_char)?)
-        .expect("alphabet len exceeded 2**64");
+/// A non-allocating iterator to decode Base58-encoded data.
+struct DecodeIterator<I: Iterator<Item = u8>> {
+  data: I,
+  /// The most recently decoded chunk from the input.
+  queued: Option<([u8; 8], usize)>,
+  /// If this iterator was fused.
+  ///
+  /// We track this ourselves due to returning `Some(None)` on error, and not wanting to continue
+  /// iterating after an error. Unfortunately, even if we returned `Some(Err(_))`, Rust does offer
+  /// `fuse()` yet not `try_fuse()`.
+  fused: bool,
+}
+impl<I: Iterator<Item = u8>> Iterator for DecodeIterator<I> {
+  type Item = Option<u8>;
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.fused {
+      None?;
     }
 
-    // From the size of the encoding, determine the size of the bytes
-    let mut used_bytes = None;
-    for i in 1 ..= BLOCK_LEN {
-      if encoded_len_for_bytes(i) == chunk.len() {
-        used_bytes = Some(i);
-        break;
+    // Grab the already-decoded chunk, decoding one if there was none
+    let (bytes, mut i) = match self.queued.take() {
+      Some(queued) => queued,
+      None => {
+        // Read the next chunk of the encoded data
+        let mut chunk = [0; ENCODED_BLOCK_LEN];
+        let mut chunk_len = 0;
+        while chunk_len < ENCODED_BLOCK_LEN {
+          let Some(byte) = self.data.next() else { break };
+          chunk[chunk_len] = byte;
+          chunk_len += 1;
+        }
+        // If the underlying iterator was empty, complete this iterator
+        if chunk_len == 0 {
+          self.fused = true;
+          None?;
+        }
+
+        // Convert the Base58-encoded chunk back to a `u64`
+        let mut sum = 0u64;
+        for this_char in chunk.into_iter().take(chunk_len) {
+          // Shift the existing value in the accumulator over
+          sum = {
+            let Some(sum) = sum.checked_mul(ALPHABET_LEN) else {
+              self.fused = true;
+              return Some(None);
+            };
+            sum
+          };
+          // Decode this digit from the alphabet
+          let Some(pos) = ALPHABET.iter().position(|a| *a == this_char) else {
+            self.fused = true;
+            return Some(None);
+          };
+          // Accumulate this digit
+          sum += u64::try_from(pos).expect("alphabet len exceeded 2**64");
+        }
+
+        // From the size of the encoding, determine the size of the bytes
+        let mut used_bytes = None;
+        for i in 1 ..= BLOCK_LEN {
+          if encoded_len_for_bytes(i) == chunk_len {
+            used_bytes = Some(i);
+            break;
+          }
+        }
+        let Some(used_bytes) = used_bytes else {
+          self.fused = true;
+          return Some(None);
+        };
+
+        // Only queue on the used bytes
+        (sum.to_be_bytes(), BLOCK_LEN - used_bytes)
       }
-    }
-    let used_bytes = used_bytes?;
-    // Only push on the used bytes
-    res.extend(&sum.to_be_bytes()[(BLOCK_LEN - used_bytes) ..]);
-  }
+    };
 
-  Some(res)
+    let result = bytes[i];
+    i += 1;
+    // If we haven't exhausted this chunk, write it back to `queued`
+    if i != BLOCK_LEN {
+      self.queued = Some((bytes, i));
+    }
+    Some(Some(result))
+  }
+}
+
+/// Decode an arbitrary-length stream of data.
+///
+/// `Some(None)` reflects the data was incorrectly encoded. The iterator must be exhausted to
+/// ensure its validity.
+#[inline(always)]
+pub fn decode(data: impl IntoIterator<Item = impl Borrow<u8>>) -> impl Iterator<Item = Option<u8>> {
+  DecodeIterator { data: data.into_iter().map(|item| *item.borrow()), queued: None, fused: false }
 }
 
 /// Encode an arbitrary-length stream of data, with a checksum.
 pub fn encode_check(mut data: Vec<u8>) -> String {
-  let checksum = keccak256(&data);
+  let checksum = Keccak256::digest(&data);
   data.extend(&checksum[.. CHECKSUM_LEN]);
   encode(&data)
 }
 
+/// A non-allocating iterator to decode Base58-encoded data, with a checksum.
+struct DecodeCheckIterator<I: Iterator<Item = Option<u8>>> {
+  underlying: I,
+  /// This is `None` if the iterator has been exhausted.
+  checksum: Option<Keccak256>,
+  /// The index within the ring buffer.
+  ring_buf_i: usize,
+  /// A ring buffer containing the next set of bytes from the underlying iterator.
+  ///
+  /// This lets us detect if we've reached the end, and more specifically, the checksum.
+  ring_buf: [u8; CHECKSUM_LEN],
+}
+impl<I: Iterator<Item = Option<u8>>> Iterator for DecodeCheckIterator<I> {
+  type Item = Option<u8>;
+  fn next(&mut self) -> Option<Self::Item> {
+    let Some(checksum) = self.checksum.as_mut() else { None? };
+    // This is correct since `CHECKSUM_LEN` is a power of two
+    self.ring_buf_i &= CHECKSUM_LEN - 1;
+
+    match self.underlying.next() {
+      Some(Some(next)) => {
+        let result = self.ring_buf[self.ring_buf_i];
+        self.ring_buf[self.ring_buf_i] = next;
+        self.ring_buf_i += 1;
+        checksum.update([result]);
+        Some(Some(result))
+      }
+      // Yield the error
+      Some(None) => {
+        self.checksum = None;
+        Some(None)
+      }
+      // Verify the checksum
+      None => {
+        let checksum = self
+          .checksum
+          .take()
+          .expect("function which only runs if `checksum = Some(_)` had `checksum = None`")
+          .finalize();
+        for (b, c) in (self.ring_buf_i .. (self.ring_buf_i + CHECKSUM_LEN)).zip(checksum) {
+          if self.ring_buf[b & (CHECKSUM_LEN - 1)] != c {
+            return Some(None);
+          }
+        }
+        None
+      }
+    }
+  }
+}
+
 /// Decode an arbitrary-length stream of data, with a checksum.
-pub fn decode_check(data: &str) -> Option<Vec<u8>> {
-  let mut res = decode(data)?;
-  if res.len() < CHECKSUM_LEN {
-    None?;
+///
+/// `Some(None)` reflects the data was incorrectly encoded. The iterator must be exhausted to
+/// ensure its validity.
+#[inline(always)]
+pub fn decode_check(
+  data: impl IntoIterator<Item = impl Borrow<u8>>,
+) -> impl Iterator<Item = Option<u8>> {
+  let mut data = decode(data);
+
+  // Populate the ring buffer with its initial state
+  let mut ring_buf = [0; CHECKSUM_LEN];
+  let mut invalid = None;
+  for b in &mut ring_buf {
+    if let Some(Some(byte)) = data.next() {
+      *b = byte;
+    } else {
+      // If this stream didn't even include the checksum, populate `invalid` with an iterator which
+      // will yield an error
+      invalid = Some(core::iter::once(None));
+      break;
+    }
   }
-  let checksum_pos = res.len() - CHECKSUM_LEN;
-  if keccak256(&res[.. checksum_pos])[.. CHECKSUM_LEN] != res[checksum_pos ..] {
-    None?;
-  }
-  res.truncate(checksum_pos);
-  Some(res)
+  // `checksum` is overloaded as `fused`, so don't create a checksum if this shouldn't ever run
+  let checksum = invalid.is_none().then_some(Keccak256::new());
+  invalid.into_iter().flatten().chain(DecodeCheckIterator {
+    underlying: data,
+    checksum,
+    ring_buf_i: 0,
+    ring_buf,
+  })
 }
