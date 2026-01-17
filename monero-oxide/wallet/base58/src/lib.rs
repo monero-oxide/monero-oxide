@@ -85,8 +85,19 @@ pub fn decode(data: &str) -> Option<Vec<u8>> {
       }
     }
     let used_bytes = used_bytes?;
+
     // Only push on the used bytes
-    res.extend(&sum.to_be_bytes()[(BLOCK_LEN - used_bytes) ..]);
+    {
+      let bytes = sum.to_be_bytes();
+      let unused_bytes = BLOCK_LEN - used_bytes;
+      // Check if any unused bytes were non-zero, as possible with a non-canonical encoding
+      for b in &bytes[.. unused_bytes] {
+        if *b != 0 {
+          None?;
+        }
+      }
+      res.extend(&bytes[unused_bytes ..]);
+    }
   }
 
   Some(res)

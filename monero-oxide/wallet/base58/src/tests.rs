@@ -63,3 +63,14 @@ fn fuzz_base58() {
     }
   }
 }
+
+#[test]
+fn non_canonical() {
+  // `decode_check("8Tge7kr") == decode_check("dLricHU")` without a check for if we're truncating
+  /*
+    let canon = crate::decode_check("8Tge7kr").unwrap();
+    let non_canon = crate::decode_check("dLricHU").unwrap();
+    assert_eq!(canon, non_canon);
+  */
+  assert!(crate::decode_check("dLricHU").is_none());
+}
