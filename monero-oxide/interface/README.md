@@ -1,6 +1,6 @@
 # Monero Interface
 
-`monero-Interface` provides two sets of traits for interfacing with the Monero
+`monero-interface` provides two sets of traits for interfacing with the Monero
 network.
 
 1) `Unvalidated*`: Traits representing data from an arbitrary source, with
