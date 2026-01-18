@@ -319,7 +319,7 @@ impl<T: HttpTransport> MoneroDaemon<T> {
   ///
   /// Returns the hashes of the generated blocks and the last block's alleged number.
   ///
-  /// This is intended for testing purposes and does not validate the result in any way.
+  /// This is intended for testing purposes and may not validate the result in any way.
   pub async fn generate_blocks<const ADDR_BYTES: u128>(
     &self,
     address: &Address<ADDR_BYTES>,
@@ -331,19 +331,54 @@ impl<T: HttpTransport> MoneroDaemon<T> {
       height: usize,
     }
 
-    let res = self
-      .json_rpc_call_internal::<BlocksResponse>(
-        "generateblocks",
-        Some(format!(r#"{{ "wallet_address": "{address}", "amount_of_blocks": {block_count} }}"#)),
-        block_count.saturating_mul(32),
-      )
-      .await?;
+    /*
+      This pre-allocation is fine as the user is legitimately requesting this many blocks. It'll
+      redundant only only go unused if the following request errors, which makes this optimistic,
+      as fine within a function _intended_ as (and documented as) a test helper.
+    */
+    let mut blocks = Vec::with_capacity(block_count);
+    let mut last_height = None;
 
-    let mut blocks = Vec::with_capacity(res.blocks.len());
-    for block in res.blocks {
-      blocks.push(hash_hex(&block)?);
+    /*
+      We explicitly generate these one at a time due to how latency linearly increases with each
+      requested block, yet our transport is presumably configured with a constant timeout. This
+      ensures this request won't timeout simply because a large amount of blocks was requested, as
+      seen with https://github.com/monero-oxide/monero-oxide/issues/92.
+
+      While this will perform many more network requests than necessary (a linear amount instead
+      of a constant amount), this function is documented as being for testing purposes, so that
+      shouldn't be an issue.
+
+      Alternatively, we could 'fire and forget' the call to generate blocks, then asynchronously
+      observe the blockchain until it reached the expected length. This wouldn't let us properly
+      handle errors however, instead requiring we try to indirectly detect errors, and would be
+      over-engineered for what's _intended_ as a test helper (making the network traffic presumably
+      local, and the increased latency likely negligible compared to the latency of generating
+      these blocks anyways).
+    */
+    for _ in 0 .. block_count {
+      let res = self
+        .json_rpc_call_internal::<BlocksResponse>(
+          "generateblocks",
+          Some(format!(r#"{{ "wallet_address": "{address}", "amount_of_blocks": 1 }}"#)),
+          32,
+        )
+        .await?;
+
+      if res.blocks.len() != 1 {
+        Err(InterfaceError::InvalidInterface(
+          "unexpected amount of blocks from `generateblocks`".to_owned(),
+        ))?;
+      }
+      blocks.push(hash_hex(&res.blocks[0])?);
+
+      last_height = Some(res.height);
     }
-    Ok((blocks, res.height))
+
+    let last_height = last_height.ok_or_else(|| {
+      InterfaceError::InternalError("requested generation of zero blocks".to_owned())
+    })?;
+    Ok((blocks, last_height))
   }
 }
 

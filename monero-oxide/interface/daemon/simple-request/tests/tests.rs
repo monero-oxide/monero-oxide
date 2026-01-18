@@ -1,6 +1,5 @@
 #![expect(missing_docs)]
 
-use core::time::Duration;
 use std::sync::LazyLock;
 use tokio::sync::Mutex;
 
@@ -17,12 +16,8 @@ const ADDRESS: &str =
 async fn test_blockchain() {
   let _guard = SEQUENTIAL.lock().await;
 
-  let rpc = SimpleRequestTransport::with_custom_timeout(
-    "http://monero:oxide@127.0.0.1:18081".to_owned(),
-    Duration::from_secs(4400),
-  )
-  .await
-  .unwrap();
+  let rpc =
+    SimpleRequestTransport::new("http://monero:oxide@127.0.0.1:18081".to_owned()).await.unwrap();
 
   let current_block_number = rpc.latest_block_number().await.unwrap();
   let latest_block = rpc.block_by_number(current_block_number).await.unwrap();
@@ -87,12 +82,8 @@ async fn test_fee_rates() {
 async fn test_decoys() {
   let _guard = SEQUENTIAL.lock().await;
 
-  let rpc = SimpleRequestTransport::with_custom_timeout(
-    "http://monero:oxide@127.0.0.1:18081".to_owned(),
-    Duration::from_secs(220),
-  )
-  .await
-  .unwrap();
+  let rpc =
+    SimpleRequestTransport::new("http://monero:oxide@127.0.0.1:18081".to_owned()).await.unwrap();
 
   // Ensure there's blocks on-chain
   rpc
