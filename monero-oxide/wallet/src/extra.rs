@@ -401,6 +401,7 @@ impl Extra {
         }
       }
     }
+    #[cfg(debug_assertions)]
     debug_assert_eq!(written, self.0.len());
     Ok(())
   }
