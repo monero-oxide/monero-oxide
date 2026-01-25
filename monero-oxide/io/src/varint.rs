@@ -52,7 +52,9 @@ pub trait VarInt: TryFrom<u64> + Copy + sealed::Sealed {
   /// The amount of bytes this number will take when serialized as a VarInt.
   fn varint_len(self) -> usize {
     let varint_u64 = self.into_u64();
-    usize::try_from(u64::BITS - varint_u64.leading_zeros()).expect("64 > usize::MAX?").div_ceil(7)
+    let bits = usize::try_from(u64::BITS - varint_u64.leading_zeros()).expect("64 > usize::MAX?");
+    let encoded_bytes = bits.div_ceil(7);
+    encoded_bytes.max(1)
   }
 
   /// Read a canonically-encoded VarInt.
