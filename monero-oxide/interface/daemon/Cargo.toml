@@ -40,4 +40,10 @@ std = [
   "monero-address/std",
   "monero-interface/std",
 ]
+
+# Lenient mode used by MoneroWalletCoreFFI during iOS optimization.
+# When enabled, BIN block fetching will not bail out solely due to missing/zero prunable hashes
+# in certain daemon responses, and will instead normalize to a zero hash.
+walletcore-lenient-prunable = []
+
 default = ["std"]

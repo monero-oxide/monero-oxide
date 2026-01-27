@@ -152,7 +152,7 @@ impl SignableTransaction {
 
     let mut additional_keys = vec![];
     if self.should_use_additional_keys() {
-      for _ in 0..self.payments.len() {
+      for _ in 0 .. self.payments.len() {
         additional_keys.push(tx_keys.next().expect("TransactionKeys (never-ending) was exhausted"));
       }
     }
@@ -174,8 +174,8 @@ impl SignableTransaction {
 
       let ecdh = match payment {
         // If we don't have the view key, use the key dedicated for this address (r A)
-        InternalPayment::Payment(_, _)
-        | InternalPayment::Change(ChangeEnum::AddressOnly { .. }) => {
+        InternalPayment::Payment(_, _) |
+        InternalPayment::Change(ChangeEnum::AddressOnly { .. }) => {
           Zeroizing::new(key_to_use.deref() * addr.view().into())
         }
         // If we do have the view key, use the commitment to the key (a R)

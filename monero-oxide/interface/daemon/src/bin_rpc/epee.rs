@@ -273,6 +273,10 @@ pub(super) fn extract_blocks_from_blocks_bin(
                   };
 
                   // Only use the prunable hash if this transaction has a well-defined prunable hash
+                  #[cfg(feature = "walletcore-lenient-prunable")]
+                  let mut prunable_hash =
+                    prunable_hash.filter(|_| !matches!(transaction, Transaction::V1 { .. }));
+                  #[cfg(not(feature = "walletcore-lenient-prunable"))]
                   let prunable_hash =
                     prunable_hash.filter(|_| !matches!(transaction, Transaction::V1 { .. }));
 
@@ -287,7 +291,15 @@ pub(super) fn extract_blocks_from_blocks_bin(
                   if matches!(transaction, Transaction::V2 { proofs: Some(_), .. }) &&
                     (prunable_hash.is_none() || (prunable_hash == Some([0; 32])))
                   {
-                    return Ok(None);
+                    #[cfg(not(feature = "walletcore-lenient-prunable"))]
+                    {
+                      return Ok(None);
+                    }
+                    #[cfg(feature = "walletcore-lenient-prunable")]
+                    {
+                      // Lenient mode: accept missing/zero prunable hash.
+                      prunable_hash = Some([0; 32]);
+                    }
                   }
 
                   let transaction =

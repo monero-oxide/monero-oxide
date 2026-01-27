@@ -71,7 +71,7 @@ impl SharedKeyDerivations {
         Input::Gen(height) => {
           // Encode `height` as VarInt into `varint_buf`
           let len = Self::encode_varint_u64(*height as u64, &mut varint_buf);
-          h.update(&varint_buf[..len]);
+          h.update(&varint_buf[.. len]);
         }
         Input::ToKey { key_image, .. } => {
           h.update(key_image.to_bytes());
@@ -96,7 +96,7 @@ impl SharedKeyDerivations {
     let o_len = Self::encode_varint_u64(o as u64, &mut o_buf);
 
     // view_tag = keccak256("view_tag" || 8Ra || o_varint)[0] (allocation-free)
-    let view_tag = Self::compute_view_tag_from_parts(&ra_bytes, &o_buf[..o_len]);
+    let view_tag = Self::compute_view_tag_from_parts(&ra_bytes, &o_buf[.. o_len]);
 
     // shared_key = Scalar::hash( (uniqueness?) || 8Ra || o_varint )
     //
@@ -108,7 +108,7 @@ impl SharedKeyDerivations {
       shared_key_input.extend_from_slice(u.as_slice());
     }
     shared_key_input.extend_from_slice(&ra_bytes);
-    shared_key_input.extend_from_slice(&o_buf[..o_len]);
+    shared_key_input.extend_from_slice(&o_buf[.. o_len]);
 
     Zeroizing::new(SharedKeyDerivations { view_tag, shared_key: Scalar::hash(&shared_key_input) })
   }
@@ -156,7 +156,7 @@ impl SharedKeyDerivations {
     let mut o_buf = [0u8; 16];
     let o_len = Self::encode_varint_u64(o as u64, &mut o_buf);
 
-    Self::compute_view_tag_from_parts(&ra_bytes, &o_buf[..o_len])
+    Self::compute_view_tag_from_parts(&ra_bytes, &o_buf[.. o_len])
   }
 
   // Compute only the shared key (for outputs that passed the view tag check).
@@ -173,7 +173,7 @@ impl SharedKeyDerivations {
       shared_key_input.extend_from_slice(u.as_slice());
     }
     shared_key_input.extend_from_slice(&ra_bytes);
-    shared_key_input.extend_from_slice(&o_buf[..o_len]);
+    shared_key_input.extend_from_slice(&o_buf[.. o_len]);
 
     Scalar::hash(&shared_key_input)
   }
@@ -193,7 +193,7 @@ impl SharedKeyDerivations {
     buf.push(0x8d);
 
     let mut payment_id_xor = [0; 8];
-    payment_id_xor.copy_from_slice(&keccak256(buf)[..8]);
+    payment_id_xor.copy_from_slice(&keccak256(buf)[.. 8]);
     payment_id_xor
   }
 
@@ -211,7 +211,7 @@ impl SharedKeyDerivations {
     let mut amount_mask = keccak256(&amount_mask);
 
     let mut amount_mask_8 = [0; 8];
-    amount_mask_8.copy_from_slice(&amount_mask[..8]);
+    amount_mask_8.copy_from_slice(&amount_mask[.. 8]);
     amount_mask.zeroize();
 
     (amount ^ u64::from_le_bytes(amount_mask_8)).to_le_bytes()
@@ -228,13 +228,13 @@ impl SharedKeyDerivations {
         let mask =
           curve25519_dalek::Scalar::from_bytes_mod_order(*mask) - (*mask_shared_sec_scalar).into();
         let amount_scalar = Zeroizing::new(
-          curve25519_dalek::Scalar::from_bytes_mod_order(*amount)
-            - (*amount_shared_sec_scalar).into(),
+          curve25519_dalek::Scalar::from_bytes_mod_order(*amount) -
+            (*amount_shared_sec_scalar).into(),
         );
 
         // d2b from rctTypes.cpp
         let amount = u64::from_le_bytes(
-          Zeroizing::new(amount_scalar.to_bytes()).deref()[..8]
+          Zeroizing::new(amount_scalar.to_bytes()).deref()[.. 8]
             .try_into()
             .expect("32-byte array couldn't have an 8-byte slice taken"),
         );

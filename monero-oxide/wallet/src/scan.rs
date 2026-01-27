@@ -50,8 +50,8 @@ impl Timelocked {
   pub fn additional_timelock_satisfied_by(self, block: usize, time: u64) -> Vec<WalletOutput> {
     let mut res = vec![];
     for output in &self.0 {
-      if (output.additional_timelock() <= Timelock::Block(block))
-        || (output.additional_timelock() <= Timelock::Time(time))
+      if (output.additional_timelock() <= Timelock::Block(block)) ||
+        (output.additional_timelock() <= Timelock::Time(time))
       {
         res.push(output.clone());
       }
