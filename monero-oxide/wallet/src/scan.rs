@@ -50,8 +50,8 @@ impl Timelocked {
   pub fn additional_timelock_satisfied_by(self, block: usize, time: u64) -> Vec<WalletOutput> {
     let mut res = vec![];
     for output in &self.0 {
-      if (output.additional_timelock() <= Timelock::Block(block)) ||
-        (output.additional_timelock() <= Timelock::Time(time))
+      if (output.additional_timelock() <= Timelock::Block(block))
+        || (output.additional_timelock() <= Timelock::Time(time))
       {
         res.push(output.clone());
       }
@@ -130,6 +130,20 @@ impl InternalScanner {
       return Ok(Timelocked(vec![]));
     }
 
+    // Hoist invariants out of the inner loops:
+    // - view scalar conversion (used for ECDH)
+    // - uniqueness (guaranteed scanner mode) derived from tx inputs
+    let dalek_view = Zeroizing::new((*self.pair.view).into());
+    let uniqueness = if self.guaranteed {
+      Some(SharedKeyDerivations::uniqueness(&tx.prefix().inputs))
+    } else {
+      None
+    };
+
+    // Cache ECDH per tx key:
+    // ECDH = view_scalar * tx_pub_key is independent of output index, so compute once per key.
+    let mut ecdh_cache: HashMap<CompressedPoint, Zeroizing<Point>> = HashMap::new();
+
     // Read the extra field
     let Ok(extra) = Extra::read(&mut tx.prefix().extra.as_slice()) else {
       return Ok(Timelocked(vec![]));
@@ -156,32 +170,43 @@ impl InternalScanner {
       let Some(output_key) = output.key.decompress() else { continue };
 
       // Monero checks with each TX key and with the additional key for this output
-
-      // This will be None if there's no additional keys, Some(None) if there's additional keys
-      // yet not one for this output (which is non-standard), and Some(Some(_)) if there's an
-      // additional key for this output
-      // https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454
-      //   /src/cryptonote_basic/cryptonote_format_utils.cpp#L1060-L1070
+      // See notes in original code for Monero's behavior.
       let additional = additional.as_ref().and_then(|additional| additional.get(o));
 
       for key in tx_keys.iter().map(Some).chain(core::iter::once(additional)).flatten().copied() {
-        // Calculate the ECDH
-        let ecdh = {
-          let dalek_view = Zeroizing::new((*self.pair.view).into());
-          Zeroizing::new(Point::from(dalek_view.deref() * key.into()))
-        };
-        let output_derivations = SharedKeyDerivations::output_derivations(
-          self.guaranteed.then(|| SharedKeyDerivations::uniqueness(&tx.prefix().inputs)),
-          ecdh.clone(),
-          o,
-        );
+        // Calculate (or reuse cached) ECDH = view_scalar * key.
+        // Cache key is the compressed tx pubkey.
+        let key_comp: CompressedPoint = key.compress();
 
-        // Check the view tag matches, if there is a view tag
-        if let Some(actual_view_tag) = output.view_tag {
-          if actual_view_tag != output_derivations.view_tag {
+        let ecdh: &Zeroizing<Point> = match ecdh_cache.entry(key_comp) {
+          std_shims::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+          std_shims::collections::hash_map::Entry::Vacant(e) => {
+            let computed = Zeroizing::new(Point::from(dalek_view.deref() * key.into()));
+            e.insert(computed)
+          }
+        };
+
+        // Derive view tag + shared key. We can avoid computing shared key for view-tag mismatches.
+        let output_derivations = if let Some(actual_view_tag) = output.view_tag {
+          // Fast path: compute only the expected view tag first.
+          let expected_view_tag = SharedKeyDerivations::output_view_tag(&*ecdh, o);
+
+          if actual_view_tag != expected_view_tag {
             continue;
           }
-        }
+
+          // Only compute shared_key once the view tag matches.
+          let shared_key = SharedKeyDerivations::output_shared_key(uniqueness, &*ecdh, o);
+
+          SharedKeyDerivations { view_tag: expected_view_tag, shared_key }
+        } else {
+          // No view tag available: fall back to deriving both values in one pass.
+          let derivations = SharedKeyDerivations::output_derivations(uniqueness, &*ecdh, o);
+          SharedKeyDerivations {
+            view_tag: derivations.view_tag,
+            shared_key: derivations.shared_key,
+          }
+        };
 
         // P - shared == spend
         let Some(subaddress) = ({
@@ -234,7 +259,8 @@ impl InternalScanner {
         }
 
         // Decrypt the payment ID
-        let payment_id = payment_id.map(|id| id ^ SharedKeyDerivations::payment_id_xor(ecdh));
+        let payment_id =
+          payment_id.map(|id| id ^ SharedKeyDerivations::payment_id_xor(ecdh.clone()));
 
         let o = u64::try_from(o).expect("couldn't convert output index (usize) to u64");
 
