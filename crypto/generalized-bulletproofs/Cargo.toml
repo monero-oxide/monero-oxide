@@ -24,7 +24,7 @@ std-shims = { version = "0.1.4", default-features = false }
 
 rand_core = { version = "0.6", default-features = false }
 
-zeroize = { version = "^1.5", default-features = false, features = ["zeroize_derive"] }
+zeroize = { version = "^1.5", default-features = false, features = ["zeroize_derive", "alloc"] }
 
 blake2 = { version = "0.10", default-features = false }
 
