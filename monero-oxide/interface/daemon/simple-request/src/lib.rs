@@ -20,7 +20,7 @@ use monero_daemon_rpc::{prelude::InterfaceError, HttpTransport, MoneroDaemon};
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 enum Authentication {
   // If unauthenticated, use a single client
   Unauthenticated(Client),
@@ -33,6 +33,21 @@ enum Authentication {
     #[expect(clippy::type_complexity)]
     connection: Arc<Mutex<(Option<(WwwAuthenticateHeader, u64)>, Client)>>,
   },
+}
+
+impl core::fmt::Debug for Authentication {
+  fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+    match self {
+      Authentication::Unauthenticated(c) => {
+        fmt.debug_struct("Unauthenticated").field("client", c).finish()
+      }
+      Authentication::Authenticated { username, connection, .. } => fmt
+        .debug_struct("Authenticated")
+        .field("username", username)
+        .field("connection", connection)
+        .finish_non_exhaustive(),
+    }
+  }
 }
 
 /// An HTTP(S) transport to connect to a Monero daemon.
