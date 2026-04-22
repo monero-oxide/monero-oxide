@@ -171,11 +171,14 @@ pub(crate) fn invert(value: &HelioseleneField) -> CtOption<HelioseleneField> {
     *a = a.shr_vartime(1);
     *u = u.shr_vartime(1);
 
-    debug_assert!(bool::from({
-      #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
-      let new_a_b_bits = (a.bits() as u32) + (b.bits() as u32);
-      (new_a_b_bits.ct_lt(&a_b_bits)) | a.ct_eq(&U256::ZERO)
-    }));
+    #[cfg(debug_assertions)]
+    {
+      debug_assert!(bool::from({
+        #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
+        let new_a_b_bits = (a.bits() as u32) + (b.bits() as u32);
+        (new_a_b_bits.ct_lt(&a_b_bits)) | a.ct_eq(&U256::ZERO)
+      }));
+    }
   }
 
   // Note the limbs still in use so we don't apply operations over unused limbs
