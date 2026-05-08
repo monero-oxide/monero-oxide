@@ -51,8 +51,22 @@ derivation and methodology) equivalent to Veridise's](
 ), effectively serving as an independent proof of security for Veridise's
 protocol. As Veridise's protocol was implemented, and both parties agreed we
 could move forward with it, it is the version implemented within
-`generalized-bulletproofs-ec-gadgets`. For its audit by Veridise, please see
-[here](../generalized-bulletproofs).
+`generalized-bulletproofs-ec-gadgets`. For the audit of the implementation of
+the circuit by Veridise, please see [here](../generalized-bulletproofs).
+
+Additionally, [zkSecurity published a review](
+  https://blog.zksecurity.xyz/posts/divisor-notes/divisor-techniques.pdf
+). It notes that the check the divisor is non-zero, here via fixing the
+coefficient for `x` to be `1`, is incomplete as some divisors may have the
+relevant coefficient be `0`. While unlikely, sampling masks _MUST_ be followed
+by checking they have a divisor associated. In following discussions with
+Matthias Hall-Andersen, it was also noted how our representations of discrete
+logarithms are malleable and how even if the divisor yielded by our prover
+isn't usable, there may still be a usable divisor for a malleated, congruent
+discrete logarithm. We do not adopt their idea of using an inner-product due to
+how late in the process it was suggested and due to how the divisors we're
+incomplete for should be negligible, only possibly preventing certain
+rerandomizations from use (never certain outputs).
 
 In order to produce the witness, the `ec-divisors` library is used by
 _the prover only_. A straightforward implementation was originally done by
