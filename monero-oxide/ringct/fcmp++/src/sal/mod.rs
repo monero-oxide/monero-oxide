@@ -230,10 +230,8 @@ impl SpendAuthAndLinkability {
     transcript.update(&R_P);
     transcript.update(&R_L);
 
-    let mut output = [0u8; 64].into();
-    transcript.finalize_into(&mut output);
-    let fixed_output: [u8; 64] = output.try_into().expect("it's 64 bytes");
-    Scalar::from_bytes_mod_order_wide(&fixed_output)
+    let output: [u8; 64] = transcript.finalize_fixed().into();
+    Scalar::from_bytes_mod_order_wide(&output)
   }
 
   /// Prove a Spend-Authorization and Linkability proof.
