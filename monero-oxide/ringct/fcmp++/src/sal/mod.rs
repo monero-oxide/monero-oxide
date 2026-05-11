@@ -3,7 +3,8 @@ use std_shims::io;
 use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use blake2::{Digest as _, Blake2b512};
+use blake2::Blake2bMac512;
+use blake2::digest::{FixedOutput, Update};
 
 use dalek_ff_group::{Scalar, EdwardsPoint, Ed25519};
 use ciphersuite::{
@@ -216,19 +217,22 @@ impl SpendAuthAndLinkability {
     R_P: [u8; 32],
     R_L: [u8; 32],
   ) -> Scalar {
-    let mut transcript = Blake2b512::new();
+    let mut transcript = Blake2bMac512::new_with_salt_and_personal(&[], &[], b"Monero").expect("personal length is valid");
 
-    transcript.update(signable_tx_hash);
+    transcript.update(&signable_tx_hash);
     input.transcript(&mut transcript, L);
 
-    transcript.update(P);
-    transcript.update(A);
-    transcript.update(B);
-    transcript.update(R_O);
-    transcript.update(R_P);
-    transcript.update(R_L);
+    transcript.update(&P);
+    transcript.update(&A);
+    transcript.update(&B);
+    transcript.update(&R_O);
+    transcript.update(&R_P);
+    transcript.update(&R_L);
 
-    Scalar::from_hash(transcript.clone())
+    let mut output = [0u8; 64].into();
+    transcript.finalize_into(&mut output);
+    let fixed_output: [u8; 64] = output.try_into().expect("it's 64 bytes");
+    Scalar::from_bytes_mod_order_wide(&fixed_output)
   }
 
   /// Prove a Spend-Authorization and Linkability proof.

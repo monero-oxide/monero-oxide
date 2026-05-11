@@ -11,7 +11,8 @@ use zeroize::Zeroize;
 
 use generic_array::typenum::U;
 
-use blake2::{Digest as _, Blake2b512};
+use blake2::Blake2bMac512;
+use blake2::digest::Update;
 
 use dalek_ff_group::{EdwardsPoint, Ed25519};
 use ciphersuite::{
@@ -123,12 +124,12 @@ impl Input {
     })
   }
 
-  fn transcript(&self, transcript: &mut Blake2b512, L: <Ed25519 as Ciphersuite>::G) {
-    transcript.update(self.O_tilde);
-    transcript.update(self.I_tilde);
-    transcript.update(self.C_tilde);
-    transcript.update(self.R);
-    transcript.update(L.to_bytes());
+  fn transcript(&self, transcript: &mut Blake2bMac512, L: <Ed25519 as Ciphersuite>::G) {
+    transcript.update(&self.O_tilde);
+    transcript.update(&self.I_tilde);
+    transcript.update(&self.C_tilde);
+    transcript.update(&self.R);
+    transcript.update(&L.to_bytes());
   }
 
   /// O~ from the input commitment.
