@@ -217,7 +217,8 @@ impl SpendAuthAndLinkability {
     R_P: [u8; 32],
     R_L: [u8; 32],
   ) -> Scalar {
-    let mut transcript = Blake2bMac512::new_with_salt_and_personal(&[], &[], b"Monero").expect("personal length is valid");
+    let mut transcript = Blake2bMac512::new_with_salt_and_personal(&[], &[], b"Monero")
+      .expect("personal length is valid");
 
     transcript.update(&signable_tx_hash);
     input.transcript(&mut transcript, L);
