@@ -217,7 +217,13 @@ impl SpendAuthAndLinkability {
     R_P: [u8; 32],
     R_L: [u8; 32],
   ) -> Scalar {
-    let mut transcript = Blake2bMac512::new_with_salt_and_personal(&[], &[], b"Monero")
+    // Include a zero-byte 32-length key for compatibility with the C++ Carrot hash functions.
+    // `Blake2bMac512` always includes a key block even if the length is zero, and there is
+    // no API to send in a 'null' key that won't get its own block. A zero-byte 32-length key
+    // should also be sent on the C++ side. Incidentally this means un-keyed Carrot hashes are
+    // not possible with `Blake2bMac512`. The solution is *not* always including a key block
+    // in Carrot hashes, because adding blocks reduces performance.
+    let mut transcript = Blake2bMac512::new_with_salt_and_personal(&[0u8; 32], &[], b"Monero")
       .expect("personal length is valid");
 
     transcript.update(&signable_tx_hash);
