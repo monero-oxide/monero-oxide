@@ -262,7 +262,7 @@ impl<R: Send + Sync + Clone + RngCore + CryptoRng, T: Sync + Clone + Debug + Tra
 
     let R_O = alpha_G + (T_ * *r_y);
     let R_P = R_z + (T_ * *r_r_p);
-    let R_L = nonce_sums[0][2] - R_z;
+    let R_L = nonce_sums[0][2] - (U * *r_z);
 
     let e = SpendAuthAndLinkability::challenge(
       self.signable_tx_hash,
