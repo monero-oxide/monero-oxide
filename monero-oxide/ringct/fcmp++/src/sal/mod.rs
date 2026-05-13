@@ -3,8 +3,7 @@ use std_shims::io;
 use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use blake2::Blake2bMac512;
-use blake2::digest::{FixedOutput, Update};
+use blake2::digest::Update;
 
 use dalek_ff_group::{Scalar, EdwardsPoint, Ed25519};
 use ciphersuite::{
@@ -14,6 +13,8 @@ use ciphersuite::{
   },
   Ciphersuite,
 };
+
+use monero_primitives::Blake2bMonero;
 
 use monero_fcmp_plus_plus_generators::{FCMP_PLUS_PLUS_U, FCMP_PLUS_PLUS_V};
 
@@ -217,14 +218,7 @@ impl SpendAuthAndLinkability {
     R_P: [u8; 32],
     R_L: [u8; 32],
   ) -> Scalar {
-    // Include a zero-byte 32-length key for compatibility with the C++ Carrot hash functions.
-    // `Blake2bMac512` always includes a key block even if the length is zero, and there is
-    // no API to send in a 'null' key that won't get its own block. A zero-byte 32-length key
-    // should also be sent on the C++ side. Incidentally this means un-keyed Carrot hashes are
-    // not possible with `Blake2bMac512`. The solution is *not* always including a key block
-    // in Carrot hashes, because adding blocks reduces performance.
-    let mut transcript = Blake2bMac512::new_with_salt_and_personal(&[0u8; 32], &[], b"Monero")
-      .expect("personal length is valid");
+    let mut transcript = Blake2bMonero::new(64).expect("personal length is valid");
 
     transcript.update(&signable_tx_hash);
     input.transcript(&mut transcript, L);
@@ -236,7 +230,8 @@ impl SpendAuthAndLinkability {
     transcript.update(&R_P);
     transcript.update(&R_L);
 
-    let output: [u8; 64] = transcript.finalize_fixed().into();
+    let mut output = [0u8; 64];
+    transcript.try_finalize_into(&mut output).expect("output length valid");
     Scalar::from_bytes_mod_order_wide(&output)
   }
 

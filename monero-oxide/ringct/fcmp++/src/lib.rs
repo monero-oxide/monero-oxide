@@ -11,7 +11,6 @@ use zeroize::Zeroize;
 
 use generic_array::typenum::U;
 
-use blake2::Blake2bMac512;
 use blake2::digest::Update;
 
 use dalek_ff_group::{EdwardsPoint, Ed25519};
@@ -25,6 +24,7 @@ use generalized_bulletproofs_ec_gadgets::*;
 pub use fcmps;
 use fcmps::*;
 
+use monero_primitives::Blake2bMonero;
 use monero_ed25519::CompressedPoint;
 use monero_fcmp_plus_plus_generators::{
   FCMP_PLUS_PLUS_U, FCMP_PLUS_PLUS_V, HELIOS_HASH_INIT, SELENE_HASH_INIT,
@@ -124,7 +124,7 @@ impl Input {
     })
   }
 
-  fn transcript(&self, transcript: &mut Blake2bMac512, L: <Ed25519 as Ciphersuite>::G) {
+  fn transcript(&self, transcript: &mut Blake2bMonero, L: <Ed25519 as Ciphersuite>::G) {
     transcript.update(&self.O_tilde);
     transcript.update(&self.I_tilde);
     transcript.update(&self.C_tilde);
