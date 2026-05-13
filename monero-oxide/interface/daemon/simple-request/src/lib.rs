@@ -10,9 +10,10 @@ use tokio::sync::Mutex;
 
 use zeroize::Zeroizing;
 use digest_auth::{WwwAuthenticateHeader, AuthContext};
+use hyper_util::rt::tokio::TokioExecutor;
 use simple_request::{
   hyper::{StatusCode, header::HeaderValue, Request},
-  Response, Client,
+  Response, TokioClient,
 };
 
 pub use monero_daemon_rpc::prelude;
@@ -23,7 +24,7 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 #[derive(Clone)]
 enum Authentication {
   // If unauthenticated, use a single client
-  Unauthenticated(Client),
+  Unauthenticated(TokioClient),
   // If authenticated, use a single client which supports being locked and tracks its nonce
   // This ensures that if a nonce is requested, another caller doesn't make a request invalidating
   // it
@@ -31,7 +32,7 @@ enum Authentication {
     username: Zeroizing<String>,
     password: Zeroizing<String>,
     #[expect(clippy::type_complexity)]
-    connection: Arc<Mutex<(Option<(WwwAuthenticateHeader, u64)>, Client)>>,
+    connection: Arc<Mutex<(Option<(WwwAuthenticateHeader, u64)>, TokioClient)>>,
   },
 }
 
@@ -60,7 +61,7 @@ pub struct SimpleRequestTransport {
 
 impl SimpleRequestTransport {
   fn digest_auth_challenge(
-    response: &Response,
+    response: &Response<'_, TokioExecutor>,
   ) -> Result<Option<(WwwAuthenticateHeader, u64)>, InterfaceError> {
     Ok(if let Some(header) = response.headers().get("www-authenticate") {
       Some((
@@ -118,7 +119,7 @@ impl SimpleRequestTransport {
 
       let split_userpass = userpass.split(':').collect::<Vec<_>>();
 
-      let client = Client::without_connection_pool(&url)
+      let client = TokioClient::without_connection_pool(&url)
         .map_err(|_| InterfaceError::InterfaceError("invalid URL".to_owned()))?;
       // Obtain the initial challenge, which also somewhat validates this connection
       // TODO: We don't enforce any response size limit here yet should
@@ -139,7 +140,7 @@ impl SimpleRequestTransport {
         connection: Arc::new(Mutex::new((challenge, client))),
       }
     } else {
-      Authentication::Unauthenticated(Client::without_connection_pool(&url).map_err(|e| {
+      Authentication::Unauthenticated(TokioClient::without_connection_pool(&url).map_err(|e| {
         InterfaceError::InternalError(format!("couldn't create client with connection pool: {e:?}"))
       })?)
     };
@@ -179,7 +180,9 @@ impl SimpleRequestTransport {
       request
     };
 
-    async fn body_from_response(response: Response<'_>) -> Result<Vec<u8>, InterfaceError> {
+    async fn body_from_response(
+      response: Response<'_, TokioExecutor>,
+    ) -> Result<Vec<u8>, InterfaceError> {
       let mut res = Vec::with_capacity(128);
       response
         .body()

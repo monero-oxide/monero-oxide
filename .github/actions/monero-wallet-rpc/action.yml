@@ -5,23 +5,20 @@ inputs:
   version:
     description: "Version to download and run"
     required: false
-    default: v0.18.5.0
+    default: v0.18.5.1
 
 runs:
   using: "composite"
   steps:
     - name: Monero Wallet RPC Cache
       id: cache-monero-wallet-rpc
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # 5.0.5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # 6.1.0
       with:
         path: monero-wallet-rpc*
         key: monero-wallet-rpc-${{ runner.os }}-${{ runner.arch }}-${{ inputs.version }}
 
     - name: Download the Monero Wallet RPC
       if: steps.cache-monero-wallet-rpc.outputs.cache-hit != 'true'
-      # Calculates OS/ARCH to demonstrate it, yet then locks to linux-x64 due
-      # to the contained folder not following the same naming scheme and
-      # requiring further expansion not worth doing right now
       shell: bash
       env:
         VERSION: ${{ inputs.version }}

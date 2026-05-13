@@ -6,7 +6,7 @@ license = "MIT"
 repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/ringct/bulletproofs"
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
 edition = "2021"
-rust-version = "1.68"
+rust-version = "1.67"
 
 [package.metadata.docs.rs]
 all-features = true

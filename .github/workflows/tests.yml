@@ -22,7 +22,7 @@ jobs:
         os: [ubuntu-latest, macos-26-intel, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # 6.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # 7.0.1
         with:
           persist-credentials: false
 
@@ -43,11 +43,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-26-intel, macos-latest, windows-latest]
         # Test against all supported protocol versions
-        version: [v0.17.3.2, v0.18.5.0]
+        version: [v0.17.3.2, v0.18.5.1]
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # 6.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # 7.0.1
         with:
           persist-credentials: false
 

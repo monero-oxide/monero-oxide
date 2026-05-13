@@ -11,5 +11,11 @@ runs:
           sudo apt install -y ca-certificates
         fi
 
-    # - name: Cache Rust
-    #   uses: Swatinem/rust-cache@a95ba195448af2da9b00fb742d14ffaaf3c21f43
+    - name: Set GitHub CI Environment Variables
+      shell: bash
+      run: |
+        # These tweak the amount of iterations performed as approprtiate for GitHub's CI
+        echo 'GITHUB_CI=true' >> "$GITHUB_ENV"
+        echo RUSTFLAGS="$RUSTFLAGS --cfg github_ci" >> "$GITHUB_ENV"
+        # We always appreciate backtraces in the CI
+        echo 'RUST_BACKTRACE=1' >> "$GITHUB_ENV"

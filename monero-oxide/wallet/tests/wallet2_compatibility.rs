@@ -295,7 +295,7 @@ test!(
       )
       .unwrap();
       assert!(addrs.address_index != 0);
-      assert!(addrs.addresses.len() == 2);
+      assert_eq!(addrs.addresses.len(), 2);
 
       builder.add_payments(&[
         (MoneroAddress::from_str(Network::Mainnet, &addrs.addresses[0]).unwrap(), 1_000_000),
