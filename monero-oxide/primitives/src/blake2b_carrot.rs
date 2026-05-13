@@ -16,7 +16,7 @@ Adapted from the blake2::blake2_mac_impl macro.
 use core::fmt;
 use blake2::Blake2bVarCore;
 use digest::{
-  InvalidBufferSize, InvalidLength, OutputSizeUser, Update,
+  InvalidLength, OutputSizeUser, Update,
   block_buffer::{Block, LazyBuffer},
   core_api::{BlockSizeUser, UpdateCore, VariableOutputCore},
   typenum::Unsigned,
@@ -85,10 +85,10 @@ impl Blake2bMonero {
   ///
   /// Returns an error if `out.len() > self.output_size`.
   #[inline]
-  pub fn try_finalize_into(&mut self, out: &mut [u8]) -> Result<(), InvalidBufferSize> {
+  pub fn try_finalize_into(&mut self, out: &mut [u8]) -> Result<(), InvalidLength> {
     let Self { core, buffer, output_size } = self;
     if out.len() > *output_size {
-      return Err(InvalidBufferSize);
+      return Err(InvalidLength);
     }
 
     let mut full_res = Default::default();
