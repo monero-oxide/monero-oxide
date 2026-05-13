@@ -336,7 +336,7 @@ impl WipStatement {
     let decomp_mul_cofactor =
       |p| CompressedPoint::decompress(&p).map(|p| EdwardsPoint::mul_by_cofactor(&p.into()));
 
-    for (L_i, R_i) in L.into_iter().zip(R.into_iter()) {
+    for (L_i, R_i) in L.into_iter().zip(R) {
       e_is.push(Self::transcript_L_R(&mut transcript, L_i, R_i));
 
       let (Some(L_i), Some(R_i)) = (decomp_mul_cofactor(L_i), decomp_mul_cofactor(R_i)) else {

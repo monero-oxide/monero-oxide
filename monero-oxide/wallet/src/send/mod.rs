@@ -65,14 +65,14 @@ impl PartialEq for ChangeEnum {
         ChangeEnum::Standard { view_pair: lhs_vp, subaddress: lhs_s },
         ChangeEnum::Standard { view_pair: rhs_vp, subaddress: rhs_s },
       ) => {
-        bool::from(lhs_vp.spend.ct_eq(&rhs_vp.spend) & lhs_vp.view.ct_eq(&rhs_vp.view)) &
+        bool::from(lhs_vp.spend.ct_eq(&rhs_vp.spend) & lhs_vp.view.ct_eq(&rhs_vp.view)) &&
           (lhs_s == rhs_s)
       }
       (
         ChangeEnum::Guaranteed { view_pair: lhs_vp, subaddress: lhs_s },
         ChangeEnum::Guaranteed { view_pair: rhs_vp, subaddress: rhs_s },
       ) => {
-        bool::from(lhs_vp.0.spend.ct_eq(&rhs_vp.0.spend) & lhs_vp.0.view.ct_eq(&rhs_vp.0.view)) &
+        bool::from(lhs_vp.0.spend.ct_eq(&rhs_vp.0.spend) & lhs_vp.0.view.ct_eq(&rhs_vp.0.view)) &&
           (lhs_s == rhs_s)
       }
       _ => false,

@@ -66,7 +66,7 @@ test!(
       assert_eq!(outputs.len(), 2);
       assert_eq!(outputs[0].transaction(), tx.hash());
       assert_eq!(outputs[0].transaction(), tx.hash());
-      outputs.sort_by(|x, y| x.commitment().amount.cmp(&y.commitment().amount));
+      outputs.sort_by_key(|output| output.commitment().amount);
       assert_eq!(outputs[0].commitment().amount, 1_000_000_000_000);
       assert_eq!(outputs[1].commitment().amount, 2_000_000_000_000);
       outputs
@@ -321,7 +321,7 @@ test!(
       assert_eq!(outputs.len(), 2);
       assert_eq!(outputs[0].transaction(), tx.hash());
       assert_eq!(outputs[1].transaction(), tx.hash());
-      outputs.sort_by(|x, y| x.commitment().amount.cmp(&y.commitment().amount));
+      outputs.sort_by_key(|output| output.commitment().amount);
       assert_eq!(outputs[0].commitment().amount, 10_000);
       assert_eq!(outputs[1].commitment().amount, 50_000);
 
