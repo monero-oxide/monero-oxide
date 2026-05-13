@@ -37,6 +37,7 @@ generalized-bulletproofs-ec-gadgets = { path = "../../../crypto/fcmps/ec-gadgets
 fcmps = { package = "full-chain-membership-proofs", path = "../../../crypto/fcmps", default-features = false }
 
 monero-io = { path = "../../io", default-features = false }
+monero-primitives = { path = "../../primitives", default-features = false }
 monero-ed25519 = { path = "../../ed25519", default-features = false }
 monero-fcmp-plus-plus-generators = { path = "./generators", default-features = false }
 

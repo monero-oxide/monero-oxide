@@ -977,6 +977,7 @@ dependencies = [
  "monero-ed25519",
  "monero-fcmp-plus-plus-generators",
  "monero-io",
+ "monero-primitives",
  "multiexp",
  "rand_chacha",
  "rand_core",

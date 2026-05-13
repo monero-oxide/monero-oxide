@@ -21,6 +21,7 @@ use digest::{
   core_api::{BlockSizeUser, UpdateCore, VariableOutputCore},
   typenum::Unsigned,
 };
+
 /// Blake2b specialization for Monero.
 ///
 /// Salt: zero
@@ -50,7 +51,7 @@ impl Blake2bMonero {
   #[inline]
   pub fn new(output_size: usize) -> Result<Self, InvalidLength> {
     let os = <Blake2bVarCore as OutputSizeUser>::OutputSize::USIZE;
-    if output_size > os {
+    if output_size > os || output_size < 1 {
       return Err(InvalidLength);
     }
     Ok(Self {
@@ -68,7 +69,7 @@ impl Blake2bMonero {
     let kl = key.len();
     let bs = <Blake2bVarCore as BlockSizeUser>::BlockSize::USIZE;
     let os = <Blake2bVarCore as OutputSizeUser>::OutputSize::USIZE;
-    if kl > bs || output_size > os {
+    if kl > bs || output_size > os || output_size < 1 {
       return Err(InvalidLength);
     }
     let mut padded_key = Block::<<Blake2bVarCore as BlockSizeUser>::BlockSize>::default();
@@ -82,7 +83,7 @@ impl Blake2bMonero {
 
   /// Finalize the hash into the provided buffer.
   ///
-  /// Returns an error if `out.len() != self.output_size`.
+  /// Returns an error if `out.len() > self.output_size`.
   #[inline]
   pub fn try_finalize_into(&mut self, out: &mut [u8]) -> Result<(), InvalidBufferSize> {
     let Self { core, buffer, output_size } = self;
