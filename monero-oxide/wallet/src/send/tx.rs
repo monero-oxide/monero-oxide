@@ -120,7 +120,7 @@ impl SignableTransaction {
     serialized
   }
 
-  pub(crate) fn weight_and_necessary_fee(&self) -> (usize, u64) {
+  pub(crate) fn weight_and_necessary_fee(&self) -> (usize, u128) {
     /*
       This transaction is variable length to:
         - The decoy offsets (fixed)
@@ -259,7 +259,9 @@ impl SignableTransaction {
     // We now calculate the fee which would be used for each weight
     let mut possible_fees = Vec::with_capacity(<u64 as VarInt>::UPPER_BOUND);
     for weight in possible_weights {
-      possible_fees.push(self.fee_rate.calculate_fee_from_weight(weight));
+      possible_fees.push(self.fee_rate.calculate_fee_from_weight(
+        u64::try_from(weight).expect("candidate weight exceeded `u64::MAX`"),
+      ));
     }
 
     // We now look for the fee whose length matches the length used to derive it
@@ -268,11 +270,16 @@ impl SignableTransaction {
       // Increment by one as the enumeration is zero-indexed
       let fee_len = 1 + fee_len;
 
-      // We use the first fee whose encoded length is not larger than the length used within this
-      // weight
-      // This should be because the lengths are equal, yet means if somehow none are equal, this
-      // will still terminate successfully
-      if possible_fee.varint_len() <= fee_len {
+      /*
+        We use the first fee whose encoded length is not larger than the weight assigned by this
+        iteration. This should be because the length is equal to the weight, yet means if somehow
+        none are equal, this will still terminate successfully if any fee's length is less than
+        the weight of this iteration (which does iterate up to and include the upper bound).
+
+        The saturating into a `u64` means for `u128` fees, this will return a weight lesser than
+        reality, but such fees are invalid regardless (Garbage In, Garbage Out).
+      */
+      if u64::try_from(possible_fee).unwrap_or(u64::MAX).varint_len() <= fee_len {
         weight_and_fee = Some((base_weight + fee_len, possible_fee));
         break;
       }
@@ -323,7 +330,7 @@ impl SignableTransactionWithKeyImages {
             .any(|payment| matches!(payment, InternalPayment::Change(_)))
           {
             // The necessary fee is the fee
-            self.intent.weight_and_necessary_fee().1
+            u64::try_from(self.intent.weight_and_necessary_fee().1).unwrap()
           } else {
             // If we don't have a change output, the difference is the fee
             let inputs =

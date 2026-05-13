@@ -214,6 +214,8 @@ pub enum SendError {
     /// The amount in (via inputs).
     in_amount: u128,
     /// The amount which would be out (between outputs and the fee).
+    ///
+    /// This may saturate on overflow and be inaccurate accordingly.
     out_amount: u128,
   },
   /// This transaction could not pay for itself.
@@ -397,7 +399,7 @@ impl SignableTransaction {
         .sum();
       let necessary_fee;
       (weight, necessary_fee) = self.weight_and_necessary_fee();
-      let out_amount = payments_amount + u128::from(necessary_fee);
+      let out_amount = payments_amount.saturating_add(necessary_fee);
       let in_out_amount = u64::try_from(in_amount)
         .and_then(|in_amount| u64::try_from(out_amount).map(|out_amount| (in_amount, out_amount)));
       let Ok((in_amount, out_amount)) = in_out_amount else {
@@ -407,8 +409,11 @@ impl SignableTransaction {
         Err(SendError::NotEnoughFunds {
           inputs: in_amount,
           outputs: u64::try_from(payments_amount)
-            .expect("total out fit within u64 but not part of total out"),
-          necessary_fee: Some(necessary_fee),
+            .expect("total out fit within u64 but not payments' part of total out"),
+          necessary_fee: Some(
+            u64::try_from(necessary_fee)
+              .expect("total out fit within u64 but not fee's part of total out"),
+          ),
         })?;
       }
     }
@@ -489,7 +494,8 @@ impl SignableTransaction {
   /// This is distinct from the fee this transaction will use. If no change output is specified,
   /// all unspent coins will be shunted to the fee.
   pub fn necessary_fee(&self) -> u64 {
-    self.weight_and_necessary_fee().1
+    // Checked within `validate`
+    u64::try_from(self.weight_and_necessary_fee().1).unwrap()
   }
 
   /// Write a SignableTransaction.
