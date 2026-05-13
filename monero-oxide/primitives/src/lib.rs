@@ -4,8 +4,8 @@
 
 use sha3::{Digest as _, Keccak256};
 
-mod blake2b_carrot;
-pub use blake2b_carrot::*;
+mod blake2b_monero;
+pub use blake2b_monero::*;
 
 mod bounds;
 pub use bounds::*;
