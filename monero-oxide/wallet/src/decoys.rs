@@ -81,33 +81,35 @@ async fn select_n(
   // to the RPC
   // The length of that remainder is expected to be minimal
   while res.len() != decoy_count {
-    {
-      iters += 1;
-      const MAX_ITERS: usize = {
-        #[cfg_attr(test, expect(unused))]
-        let max_iters = 10;
-        // When testing on fresh chains, increased iterations can be useful and we don't
-        // necessitate reasonable performance
-        #[cfg(test)]
-        let max_iters = 1000;
-        max_iters
-      };
-      // Ensure this isn't infinitely looping
-      // We check both that we aren't at the maximum amount of iterations and that the not-yet
-      // selected candidates exceed the amount of candidates necessary to trigger the next iteration
-      if (iters == MAX_ITERS) ||
-        ((highest_output_exclusive_bound -
-          u64::try_from(do_not_select.len())
-            .expect("amount of ignored decoys exceeds 2^{64}")) <
-          u64::from(ring_len))
-      {
-        Err(InterfaceError::InternalError("hit decoy selection round limit".to_owned()))?;
-      }
-    }
-
     let remaining = decoy_count - res.len();
     let mut candidates = Vec::with_capacity(remaining);
     while candidates.len() != remaining {
+      {
+        iters += 1;
+
+        /*
+          Ensure this isn't infinitely looping.
+
+          We check both that we aren't at the maximum amount of iterations and that the not-yet
+          selected candidates exceed the amount of candidates necessary to trigger the next
+          iteration.
+        */
+        if (iters == {
+          #[cfg_attr(test, expect(unused))]
+          let max_iters = 10 * usize::from(ring_len);
+          // When testing on fresh chains, increased iterations can be useful and we don't
+          // necessitate reasonable performance
+          #[cfg(test)]
+          let max_iters = 1000 * usize::from(ring_len);
+          max_iters
+        }) || ((highest_output_exclusive_bound -
+          u64::try_from(do_not_select.len()).expect("amount of ignored decoys exceeds 2^{64}")) <
+          u64::from(ring_len))
+        {
+          Err(InterfaceError::InternalError("hit decoy selection round limit".to_owned()))?;
+        }
+      }
+
       // Use a gamma distribution, as Monero does
       // https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c45
       //   /src/wallet/wallet2.cpp#L142-L143
@@ -119,7 +121,7 @@ async fn select_n(
       if age > TIP_APPLICATION {
         age -= TIP_APPLICATION;
       } else {
-        // f64 does not have try_from available, which is why these are written with `as`
+        // `f64` does not have `try_from` available, which is why these are written with `as`
         age = (rng.next_u64() %
           (RECENT_WINDOW * u64::try_from(BLOCK_TIME).expect("BLOCK_TIME exceeded u64::MAX")))
           as f64;
