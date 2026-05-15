@@ -104,7 +104,8 @@ async fn select_n(
           max_iters
         }) || ((highest_output_exclusive_bound -
           u64::try_from(do_not_select.len()).expect("amount of ignored decoys exceeds 2^{64}")) <
-          u64::from(ring_len))
+          u64::try_from(remaining - candidates.len())
+            .expect("amount of remaining selections exceeds 2^{64}"))
         {
           Err(InterfaceError::InternalError("hit decoy selection round limit".to_owned()))?;
         }
