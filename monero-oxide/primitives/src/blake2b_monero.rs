@@ -15,6 +15,7 @@ Adapted from the blake2::blake2_mac_impl macro.
 
 use core::fmt;
 use blake2::Blake2bVarCore;
+use dalek_ff_group::Scalar;
 use digest::{
   InvalidLength, OutputSizeUser, Update,
   block_buffer::{Block, LazyBuffer},
@@ -87,15 +88,29 @@ impl Blake2bMonero {
   #[inline]
   pub fn try_finalize_into(&mut self, out: &mut [u8]) -> Result<(), InvalidLength> {
     let Self { core, buffer, output_size } = self;
-    if out.len() > *output_size {
+    if *output_size > out.len() {
       return Err(InvalidLength);
     }
 
     let mut full_res = Default::default();
     core.finalize_variable_core(buffer, &mut full_res);
-    out.copy_from_slice(&full_res[.. *output_size]);
+    let out_slice = &mut out[0 .. *output_size];
+    out_slice.copy_from_slice(&full_res[.. *output_size]);
 
     Ok(())
+  }
+
+  /// Finalize the hash as an ed25519 scalar.
+  ///
+  /// Returns an error if `self.output_size != 64`.
+  #[inline]
+  pub fn finalize_as_scalar(&mut self) -> Result<Scalar, InvalidLength> {
+    if self.output_size != 64 {
+      return Err(InvalidLength);
+    }
+    let mut output = [0u8; 64];
+    self.try_finalize_into(&mut output).expect("output length valid");
+    Ok(Scalar::from_bytes_mod_order_wide(&output))
   }
 }
 

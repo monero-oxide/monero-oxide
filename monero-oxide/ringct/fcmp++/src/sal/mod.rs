@@ -230,9 +230,7 @@ impl SpendAuthAndLinkability {
     transcript.update(&R_P);
     transcript.update(&R_L);
 
-    let mut output = [0u8; 64];
-    transcript.try_finalize_into(&mut output).expect("output length valid");
-    Scalar::from_bytes_mod_order_wide(&output)
+    transcript.finalize_as_scalar().expect("output length valid")
   }
 
   /// Prove a Spend-Authorization and Linkability proof.

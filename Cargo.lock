@@ -1079,7 +1079,9 @@ name = "monero-primitives"
 version = "0.1.0"
 dependencies = [
  "blake2",
+ "dalek-ff-group 0.5.0",
  "digest",
+ "hex",
  "sha3",
 ]
 
