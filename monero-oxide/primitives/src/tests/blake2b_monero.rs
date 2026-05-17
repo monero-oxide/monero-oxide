@@ -66,13 +66,13 @@ fn hash_test_vectors() {
   for v in HASH_TEST_VECTORS {
     let key = if let Some(k) = v.key {
       let mut key = [0u8; 32];
-      hex::decode_to_slice(k, &mut key).expect("decode fails");
+      hex::decode_to_slice(k, &mut key).expect("decode valid");
       Some(key)
     } else {
       None
     };
     let mut expected = [0u8; 64];
-    hex::decode_to_slice(v.expected, &mut expected).expect("decode fails");
+    hex::decode_to_slice(v.expected, &mut expected).expect("decode valid");
     (test_fn)(v.data, v.result_size, v.to_scalar, key, expected);
   }
 }
