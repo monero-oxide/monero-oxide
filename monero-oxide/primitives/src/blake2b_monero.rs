@@ -16,7 +16,7 @@ Adapted from the blake2::blake2_mac_impl macro.
 use core::fmt;
 use blake2::Blake2bVarCore;
 use dalek_ff_group::Scalar;
-use digest::{
+use blake2::digest::{
   InvalidLength, OutputSizeUser, Update,
   block_buffer::{Block, LazyBuffer},
   core_api::{BlockSizeUser, UpdateCore, VariableOutputCore},
@@ -31,6 +31,7 @@ use digest::{
 ///
 /// Hash output: custom 1 - 64 bytes (this value is embedded in the param block,
 /// but otherwise does not affect the algorithm)
+#[doc(hidden)]
 #[derive(Clone)]
 pub struct Blake2bMonero {
   core: Blake2bVarCore,
@@ -48,7 +49,7 @@ impl Blake2bMonero {
   ///
   /// Does *not* include a key block. See [`Self::new_with_key`],
   ///
-  /// Returns an error if output size is greater than 64 bytes.
+  /// Returns an error if output size is out of the range `[1, 64]`.
   #[inline]
   pub fn new(output_size: usize) -> Result<Self, InvalidLength> {
     let os = <Blake2bVarCore as OutputSizeUser>::OutputSize::USIZE;
@@ -64,7 +65,7 @@ impl Blake2bMonero {
 
   /// Create new instance using the provided 32-byte key and output size (in bytes).
   ///
-  /// Returns an error if output size is greater than 64 bytes.
+  /// Returns an error if output size is out of the range `[1, 64]`.
   #[inline]
   pub fn new_with_key(key: &[u8; 32], output_size: usize) -> Result<Self, InvalidLength> {
     let kl = key.len();
@@ -84,11 +85,11 @@ impl Blake2bMonero {
 
   /// Finalize the hash into the provided buffer.
   ///
-  /// Returns an error if `out.len() > self.output_size`.
+  /// Returns an error if `out.len() != self.output_size`.
   #[inline]
   pub fn try_finalize_into(&mut self, out: &mut [u8]) -> Result<(), InvalidLength> {
     let Self { core, buffer, output_size } = self;
-    if *output_size > out.len() {
+    if *output_size != out.len() {
       return Err(InvalidLength);
     }
 
@@ -104,12 +105,10 @@ impl Blake2bMonero {
   ///
   /// Returns an error if `self.output_size != 64`.
   #[inline]
+  #[doc(hidden)]
   pub fn finalize_as_scalar(&mut self) -> Result<Scalar, InvalidLength> {
-    if self.output_size != 64 {
-      return Err(InvalidLength);
-    }
     let mut output = [0u8; 64];
-    self.try_finalize_into(&mut output).expect("output length valid");
+    self.try_finalize_into(&mut output)?;
     Ok(Scalar::from_bytes_mod_order_wide(&output))
   }
 }

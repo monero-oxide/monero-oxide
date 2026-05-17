@@ -18,7 +18,6 @@ workspace = true
 [dependencies]
 blake2 = { version = "0.10", default-features = false }
 dalek-ff-group = { version = "0.5", default-features = false }
-digest = { version = "0.10.3", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 
 [dev-dependencies]
