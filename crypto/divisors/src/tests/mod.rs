@@ -3,10 +3,9 @@ use core::borrow::Borrow as _;
 use rand_core::OsRng;
 
 use group::{
-  ff::{Field as _, PrimeField as _},
-  Group as _,
+  Group as _, GroupEncoding, ff::{Field as _, PrimeField as _}
 };
-use dalek_ff_group::EdwardsPoint;
+use dalek_ff_group::{EdwardsPoint, FieldElement};
 
 use crate::{DivisorCurve, Poly, new_divisor};
 
@@ -273,4 +272,33 @@ fn test_divisor_ed25519() {
   test_same_point::<EdwardsPoint>();
   test_subset_sum_to_infinity::<EdwardsPoint>();
   test_divisor::<EdwardsPoint>();
+}
+
+#[test]
+fn test_to_xy_matches_upstream() {
+  let reader = include_str!("./tests.txt");
+  for line in reader.lines() {
+    let mut words = line.split_whitespace();
+
+    let command = words.next().unwrap();
+    match command {
+      "point_to_wei_x_y" => {
+        let point = hex::decode(words.next().unwrap()).unwrap();
+        let point: subtle::CtOption<EdwardsPoint> = EdwardsPoint::from_bytes(&point.try_into().unwrap());
+        let res: Option<(FieldElement, FieldElement)> = EdwardsPoint::to_xy(point.unwrap());
+        let (actual_wei_x, actual_wei_y) = res.unwrap();
+
+        let mut get_next_fe = || {
+          let fe_repr = hex::decode(words.next().unwrap()).unwrap();
+          FieldElement::from_repr(fe_repr.try_into().unwrap()).unwrap()
+        };
+        let expected_wei_x = get_next_fe();
+        let expected_wei_y = get_next_fe();
+
+        assert_eq!(actual_wei_x, expected_wei_x);
+        assert_eq!(actual_wei_y, expected_wei_y);
+      }
+      _ => unreachable!("unknown command"),
+    }
+  }
 }
