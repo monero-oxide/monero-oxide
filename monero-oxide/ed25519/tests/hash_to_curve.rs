@@ -22,12 +22,8 @@ fn hash_to_curve() {
       }
       "derive_key_image_generator" => {
         let point = hex::decode(words.next().unwrap());
-        let biased: bool = words.next().unwrap().parse().unwrap(); 
-        let actual = if biased {
-          Point::biased_hash(point)
-        } else {
-          Point::hash(point)
-        };
+        let biased: bool = words.next().unwrap().parse().unwrap();
+        let actual = if biased { Point::biased_hash(point) } else { Point::hash(point) };
         let expected = hex::decode(words.next().unwrap());
         assert_eq!(actual.compress().to_bytes(), expected);
       }
