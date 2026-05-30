@@ -133,13 +133,14 @@ async fn select_n(
       if o < highest_output_exclusive_bound {
         // Find which block this points to
         let i = distribution.partition_point(|s| *s < (highest_output_exclusive_bound - 1 - o));
-        let prev = i.saturating_sub(1);
-        let n = distribution[i].checked_sub(distribution[prev]).ok_or_else(|| {
+        let prev_block = i.checked_sub(1);
+        let prev_outputs = prev_block.map(|prev_block| distribution[prev_block]).unwrap_or(0);
+        let n = distribution[i].checked_sub(prev_outputs).ok_or_else(|| {
           InterfaceError::InternalError("RPC returned non-monotonic distribution".to_owned())
         })?;
         if n != 0 {
           // Select an output from within this block
-          let o = distribution[prev] + (rng.next_u64() % n);
+          let o = prev_outputs + (rng.next_u64() % n);
           if !do_not_select.contains(&o) {
             candidates.push(o);
             // This output will either be used or is unusable
