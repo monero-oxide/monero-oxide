@@ -294,7 +294,7 @@ impl SignableTransaction {
             .sum::<u64>();
           let necessary_fee = self.weight_and_necessary_fee().1;
           // Safe since the constructor checked this TX has enough funds for itself
-          inputs - (payments + necessary_fee)
+          inputs - (payments + u64::try_from(necessary_fee).unwrap())
         }
       };
       let commitment = Commitment::new(shared_key_derivations.commitment_mask(), amount);

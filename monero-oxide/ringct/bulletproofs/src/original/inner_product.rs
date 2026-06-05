@@ -185,11 +185,11 @@ impl IpStatement {
 
       // The prover and verifier now calculate the following (28-31)
       g_bold = PointVector(Vec::with_capacity(g_bold1.len()));
-      for (a, b) in g_bold1.0.into_iter().zip(g_bold2.0.into_iter()) {
+      for (a, b) in g_bold1.0.into_iter().zip(g_bold2.0) {
         g_bold.0.push(multiexp_vartime(&[(x_inv, a), (x, b)]));
       }
       h_bold = PointVector(Vec::with_capacity(h_bold1.len()));
-      for (a, b) in h_bold1.0.into_iter().zip(h_bold2.0.into_iter()) {
+      for (a, b) in h_bold1.0.into_iter().zip(h_bold2.0) {
         h_bold.0.push(multiexp_vartime(&[(x, a), (x_inv, b)]));
       }
 

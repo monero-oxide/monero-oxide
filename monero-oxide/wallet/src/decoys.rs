@@ -81,33 +81,36 @@ async fn select_n(
   // to the RPC
   // The length of that remainder is expected to be minimal
   while res.len() != decoy_count {
-    {
-      iters += 1;
-      const MAX_ITERS: usize = {
-        #[cfg_attr(test, expect(unused))]
-        let max_iters = 10;
-        // When testing on fresh chains, increased iterations can be useful and we don't
-        // necessitate reasonable performance
-        #[cfg(test)]
-        let max_iters = 1000;
-        max_iters
-      };
-      // Ensure this isn't infinitely looping
-      // We check both that we aren't at the maximum amount of iterations and that the not-yet
-      // selected candidates exceed the amount of candidates necessary to trigger the next iteration
-      if (iters == MAX_ITERS) ||
-        ((highest_output_exclusive_bound -
-          u64::try_from(do_not_select.len())
-            .expect("amount of ignored decoys exceeds 2^{64}")) <
-          u64::from(ring_len))
-      {
-        Err(InterfaceError::InternalError("hit decoy selection round limit".to_owned()))?;
-      }
-    }
-
     let remaining = decoy_count - res.len();
     let mut candidates = Vec::with_capacity(remaining);
     while candidates.len() != remaining {
+      {
+        iters += 1;
+
+        /*
+          Ensure this isn't infinitely looping.
+
+          We check both that we aren't at the maximum amount of iterations and that the not-yet
+          selected candidates exceed the amount of candidates necessary to trigger the next
+          iteration.
+        */
+        if (iters == {
+          #[cfg_attr(test, expect(unused))]
+          let max_iters = 10 * usize::from(ring_len);
+          // When testing on fresh chains, increased iterations can be useful and we don't
+          // necessitate reasonable performance
+          #[cfg(test)]
+          let max_iters = 1000 * usize::from(ring_len);
+          max_iters
+        }) || ((highest_output_exclusive_bound -
+          u64::try_from(do_not_select.len()).expect("amount of ignored decoys exceeds 2^{64}")) <
+          u64::try_from(remaining - candidates.len())
+            .expect("amount of remaining selections exceeds 2^{64}"))
+        {
+          Err(InterfaceError::InternalError("hit decoy selection round limit".to_owned()))?;
+        }
+      }
+
       // Use a gamma distribution, as Monero does
       // https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c45
       //   /src/wallet/wallet2.cpp#L142-L143
@@ -119,7 +122,7 @@ async fn select_n(
       if age > TIP_APPLICATION {
         age -= TIP_APPLICATION;
       } else {
-        // f64 does not have try_from available, which is why these are written with `as`
+        // `f64` does not have `try_from` available, which is why these are written with `as`
         age = (rng.next_u64() %
           (RECENT_WINDOW * u64::try_from(BLOCK_TIME).expect("BLOCK_TIME exceeded u64::MAX")))
           as f64;
@@ -130,13 +133,14 @@ async fn select_n(
       if o < highest_output_exclusive_bound {
         // Find which block this points to
         let i = distribution.partition_point(|s| *s < (highest_output_exclusive_bound - 1 - o));
-        let prev = i.saturating_sub(1);
-        let n = distribution[i].checked_sub(distribution[prev]).ok_or_else(|| {
+        let prev_block = i.checked_sub(1);
+        let prev_outputs = prev_block.map(|prev_block| distribution[prev_block]).unwrap_or(0);
+        let n = distribution[i].checked_sub(prev_outputs).ok_or_else(|| {
           InterfaceError::InternalError("RPC returned non-monotonic distribution".to_owned())
         })?;
         if n != 0 {
           // Select an output from within this block
-          let o = distribution[prev] + (rng.next_u64() % n);
+          let o = prev_outputs + (rng.next_u64() % n);
           if !do_not_select.contains(&o) {
             candidates.push(o);
             // This output will either be used or is unusable
@@ -238,7 +242,7 @@ async fn select_decoys<R: RngCore + CryptoRng>(
   // Form the complete ring
   let mut ring = decoys;
   ring.push((input.relative_id.index_on_blockchain, [input.key(), input.commitment().commit()]));
-  ring.sort_by(|a, b| a.0.cmp(&b.0));
+  ring.sort_by_key(|(index_on_blockcahin, _value)| *index_on_blockcahin);
 
   /*
     Monero does have sanity checks which it applies to the selected ring.
