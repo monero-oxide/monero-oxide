@@ -665,7 +665,7 @@ mod ed25519 {
         &U256::from_be_hex("2b8324804fc1df0b2b4d00993dfbd7a72f431806ad2fe478c4ee1b274a0ea0b0"),
         MODULUS,
       );
-      const C: FieldElement = FieldElement::from_u256(&C_I.mul(&SQRT_M1).retrieve());
+      const C: FieldElement = FieldElement::from_u256(&C_I.mul(&SQRT_M1).neg().retrieve());
       debug_assert_eq!(C.square(), FieldElement::from_u256(&C_SQUARE.retrieve()));
 
       let wei_y = C *
