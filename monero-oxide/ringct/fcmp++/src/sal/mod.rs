@@ -218,7 +218,7 @@ impl SpendAuthAndLinkability {
     R_P: [u8; 32],
     R_L: [u8; 32],
   ) -> Scalar {
-    let mut transcript = Blake2bMonero::new(64).expect("personal length is valid");
+    let mut transcript = Blake2bMonero::new(64).expect("output length is valid");
 
     transcript.update(&signable_tx_hash);
     input.transcript(&mut transcript, L);
@@ -230,7 +230,7 @@ impl SpendAuthAndLinkability {
     transcript.update(&R_P);
     transcript.update(&R_L);
 
-    transcript.finalize_as_scalar().expect("output length valid")
+    transcript.finalize_as_scalar().expect("output length is valid")
   }
 
   /// Prove a Spend-Authorization and Linkability proof.
