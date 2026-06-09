@@ -4,7 +4,7 @@ A specialization of blake2b that is compatible with Carrot hash functions.
 Carrot uses blake2b with the personal string "Monero" and a zeroed salt. If
 there is a key, it is always 32 bytes. If there is no key, then no key
 block is included in the hash data. This contrasts with the `blake2::Blake2bMac512`
-implmentation where key blocks are always included whenever a personal string
+implementation where key blocks are always included whenever a personal string
 is set, even if the key is zero-length.
 
 The `blake2::Blake2bMac512` impl is also restricted to 64-byte outputs, whereas
