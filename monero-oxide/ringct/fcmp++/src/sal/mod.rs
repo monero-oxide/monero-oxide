@@ -3,7 +3,7 @@ use std_shims::io;
 use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use blake2::digest::Update;
+use blake2::digest::Update as _;
 
 use dalek_ff_group::{Scalar, EdwardsPoint, Ed25519};
 use ciphersuite::{
@@ -218,7 +218,7 @@ impl SpendAuthAndLinkability {
     R_P: [u8; 32],
     R_L: [u8; 32],
   ) -> Scalar {
-    let mut transcript = Blake2bMonero::new(64).expect("output length is valid");
+    let mut transcript = Blake2bMonero::<64>::new();
 
     transcript.update(&signable_tx_hash);
     input.transcript(&mut transcript, L);
@@ -230,7 +230,7 @@ impl SpendAuthAndLinkability {
     transcript.update(&R_P);
     transcript.update(&R_L);
 
-    transcript.finalize_as_scalar().expect("output length is valid")
+    transcript.finalize_as_scalar()
   }
 
   /// Prove a Spend-Authorization and Linkability proof.

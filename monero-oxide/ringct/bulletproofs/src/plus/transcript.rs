@@ -6,7 +6,6 @@ use monero_primitives::keccak256;
 
 // Monero starts BP+ transcripts with the following constant.
 // Why this uses a hash to point is completely unknown.
-// TODO: This can be promoted to a constant, remove `monero-primitives`
 pub(crate) static TRANSCRIPT: LazyLock<[u8; 32]> = LazyLock::new(|| {
   monero_ed25519::Point::biased_hash(keccak256(b"bulletproof_plus_transcript"))
     .compress()
