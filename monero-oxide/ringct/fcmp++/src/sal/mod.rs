@@ -3,7 +3,7 @@ use std_shims::io;
 use rand_core::{RngCore, CryptoRng};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use blake2::{Digest as _, Blake2b512};
+use blake2::digest::Update as _;
 
 use dalek_ff_group::{Scalar, EdwardsPoint, Ed25519};
 use ciphersuite::{
@@ -13,6 +13,8 @@ use ciphersuite::{
   },
   Ciphersuite,
 };
+
+use monero_primitives::Blake2bMonero;
 
 use monero_fcmp_plus_plus_generators::{FCMP_PLUS_PLUS_U, FCMP_PLUS_PLUS_V};
 
@@ -216,19 +218,19 @@ impl SpendAuthAndLinkability {
     R_P: [u8; 32],
     R_L: [u8; 32],
   ) -> Scalar {
-    let mut transcript = Blake2b512::new();
+    let mut transcript = Blake2bMonero::<64>::new();
 
-    transcript.update(signable_tx_hash);
+    transcript.update(&signable_tx_hash);
     input.transcript(&mut transcript, L);
 
-    transcript.update(P);
-    transcript.update(A);
-    transcript.update(B);
-    transcript.update(R_O);
-    transcript.update(R_P);
-    transcript.update(R_L);
+    transcript.update(&P);
+    transcript.update(&A);
+    transcript.update(&B);
+    transcript.update(&R_O);
+    transcript.update(&R_P);
+    transcript.update(&R_L);
 
-    Scalar::from_hash(transcript.clone())
+    transcript.finalize_as_scalar()
   }
 
   /// Prove a Spend-Authorization and Linkability proof.
