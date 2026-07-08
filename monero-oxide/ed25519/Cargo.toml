@@ -30,6 +30,7 @@ crypto-bigint = { version = "0.5", default-features = false }
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc", "zeroize"] }
 
 monero-io = { path = "../io", version = "0.1", default-features = false }
+monero-primitives = { path = "../primitives", version = "0.1", default-features = false }
 
 [features]
 std = ["std-shims/std", "monero-io/std", "rand_core/std"]

@@ -948,6 +948,7 @@ dependencies = [
  "crypto-bigint",
  "curve25519-dalek",
  "monero-io",
+ "monero-primitives",
  "rand_core",
  "sha3",
  "std-shims",
