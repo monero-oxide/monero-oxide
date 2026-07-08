@@ -3,7 +3,8 @@ use core::borrow::Borrow as _;
 use rand_core::OsRng;
 
 use group::{
-  Group as _, GroupEncoding, ff::{Field as _, PrimeField as _}
+  Group as _, GroupEncoding,
+  ff::{Field as _, PrimeField as _},
 };
 use dalek_ff_group::{EdwardsPoint, FieldElement};
 
@@ -284,7 +285,8 @@ fn test_to_xy_matches_upstream() {
     match command {
       "point_to_wei_x_y" => {
         let point = hex::decode(words.next().unwrap()).unwrap();
-        let point: subtle::CtOption<EdwardsPoint> = EdwardsPoint::from_bytes(&point.try_into().unwrap());
+        let point: subtle::CtOption<EdwardsPoint> =
+          EdwardsPoint::from_bytes(&point.try_into().unwrap());
         let res: Option<(FieldElement, FieldElement)> = EdwardsPoint::to_xy(point.unwrap());
         let (actual_wei_x, actual_wei_y) = res.unwrap();
 
