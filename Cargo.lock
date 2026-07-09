@@ -343,6 +343,7 @@ dependencies = [
  "dalek-ff-group 0.5.0",
  "ff",
  "group",
+ "hex",
  "rand_core",
  "std-shims",
  "subtle",

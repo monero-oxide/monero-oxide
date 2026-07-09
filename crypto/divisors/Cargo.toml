@@ -31,6 +31,7 @@ dalek-ff-group = { version = "0.5", default-features = false, optional = true }
 
 [dev-dependencies]
 rand_core = { version = "0.6", features = ["getrandom"] }
+hex = "0.4"
 
 crypto-bigint = { version = "0.5", default-features = false, features = ["zeroize"] }
 dalek-ff-group = { version = "0.5", default-features = false }
