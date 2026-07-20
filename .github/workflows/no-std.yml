@@ -8,11 +8,15 @@ on:
     paths:
       - "monero-oxide/**"
       - "tests/no-std/**"
+      - ".github/workflows/no-std.yml"
+      - ".github/actions/build-dependencies/**"
 
   pull_request:
     paths:
       - "monero-oxide/**"
       - "tests/no-std/**"
+      - ".github/workflows/no-std.yml"
+      - ".github/actions/build-dependencies/**"
 
   workflow_dispatch:
 
@@ -20,6 +24,7 @@ jobs:
   build:
     name: Confirm all no-`std` crates build for no-`std` targets
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-26-intel, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -46,7 +51,10 @@ jobs:
           if [ "$RUNNER_OS" = "Linux" ]; then
             sudo apt install -y gcc-riscv64-unknown-elf gcc-multilib
           elif [ "$RUNNER_OS" = "macOS" ]; then
+            # Homebrew 6.0 requires explicit trust for third-party taps before
+            # formulae from them can be evaluated/installed.
             brew tap riscv-software-src/riscv
+            brew trust --formula riscv-software-src/riscv/riscv-tools
             brew install riscv-tools
           elif [ "$RUNNER_OS" = "Windows" ]; then
             /C/msys64/usr/bin/pacman.exe -Syu --noconfirm
