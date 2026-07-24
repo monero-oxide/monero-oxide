@@ -1,6 +1,6 @@
 [package]
 name = "monero-wallet"
-version = "0.1.0"
+version = "0.2.0"
 description = "Wallet functionality for the Monero protocol, built around monero-oxide"
 license = "MIT"
 repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/wallet"
@@ -41,10 +41,10 @@ frost = { package = "modular-frost", version = "0.11", default-features = false,
 
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 
-monero-clsag = { path = "../ringct/clsag", default-features = false }
-monero-oxide = { path = "..", default-features = false }
-monero-interface = { path = "../interface", default-features = false }
-monero-address = { path = "./address", default-features = false }
+monero-clsag = { path = "../ringct/clsag", version = "0.1", default-features = false }
+monero-oxide = { path = "..", version = "0.1", default-features = false }
+monero-interface = { path = "../interface", version = "0.2", default-features = false }
+monero-address = { path = "./address", version = "0.1", default-features = false }
 
 [dev-dependencies]
 serde = { version = "1", default-features = false, features = ["derive", "alloc", "std"] }

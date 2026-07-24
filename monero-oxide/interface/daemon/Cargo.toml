@@ -1,6 +1,6 @@
 [package]
 name = "monero-daemon-rpc"
-version = "0.1.0"
+version = "0.2.0"
 description = "An interface to a Monero daemon"
 license = "MIT"
 repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/interface/daemon"
@@ -22,11 +22,11 @@ hex = { version = "0.4", default-features = false, features = ["alloc"] }
 serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 
-monero-oxide = { path = "../..", default-features = false }
-monero-address = { path = "../../wallet/address", default-features = false }
-monero-interface = { path = "..", default-features = false }
+monero-oxide = { path = "../..", version = "0.1", default-features = false }
+monero-address = { path = "../../wallet/address", version = "0.1", default-features = false }
+monero-interface = { path = "..", version = "0.2", default-features = false }
 
-monero-epee = { path = "../../epee", default-features = false }
+monero-epee = { path = "../../epee", version = "0.3", default-features = false }
 
 [features]
 std = [

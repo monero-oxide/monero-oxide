@@ -1,6 +1,6 @@
 [package]
 name = "monero-interface"
-version = "0.1.0"
+version = "0.2.0"
 description = "Traits for interfacing with the Monero network, built around monero-oxide"
 license = "MIT"
 repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/interface"
@@ -23,7 +23,7 @@ thiserror = { version = "2", default-features = false }
 zeroize = { version = "^1.5", default-features = false, features = ["zeroize_derive"] }
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 
-monero-oxide = { path = "..", default-features = false }
+monero-oxide = { path = "..", version = "0.1", default-features = false }
 
 [features]
 std = [
