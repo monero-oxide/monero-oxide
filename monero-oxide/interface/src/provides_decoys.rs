@@ -35,8 +35,7 @@ pub trait ProvidesUnvalidatedDecoys: ProvidesBlockchainMeta {
 
   /// Get the specified RingCT outputs, but only return them if they're unlocked.
   ///
-  /// No validation of the outputs is performed other than confirming the correct amount is
-  /// returned.
+  /// No validation of the outputs is guaranteed to be performed.
   fn unlocked_ringct_outputs(
     &self,
     indexes: &[u64],
@@ -60,6 +59,9 @@ pub trait ProvidesDecoys: ProvidesBlockchainMeta {
   ) -> impl Send + Future<Output = Result<Vec<u64>, InterfaceError>>;
 
   /// Get the specified RingCT outputs, but only return them if they're unlocked.
+  ///
+  /// No validation of the outputs is guaranteed to be performed other than confirming the correct
+  /// amount is returned.
   fn unlocked_ringct_outputs(
     &self,
     indexes: &[u64],
