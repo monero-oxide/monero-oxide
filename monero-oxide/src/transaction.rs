@@ -12,6 +12,14 @@ use crate::{
   ringct::{bulletproofs::Bulletproof, PrunedRctProofs},
 };
 
+// Ensure `usize` can be used to represent a block number, a prerequesite to so define `Input::Gen`
+#[expect(clippy::absurd_extreme_comparisons)]
+const _INPUT_GEN_MAY_USE_USIZE: () = {
+  // https://github.com/monero-project/monero
+  //   /blob/d85cfa04d86477dcb4001a21f30953a8ab6e1df2/src/cryptonote_config.h#L40
+  assert!(usize::MAX >= 500_000_000);
+};
+
 /// An input in the Monero protocol.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Input {
