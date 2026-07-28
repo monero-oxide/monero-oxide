@@ -187,7 +187,7 @@ impl<T: HttpTransport> ProvidesUnvalidatedBlockchain for MoneroDaemon<T> {
             */
             let proportional_blocks_per_request = TARGET_RESPONSE_SIZE / bytes_per_block;
             let fifty_percent_more_blocks =
-              blocks_per_request.saturating_add(blocks_per_request / 2);
+              blocks_per_request.saturating_add((blocks_per_request / 2).max(1));
             blocks_per_request = proportional_blocks_per_request.min(fifty_percent_more_blocks);
           }
           /*

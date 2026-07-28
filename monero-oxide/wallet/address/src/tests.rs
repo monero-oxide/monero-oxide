@@ -100,8 +100,8 @@ fn featured() {
 
         let mut payment_id = [0; 8];
         OsRng.fill_bytes(&mut payment_id);
-        let payment_id = Some(payment_id)
-          .filter(|_| (features & INTEGRATED_FEATURE_BIT) == INTEGRATED_FEATURE_BIT);
+        let payment_id =
+          ((features & INTEGRATED_FEATURE_BIT) == INTEGRATED_FEATURE_BIT).then_some(payment_id);
 
         let guaranteed = (features & GUARANTEED_FEATURE_BIT) == GUARANTEED_FEATURE_BIT;
 

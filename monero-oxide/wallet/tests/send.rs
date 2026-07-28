@@ -137,17 +137,17 @@ test!(
     async |_rpc: Rpc, block: SB, tx: Transaction, _, views: (ViewPair, ViewPair)| {
       // Make sure the change can pick up its output
       let mut change_scanner = Scanner::new(views.0);
-      assert!(change_scanner.scan(block.clone()).unwrap().not_additionally_locked().len() == 1);
+      assert_eq!(change_scanner.scan(block.clone()).unwrap().not_additionally_locked().len(), 1);
 
       // Make sure the subaddress can pick up its output
       let mut sub_scanner = Scanner::new(views.1);
       sub_scanner.register_subaddress(SubaddressIndex::new(0, 1).unwrap());
       let sub_outputs = sub_scanner.scan(block).unwrap().not_additionally_locked();
-      assert!(sub_outputs.len() == 1);
+      assert_eq!(sub_outputs.len(), 1);
       assert_eq!(sub_outputs[0].transaction(), tx.hash());
       assert_eq!(sub_outputs[0].commitment().amount, 1);
-      assert!(sub_outputs[0].subaddress().unwrap().account() == 0);
-      assert!(sub_outputs[0].subaddress().unwrap().address() == 1);
+      assert_eq!(sub_outputs[0].subaddress().unwrap().account(), 0);
+      assert_eq!(sub_outputs[0].subaddress().unwrap().address(), 1);
 
       // Make sure only one R was included in TX extra
       assert!(Extra::read(&mut tx.prefix().extra.as_slice()).unwrap().keys().unwrap().1.is_none());
@@ -383,9 +383,9 @@ test!(
       let mut change_scanner = Scanner::new(change_view);
       change_scanner.register_subaddress(SubaddressIndex::new(0, 1).unwrap());
       let outputs = change_scanner.scan(block).unwrap().not_additionally_locked();
-      assert!(outputs.len() == 1);
-      assert!(outputs[0].subaddress().unwrap().account() == 0);
-      assert!(outputs[0].subaddress().unwrap().address() == 1);
+      assert_eq!(outputs.len(), 1);
+      assert_eq!(outputs[0].subaddress().unwrap().account(), 0);
+      assert_eq!(outputs[0].subaddress().unwrap().address(), 1);
     },
   ),
 );

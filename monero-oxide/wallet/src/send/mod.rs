@@ -236,9 +236,9 @@ pub enum SendError {
   /// This transaction is being signed with the wrong private key.
   #[error("wrong spend private key")]
   WrongPrivateKey,
-  /// This transaction was read from a bytestream which was malicious.
-  #[error("this SignableTransaction was created by deserializing a malicious serialization")]
-  MaliciousSerialization,
+  /// This transaction was read from a bytestream which was incorrect.
+  #[error("this SignableTransaction was created by deserializing an incorrect serialization")]
+  IncorrectSerialization,
   /// There was an error when working with the CLSAGs.
   #[error("clsag error ({0})")]
   ClsagError(ClsagError),
@@ -346,14 +346,14 @@ impl SignableTransaction {
     if self.payments.len() < 2 {
       Err(SendError::NoChange)?;
     }
-    // Check we don't have multiple Change outputs due to decoding a malicious serialization
+    // Check we don't have multiple `Change` outputs due to decoding an incorrect serialization
     {
       let mut change_count = 0;
       for payment in &self.payments {
         change_count += usize::from(u8::from(matches!(payment, InternalPayment::Change(_))));
       }
       if change_count > 1 {
-        Err(SendError::MaliciousSerialization)?;
+        Err(SendError::IncorrectSerialization)?;
       }
     }
 
