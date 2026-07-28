@@ -950,7 +950,6 @@ dependencies = [
  "monero-oxide",
  "simple-request",
  "tokio",
- "tracing",
  "zeroize",
 ]
 
@@ -1356,9 +1355,9 @@ dependencies = [
 
 [[package]]
 name = "simple-request"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29ecf3799a86a85d38ec431714643b7fbece8cdc3010259606dc68129d41b679"
+checksum = "4f936df983b7acc20419ca10eac9dbae1e76f59b12aa6c1db7bdcce571d5a471"
 dependencies = [
  "futures-util",
  "http-body-util",
@@ -1367,6 +1366,7 @@ dependencies = [
  "hyper-util",
  "tokio",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
