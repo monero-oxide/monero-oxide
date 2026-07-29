@@ -3,7 +3,7 @@ name = "monero-simple-request-rpc"
 version = "0.1.0"
 description = "RPC connection to a Monero daemon via simple-request, built around monero-oxide"
 license = "MIT"
-repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/interface/simple-request"
+repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/interface/daemon/simple-request"
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
 edition = "2021"
 rust-version = "1.89"
@@ -23,7 +23,7 @@ hyper-util = { version = "0.1.1", default-features = false, features = ["tokio"]
 simple-request = { version = "0.3.2", default-features = false, features = ["tls", "tokio"] }
 tokio = { version = "1.13", default-features = false }
 
-monero-daemon-rpc = { path = "..", default-features = false, features = ["std"] }
+monero-daemon-rpc = { path = "..", version = "0.2", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 monero-oxide = { path = "../../..", default-features = false, features = ["std"] }

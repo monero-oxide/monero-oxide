@@ -828,7 +828,7 @@ dependencies = [
 
 [[package]]
 name = "monero-daemon-rpc"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hex",
  "monero-address",
@@ -856,11 +856,11 @@ dependencies = [
 
 [[package]]
 name = "monero-epee"
-version = "0.2.0"
+version = "0.2.1"
 
 [[package]]
 name = "monero-interface"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hex",
  "monero-oxide",
@@ -890,7 +890,7 @@ dependencies = [
 
 [[package]]
 name = "monero-oxide"
-version = "0.1.4-alpha"
+version = "0.1.0"
 dependencies = [
  "curve25519-dalek",
  "hex",
@@ -955,7 +955,7 @@ dependencies = [
 
 [[package]]
 name = "monero-wallet"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "curve25519-dalek",
  "flexible-transcript",
