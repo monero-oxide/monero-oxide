@@ -12,11 +12,18 @@ rust-version = "1.79"
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
+[package.metadata.cargo-machete]
+ignored = ["tap", "crypto-bigint"]
+
 [lints]
 workspace = true
 
 [dependencies]
 blake2 = { version = "0.10", default-features = false }
+# `ff` requires `bitvec` requires `wyz 0.5.0` which requires `tap 1.0.1` but only specifies `tap 1.0.0`
+tap = { version = "1.0.1", default-features = false }
+# `crypto-bigint` (used internally by `dalek-ff-group`) must be `0.5.2` for `Zeroize` on its provided field implementation type
+crypto-bigint = { version = "0.5.2", default-features = false, features = ["zeroize"] }
 dalek-ff-group = { version = "0.5", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 

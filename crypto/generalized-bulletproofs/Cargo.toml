@@ -7,14 +7,14 @@ repository = "https://github.com/monero-oxide/monero-oxide/tree/main/crypto/gene
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
 keywords = ["ciphersuite", "ff", "group"]
 edition = "2021"
-rust-version = "1.68"
+rust-version = "1.81"
 
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [package.metadata.cargo-machete]
-ignored = ["flexible-transcript", "ff"]
+ignored = ["zeroize_derive", "flexible-transcript", "ff"]
 
 [lints]
 workspace = true
@@ -24,13 +24,15 @@ std-shims = { version = "0.1.4", default-features = false }
 
 rand_core = { version = "0.6", default-features = false }
 
-zeroize = { version = "^1.5", default-features = false, features = ["zeroize_derive", "alloc"] }
-subtle = { version = "^2.4", default-features = false }
+# `zeroize_derive 1.4.1` fixes deriving `Zeroize` for structs with generic parameters which don't implement `Zeroize` themselves
+zeroize_derive = { version = "1.4.1", default-features = false }
+zeroize = { version = "1.5", default-features = false, features = ["zeroize_derive", "alloc"] }
+subtle = { version = "2.5", default-features = false }
 
 blake2 = { version = "0.10", default-features = false }
 
-multiexp = { version = "0.4.2", default-features = false, features = ["batch"] }
-flexible-transcript = { version = "0.3.4", default-features = false } # Needed minimum version for msrv
+multiexp = { version = "0.5", default-features = false, features = ["batch"] }
+flexible-transcript = { version = "0.3.4", default-features = false } # Needed minimum version for MSRV
 ff = { version = "0.13", default-features = false, features = ["alloc"] } # Needed feature for batch invert
 ciphersuite = { version = "0.4.2", default-features = false, features = ["alloc"] }
 

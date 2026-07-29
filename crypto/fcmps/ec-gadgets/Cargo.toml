@@ -7,7 +7,7 @@ repository = "https://github.com/monero-oxide/monero-oxide/tree/main/crypto/fcmp
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
 keywords = ["bulletproofs", "circuit", "divisors"]
 edition = "2021"
-rust-version = "1.68"
+rust-version = "1.81"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -17,7 +17,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 workspace = true
 
 [dependencies]
-std-shims = { version = "^0.1.1", default-features = false }
+std-shims = { version = "0.1.1", default-features = false }
 
 generic-array = { version = "1", default-features = false, features = ["alloc"] }
 

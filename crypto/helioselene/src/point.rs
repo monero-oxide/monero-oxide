@@ -463,9 +463,9 @@ mod helios {
   #[test]
   fn generator_helios() {
     use helios::{G_X, G_Y, G};
-    assert!(G.x == G_X);
-    assert!(G.y == G_Y);
-    assert!(recover_y(G.x).unwrap() == G.y);
+    assert_eq!(G.x, G_X);
+    assert_eq!(G.y, G_Y);
+    assert_eq!(recover_y(G.x).unwrap(), G.y);
     assert!(bool::from(!G.y.is_odd()));
   }
 
@@ -501,9 +501,9 @@ mod selene {
   #[test]
   fn generator_selene() {
     use selene::{G_X, G_Y, G};
-    assert!(G.x == G_X);
-    assert!(G.y == G_Y);
-    assert!(recover_y(G.x).unwrap() == G.y);
+    assert_eq!(G.x, G_X);
+    assert_eq!(G.y, G_Y);
+    assert_eq!(recover_y(G.x).unwrap(), G.y);
     assert!(bool::from(!G.y.is_odd()));
   }
 

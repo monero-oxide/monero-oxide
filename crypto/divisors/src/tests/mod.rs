@@ -3,7 +3,7 @@ use core::borrow::Borrow as _;
 use rand_core::OsRng;
 
 use group::{
-  Group as _, GroupEncoding,
+  Group as _, GroupEncoding as _,
   ff::{Field as _, PrimeField as _},
 };
 use dalek_ff_group::{EdwardsPoint, FieldElement};

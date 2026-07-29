@@ -9,13 +9,7 @@ use zeroize::{Zeroize, Zeroizing};
 use transcript::{Transcript, RecommendedTranscript};
 
 use dalek_ff_group::{Scalar, EdwardsPoint, Ed25519};
-use ciphersuite::{
-  group::{
-    ff::{Field as _, PrimeField as _},
-    Group as _, GroupEncoding as _,
-  },
-  Ciphersuite,
-};
+use ciphersuite::Ciphersuite;
 
 use modular_frost::{
   FrostError, Participant, ThresholdKeys, ThresholdView,

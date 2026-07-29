@@ -6,7 +6,7 @@ license = "MIT"
 repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/ringct/fcmp++/generators"
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
 edition = "2021"
-rust-version = "1.79"
+rust-version = "1.81"
 
 [package.metadata.docs.rs]
 all-features = true

@@ -100,9 +100,9 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
 name = "cc"
-version = "1.2.62"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1dce859f0832a7d088c4f1119888ab94ef4b5d6795d1ce05afb7fe159d79f98"
+checksum = "5add81bb678e6cb321aff7fa0dc7689ad82b112dbc032cea19f91d6b8e3582b9"
 dependencies = [
  "find-msvc-tools",
  "shlex",
@@ -336,6 +336,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ec-divisors"
+version = "0.1.0"
+dependencies = [
+ "crypto-bigint",
+ "dalek-ff-group 0.5.0",
+ "ff",
+ "group",
+ "hex",
+ "rand_core",
+ "std-shims",
+ "subtle",
+ "tap",
+ "zeroize",
+ "zeroize_derive",
+]
+
+[[package]]
 name = "ecdsa"
 version = "0.16.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -385,6 +402,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ff-group-tests"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2afc03ebbfbdd2097d4534ee03d68e8ab4166b49b56a23169d849f0f3270cabc"
+dependencies = [
+ "ff",
+ "group",
+ "rand_core",
+ "subtle",
+]
+
+[[package]]
 name = "fiat-crypto"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -415,6 +444,27 @@ name = "foldhash"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
+
+[[package]]
+name = "full-chain-membership-proofs"
+version = "0.1.0"
+dependencies = [
+ "blake2",
+ "ciphersuite",
+ "dalek-ff-group 0.5.0",
+ "ec-divisors",
+ "generalized-bulletproofs",
+ "generalized-bulletproofs-circuit-abstraction",
+ "generalized-bulletproofs-ec-gadgets",
+ "generic-array 1.3.5",
+ "helioselene",
+ "multiexp",
+ "rand_core",
+ "std-shims",
+ "subtle",
+ "zeroize",
+ "zeroize_derive",
+]
 
 [[package]]
 name = "funty"
@@ -453,6 +503,42 @@ dependencies = [
  "futures-task",
  "pin-project-lite",
  "slab",
+]
+
+[[package]]
+name = "generalized-bulletproofs"
+version = "0.1.0"
+dependencies = [
+ "blake2",
+ "ciphersuite",
+ "ff",
+ "flexible-transcript",
+ "multiexp",
+ "rand_core",
+ "std-shims",
+ "subtle",
+ "zeroize",
+ "zeroize_derive",
+]
+
+[[package]]
+name = "generalized-bulletproofs-circuit-abstraction"
+version = "0.1.0"
+dependencies = [
+ "ciphersuite",
+ "generalized-bulletproofs",
+ "std-shims",
+ "zeroize",
+]
+
+[[package]]
+name = "generalized-bulletproofs-ec-gadgets"
+version = "0.1.0"
+dependencies = [
+ "ciphersuite",
+ "generalized-bulletproofs-circuit-abstraction",
+ "generic-array 1.3.5",
+ "std-shims",
 ]
 
 [[package]]
@@ -505,6 +591,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
 dependencies = [
  "foldhash",
+]
+
+[[package]]
+name = "helioselene"
+version = "0.1.0"
+dependencies = [
+ "blake2",
+ "ciphersuite",
+ "crypto-bigint",
+ "dalek-ff-group 0.5.0",
+ "ec-divisors",
+ "ff",
+ "ff-group-tests",
+ "group",
+ "hex",
+ "rand_core",
+ "std-shims",
+ "subtle",
+ "tap",
+ "zeroize",
 ]
 
 [[package]]
@@ -844,9 +950,11 @@ dependencies = [
 name = "monero-ed25519"
 version = "0.1.0"
 dependencies = [
+ "blake2",
  "crypto-bigint",
  "curve25519-dalek",
  "monero-io",
+ "monero-primitives",
  "rand_core",
  "sha3",
  "std-shims",
@@ -857,6 +965,46 @@ dependencies = [
 [[package]]
 name = "monero-epee"
 version = "0.2.1"
+
+[[package]]
+name = "monero-fcmp-plus-plus"
+version = "0.1.0"
+dependencies = [
+ "blake2",
+ "ciphersuite",
+ "dalek-ff-group 0.5.0",
+ "ec-divisors",
+ "flexible-transcript",
+ "full-chain-membership-proofs",
+ "generalized-bulletproofs",
+ "generalized-bulletproofs-ec-gadgets",
+ "generic-array 1.3.5",
+ "helioselene",
+ "modular-frost",
+ "monero-ed25519",
+ "monero-fcmp-plus-plus-generators",
+ "monero-io",
+ "monero-primitives",
+ "multiexp",
+ "rand_chacha",
+ "rand_core",
+ "std-shims",
+ "zeroize",
+]
+
+[[package]]
+name = "monero-fcmp-plus-plus-generators"
+version = "0.1.0"
+dependencies = [
+ "ciphersuite",
+ "full-chain-membership-proofs",
+ "generalized-bulletproofs",
+ "group",
+ "helioselene",
+ "monero-ed25519",
+ "monero-primitives",
+ "std-shims",
+]
 
 [[package]]
 name = "monero-interface"
@@ -899,6 +1047,7 @@ dependencies = [
  "monero-bulletproofs",
  "monero-clsag",
  "monero-ed25519",
+ "monero-fcmp-plus-plus",
  "monero-io",
  "monero-mlsag",
  "monero-primitives",
@@ -913,6 +1062,7 @@ dependencies = [
 name = "monero-oxide-no-std-tests"
 version = "0.1.0"
 dependencies = [
+ "helioselene",
  "monero-daemon-rpc",
  "monero-epee",
  "monero-wallet",
@@ -935,7 +1085,12 @@ dependencies = [
 name = "monero-primitives"
 version = "0.1.0"
 dependencies = [
+ "blake2",
+ "crypto-bigint",
+ "dalek-ff-group 0.5.0",
+ "hex",
  "sha3",
+ "tap",
 ]
 
 [[package]]
@@ -1340,9 +1495,9 @@ dependencies = [
 
 [[package]]
 name = "shlex"
-version = "1.3.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
+checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "signature"
@@ -1519,9 +1674,9 @@ dependencies = [
 
 [[package]]
 name = "toml_parser"
-version = "1.1.2+spec-1.1.0"
+version = "1.1.3+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2abe9b86193656635d2411dc43050282ca48aa31c2451210f4202550afb7526"
+checksum = "1d38ac1cf9b95face32296c0a3ede1fdc270627c9d9c02a7274dd6d960dc4d56"
 dependencies = [
  "winnow",
 ]

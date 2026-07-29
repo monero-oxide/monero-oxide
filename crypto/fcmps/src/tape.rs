@@ -2,6 +2,7 @@
 use std_shims::prelude::*;
 use std_shims::{vec, vec::Vec};
 
+use subtle::ConditionallySelectable;
 use zeroize::Zeroize;
 
 use generic_array::{typenum::Unsigned as _, GenericArray};
@@ -234,7 +235,7 @@ impl<F: Zeroize + PrimeFieldBits> VectorCommitmentTape<F> {
     (PointWithDlog { divisor, dlog, point: (x, y) }, padding)
   }
 
-  pub(crate) fn commit<C: Ciphersuite<F = F>>(
+  pub(crate) fn commit<C: Ciphersuite<F = F, G: ConditionallySelectable>>(
     &self,
     generators: &Generators<C>,
     blinds: &[C::F],

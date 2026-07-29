@@ -7,11 +7,9 @@ use std_shims::{vec, vec::Vec};
 use generic_array::typenum::{Sum, Diff, Quot, U1, U2};
 
 use ciphersuite::{
-  group::ff::{Field as _, PrimeField, BatchInverter, FromUniformBytes},
+  group::ff::{PrimeField, BatchInverter, FromUniformBytes},
   Ciphersuite,
 };
-
-use generalized_bulletproofs_circuit_abstraction::*;
 
 use crate::*;
 

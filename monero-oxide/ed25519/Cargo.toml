@@ -6,7 +6,7 @@ license = "MIT"
 repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/ed25519"
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
 edition = "2021"
-rust-version = "1.65"
+rust-version = "1.79"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -26,7 +26,7 @@ rand_core = { version = "0.6", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 blake2 = { version = "0.10", default-features = false }
 
-crypto-bigint = { version = "0.5.1", default-features = false }
+crypto-bigint = { version = "0.5.2", default-features = false, features = ["zeroize"] }
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc", "zeroize"] }
 
 monero-io = { path = "../io", version = "0.1", default-features = false }

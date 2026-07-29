@@ -3,7 +3,7 @@ use rand_core::OsRng;
 use generic_array::typenum::U;
 
 use multiexp::multiexp_vartime;
-use ciphersuite::{group::Group as _, Ciphersuite};
+use ciphersuite::Ciphersuite;
 use dalek_ff_group::Ed25519;
 use helioselene::{Selene, Helios};
 use ec_divisors::ScalarDecomposition;

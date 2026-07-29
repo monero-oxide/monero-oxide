@@ -7,7 +7,7 @@ repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxid
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
 keywords = ["monero", "ciphersuite", "ff", "group"]
 edition = "2021"
-rust-version = "1.79"
+rust-version = "1.81"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -26,7 +26,7 @@ generic-array = { version = "1", default-features = false, features = ["alloc"] 
 
 blake2 = { version = "0.10", default-features = false }
 
-multiexp = { version = "0.4", default-features = false }
+multiexp = { version = "0.5", default-features = false }
 dalek-ff-group = { version = "0.5", default-features = false }
 helioselene = { path = "../../../crypto/helioselene", default-features = false, features = ["alloc"] }
 ciphersuite = { version = "0.4", default-features = false }
