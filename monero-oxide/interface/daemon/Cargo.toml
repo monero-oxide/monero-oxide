@@ -26,7 +26,7 @@ monero-oxide = { path = "../..", version = "0.1", default-features = false }
 monero-address = { path = "../../wallet/address", version = "0.1", default-features = false }
 monero-interface = { path = "..", version = "0.2", default-features = false }
 
-monero-epee = { path = "../../epee", version = "0.3", default-features = false }
+monero-epee = { path = "../../epee", version = "0.2", default-features = false }
 
 [features]
 std = [
