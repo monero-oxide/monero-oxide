@@ -130,7 +130,8 @@ pub fn check_weight_and_fee(tx: &Transaction, fee_rate: FeeRate) {
   let expected_weight = fee_rate.calculate_weight_from_fee(fee).unwrap();
   assert_eq!(weight, expected_weight);
 
-  let expected_fee = fee_rate.calculate_fee_from_weight(weight);
+  let expected_fee =
+    u64::try_from(fee_rate.calculate_fee_from_weight(u64::try_from(weight).unwrap())).unwrap();
   assert_eq!(fee, expected_fee);
 }
 

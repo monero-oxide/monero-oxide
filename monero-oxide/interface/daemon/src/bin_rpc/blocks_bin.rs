@@ -76,7 +76,7 @@ impl<T: HttpTransport> MoneroDaemon<T> {
     request.push(epee::Type::Uint64 as u8);
     debug_assert_eq!(expected_request_header_len, request.len());
 
-    while start <= end {
+    'outer: while start <= end {
       request.truncate(expected_request_header_len);
 
       request.extend(start.to_le_bytes());
@@ -109,10 +109,10 @@ impl<T: HttpTransport> MoneroDaemon<T> {
           /*
             Manually implement a termination clause here as Monero will send _all_ blocks which fit
             in a response starting from the requested `start_height`, unless it respected
-            `max_block_count`.
+            `max_block_count`. We don't want to waste time with the rest.
           */
           if remaining_blocks == 0 {
-            break;
+            break 'outer;
           }
         }
         blocks_received

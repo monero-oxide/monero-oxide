@@ -100,12 +100,17 @@ impl FeeRate {
   }
 
   /// Calculate the fee to use from the weight.
-  ///
-  /// This function may panic upon overflow.
-  pub fn calculate_fee_from_weight(&self, weight: usize) -> u64 {
-    let fee =
-      self.per_weight * u64::try_from(weight).expect("couldn't convert weight (usize) to u64");
-    fee.div_ceil(self.mask) * self.mask
+  pub fn calculate_fee_from_weight(&self, weight: u64) -> u128 {
+    /*
+      The following is infallible. For the first line, at most, we have `(u64::MAX - 1)^2`, which
+      expands to a maximum value of `u64::MAX^2 - 2 * u64::MAX + 1`. For the second line, we have
+      a round up to the next multiple of the mask. For a rounding by the mask (a `u64`), the most
+      we will add to round up is `u64::MAX - 1`. This means the maximum value returned by this
+      function is `(u64::MAX^2 - 2 * u64::MAX + 1) + (u64::MAX - 1) = u64::MAX^2 - u64::MAX`, which
+      fits within a `u128` (as we return).
+    */
+    let fee = u128::from(self.per_weight) * u128::from(weight);
+    fee.div_ceil(u128::from(self.mask)) * u128::from(self.mask)
   }
 
   /// Calculate the weight from the fee.

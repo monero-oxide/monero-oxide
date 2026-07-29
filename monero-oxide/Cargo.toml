@@ -1,12 +1,12 @@
 [package]
 name = "monero-oxide"
-version = "0.1.4-alpha"
+version = "0.1.0"
 description = "A modern Monero transaction library"
 license = "MIT"
 repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide"
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
 edition = "2021"
-rust-version = "1.85"
+rust-version = "1.81"
 
 [package.metadata.docs.rs]
 all-features = true

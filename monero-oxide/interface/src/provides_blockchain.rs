@@ -113,7 +113,6 @@ pub trait ProvidesBlockchain: ProvidesBlockchainMeta {
   ) -> impl Send + Future<Output = Result<[u8; 32], InterfaceError>>;
 }
 
-#[expect(single_use_lifetimes)] // False positive, this can't be removed
 pub(crate) fn sanity_check_contiguous_blocks<'block>(
   range: RangeInclusive<usize>,
   blocks: impl Iterator<Item = &'block Block>,

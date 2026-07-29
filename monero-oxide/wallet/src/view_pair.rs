@@ -98,7 +98,7 @@ impl ViewPair {
 
 /// The pair of keys necessary to scan outputs immune to the burning bug.
 ///
-/// This is composed of the public spend key and a non-zero private view key.
+/// This is composed of the public spend key and a private view key.
 ///
 /// 'Guaranteed' outputs, or transactions outputs to the burning bug, are not officially specified
 /// by the Monero project. They should only be used if necessary. No support outside of

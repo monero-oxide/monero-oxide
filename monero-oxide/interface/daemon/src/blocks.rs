@@ -81,7 +81,14 @@ impl<T: HttpTransport> ProvidesUnvalidatedBlockchain for MoneroDaemon<T> {
         // Prepare a new request
         let start = *range.start();
         let mut end = start.saturating_add(blocks_per_request - 1).min(*range.end());
-        let mut requested_blocks = end - start + 1;
+        /*
+          This won't panic so long as `start < end, (end - start) < <_>::MAX`, the second clause
+          simply requiring `(start != 0) || (end != <_>::MAX)`. Because
+          `start < end <= (start + (blocks_per_request - 1))`, this is unconditionally true.
+          If `start == 0`, then `end <= (blocks_per_request - 1)`, where
+          `blocks_per_request <= <_>::MAX, (blocks_per_request - 1) < <_>::MAX`.
+        */
+        let mut requested_blocks = (end - start) + 1;
 
         let single_block = start == end;
         let request = if single_block {
@@ -89,31 +96,21 @@ impl<T: HttpTransport> ProvidesUnvalidatedBlockchain for MoneroDaemon<T> {
         } else {
           let mut request = String::with_capacity(requested_blocks.saturating_mul(30));
           request.push('[');
+          request.push_str(&block_request(start));
 
-          {
-            let mut number = start;
-            while start <= end {
-              let next_request = block_request(number);
-              // If this would exceed the request's size target, stop this batch early
-              if request.len().saturating_add(next_request.len()) >= REQUEST_SIZE_TARGET {
-                // This is safe on the assumption a single request didn't exceed the target
-                end = number - 1;
-                requested_blocks = end - start + 1;
-                break;
-              }
-
-              request.push_str(&next_request);
-              request.push(',');
-
-              let Some(next) = number.checked_add(1) else {
-                // This may occur when `start == end == usize::MAX`
-                break;
-              };
-              number = next;
+          for number in (start ..= end).skip(1) {
+            let next_request = block_request(number);
+            // If this would exceed the request's size target, stop this batch early
+            if request.len().saturating_add(next_request.len()) >= REQUEST_SIZE_TARGET {
+              end = number - 1;
+              requested_blocks = (end - start) + 1;
+              break;
             }
+
+            request.push(',');
+            request.push_str(&next_request);
           }
 
-          request.pop(); // Pop the trailing comma
           request.push(']');
           request
         };
@@ -173,19 +170,33 @@ impl<T: HttpTransport> ProvidesUnvalidatedBlockchain for MoneroDaemon<T> {
         }) ..= *range.end();
 
         // Update the amount to request
-        const TARGET_RESPONSE_SIZE: usize = ((MAX_RESPONSE_SIZE - HTTP_OVERHEAD_ESTIMATE) * 4) / 5;
-        // If this is less than the targetted response size, increase the next request's length
-        // by up to 50%
-        if response_byte_length < TARGET_RESPONSE_SIZE {
-          let fifty_percent_more = blocks_per_request + (blocks_per_request / 2);
-          let proportional =
-            TARGET_RESPONSE_SIZE / response_byte_length.div_ceil(blocks_per_request);
-          blocks_per_request = fifty_percent_more.min(proportional);
-        }
-        // If this is more than the targetted amount of the response size limit, halve the current
-        // request limit
-        if response_byte_length > TARGET_RESPONSE_SIZE {
-          blocks_per_request = (blocks_per_request / 2).max(1);
+        {
+          // Target 80% of the maximum response size
+          const TARGET_RESPONSE_SIZE: usize =
+            ((MAX_RESPONSE_SIZE - HTTP_OVERHEAD_ESTIMATE) * 4) / 5;
+          /*
+            If this is less than the targeted response size, scale proportionally, but by 50% of
+            the blocks at most (limiting how much this fluctuates with each individual request).
+          */
+          if response_byte_length < TARGET_RESPONSE_SIZE {
+            let bytes_per_block = response_byte_length.div_ceil(blocks_per_request);
+            /*
+              `bytes_per_block != 0` as `response_byte_length != 0`. This is as we received the
+              requested amount of blocks, a non-zero amount of blocks will have a non-zero byte
+              length, and we may assume as an invariant that `blocks_per_request != 0`.
+            */
+            let proportional_blocks_per_request = TARGET_RESPONSE_SIZE / bytes_per_block;
+            let fifty_percent_more_blocks =
+              blocks_per_request.saturating_add((blocks_per_request / 2).max(1));
+            blocks_per_request = proportional_blocks_per_request.min(fifty_percent_more_blocks);
+          }
+          /*
+            If this is more than the targeted response size, halve the current amount of blocks per
+            request.
+          */
+          if response_byte_length > TARGET_RESPONSE_SIZE {
+            blocks_per_request = (blocks_per_request / 2).max(1);
+          }
         }
       }
 

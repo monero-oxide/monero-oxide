@@ -156,7 +156,17 @@ impl IpStatement {
           L_terms.push((*b, *h));
         }
         L_terms.push((cl, u));
-        // Uses vartime since this isn't a ZK proof
+        /*
+          This call to `multiexp_vartime` is safe as the Bulletproofs inner-product proof is NOT a
+          zero-knowledge proof, as established in the Bulletproofs paper:
+
+          https://eprint.iacr.org/2017/1066
+
+          The resulting range proof, as offered by this library, _is_ zero-knowledge, yet this is
+          by achieving zero-knowledge _before_ this inner-product proof is invoked. Hence, the
+          inputs to this proof are NOT secret, and we do not have to be concerned about revealing
+          them via timing analysis.
+        */
         multiexp_vartime(&L_terms)
       };
       L_vec.push(CompressedPoint::from((L * INV_EIGHT.into()).compress().to_bytes()));

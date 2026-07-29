@@ -112,7 +112,11 @@ impl BorromeanRange {
     write_raw_vec(CompressedPoint::write, &self.bit_commitments, w)
   }
 
-  /// Verify the commitment contains a 64-bit value.
+  /// Verify the commitment contains a 64-bit coefficient for the `H` generator.
+  ///
+  /// This DOES NOT confirm that the result is a Pedersen commitment in the prime-order subgroup,
+  /// as the Monero protocol does not have such a bound. This MUST only be used as expected by the
+  /// Monero protocol, with all associated expectations.
   #[must_use]
   pub fn verify(&self, commitment: &CompressedPoint) -> bool {
     let Some(bit_commitments) = self

@@ -1,8 +1,9 @@
 [package]
 name = "monero-epee"
-version = "0.2.0"
+version = "0.2.1"
 description = "A library for working with `epee`-encoded data"
 license = "MIT"
+repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/epee"
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
 edition = "2021"
 rust-version = "1.81"

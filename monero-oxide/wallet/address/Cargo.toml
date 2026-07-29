@@ -20,10 +20,10 @@ thiserror = { version = "2", default-features = false }
 
 zeroize = { version = "^1.5", default-features = false, features = ["zeroize_derive"] }
 
-monero-io = { path = "../../io", default-features = false }
-monero-ed25519 = { path = "../../ed25519", default-features = false }
-monero-primitives = { path = "../../primitives", default-features = false }
-monero-base58 = { path = "../base58", default-features = false }
+monero-io = { path = "../../io", version = "0.1", default-features = false }
+monero-ed25519 = { path = "../../ed25519", version = "0.1", default-features = false }
+monero-primitives = { path = "../../primitives", version = "0.1", default-features = false }
+monero-base58 = { path = "../base58", version = "0.1", default-features = false }
 
 [dev-dependencies]
 rand_core = { version = "0.6", default-features = false, features = ["std"] }

@@ -1,4 +1,5 @@
 name: no-std build
+permissions: {}
 
 on:
   push:
@@ -20,21 +21,27 @@ on:
 
 jobs:
   build:
+    name: Confirm all no-`std` crates build for no-`std` targets
     strategy:
       matrix:
         os: [ubuntu-latest, macos-26-intel, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # 6.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # 7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Install Build Dependencies
+      - name: Build Dependencies
         uses: ./.github/actions/build-dependencies
 
       - name: Get nightly version to use
         id: nightly
         shell: bash
-        run: echo "version=$(cat .github/nightly-version)" >> $GITHUB_OUTPUT
+        run: |
+          # Ensure `nightly-version` only contains numbers and dashes
+          [ $(grep -v "^[0-9-]*$" .github/nightly-version | wc -l || true) -eq 0 ]
+          echo "NIGHTLY_VERSION=nightly-$(cat .github/nightly-version)" >> "$GITHUB_ENV"
 
       - name: Install RISC-V Toolchain
         shell: bash
@@ -43,22 +50,23 @@ jobs:
             sudo apt install -y gcc-riscv64-unknown-elf gcc-multilib
           elif [ "$RUNNER_OS" = "macOS" ]; then
             brew tap riscv-software-src/riscv
+            brew trust riscv-software-src/riscv
             brew install riscv-tools
           elif [ "$RUNNER_OS" = "Windows" ]; then
             /C/msys64/usr/bin/pacman.exe -Syu --noconfirm
-            /C/msys64/usr/bin/pacman.exe -S --noconfirm mingw-w64-x86_64-riscv32-unknown-elf-gcc
+            /C/msys64/usr/bin/pacman.exe -S --noconfirm mingw-w64-clang-x86_64-riscv32-unknown-elf-gcc
           fi
 
       - name: Verify no-std builds
         shell: bash
         run: |
-          rustup +${{ steps.nightly.outputs.version }} component add rust-src
+          rustup +$NIGHTLY_VERSION component add rust-src
 
           if [ "$RUNNER_OS" = "Linux" ]; then
             export CFLAGS=-I/usr/include
           elif [ "$RUNNER_OS" = "Windows" ]; then
-            export PATH="$PATH:/C/msys64/mingw64/bin"
+            export PATH="$PATH:/C/msys64/clang64/bin"
           fi
 
-          cargo +${{ steps.nightly.outputs.version }} build --target riscv32imac-unknown-none-elf -Z build-std=core -p monero-oxide-no-std-tests
-          cargo +${{ steps.nightly.outputs.version }} build --target riscv32imac-unknown-none-elf -Z build-std=core,alloc -p monero-oxide-no-std-tests --features "alloc"
+          cargo +$NIGHTLY_VERSION build --target riscv32imac-unknown-none-elf -Z build-std=core -p monero-oxide-no-std-tests
+          cargo +$NIGHTLY_VERSION build --target riscv32imac-unknown-none-elf -Z build-std=core,alloc -p monero-oxide-no-std-tests --features "alloc"
