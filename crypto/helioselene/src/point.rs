@@ -387,7 +387,13 @@ macro_rules! curve {
       }
 
       fn to_bytes(&self) -> Self::Repr {
-        // If this the identity, set `z = 0`, causing `x = 0, y = 0`
+        /*
+          If this is the identity, set `z = 0`, causing `x = 0, y = 0`.
+
+          `x = 0` causes the encoded coordinate to be `0`, as desired. `y = 0` causes the sign bit
+          to be `0`, making the resulting encoding entirely zero bits (as used to represent the
+          identity).
+        */
         let z = self.z.invert().unwrap_or($Field::ZERO);
         let x = self.x * z;
         let y = self.y * z;
