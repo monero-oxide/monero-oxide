@@ -362,18 +362,22 @@ macro_rules! curve {
             y
           });
 
-          // If this the identity, set y to 1
-          let y =
-            CtOption::conditional_select(&y, &CtOption::new($Field::ONE, 1.into()), is_identity);
-          // Create the point if we have a y solution
+          // Create the point if we have a solution for `y`
           let point = y.map(|y| $Point { x, y, z: $Field::ONE });
 
-          let not_negative_zero = !(is_identity & sign);
-          // Only return the point if it isn't -0
+          // Set this to the identity, if it is the encoding of the identity
+          let point = <_>::conditional_select(
+            &point,
+            &CtOption::new($Point::identity(), 1.into()),
+            is_identity,
+          );
+
+          // Only return the point if it isn't `-identity` nor `-0`
+          let positive_is_negative = is_identity | y.map(|y| y.is_zero()).unwrap_or(0.into());
           CtOption::conditional_select(
             &CtOption::new($Point::identity(), 0.into()),
             &point,
-            not_negative_zero,
+            !(sign & positive_is_negative),
           )
         })
       }
@@ -383,15 +387,15 @@ macro_rules! curve {
       }
 
       fn to_bytes(&self) -> Self::Repr {
-        let Some(z) = Option::<$Field>::from(self.z.invert()) else { return [0; 32] };
+        // If this the identity, set `z = 0`, causing `x = 0, y = 0`
+        let z = self.z.invert().unwrap_or($Field::ZERO);
         let x = self.x * z;
         let y = self.y * z;
 
         let mut bytes = x.to_repr();
         let mut_ref: &mut [u8] = bytes.as_mut();
 
-        // Normalize the sign to 0 when x is 0
-        let y_sign = u8::conditional_select(&y.is_odd().unwrap_u8(), &0, x.ct_eq(&$Field::ZERO));
+        let y_sign = y.is_odd().unwrap_u8();
         mut_ref[31] |= y_sign << 7;
         bytes
       }
