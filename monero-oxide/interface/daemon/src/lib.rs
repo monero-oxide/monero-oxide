@@ -156,23 +156,25 @@ impl<T: HttpTransport> MoneroDaemon<T> {
        { "jsonrpc": "2.0", "method": "on_get_block_hash", "params": [0], "id": 0 },
        { "jsonrpc": "2.0", "method": "on_get_block_hash", "params": [1], "id": 1 }
       ]"#;
-      let response: serde_json::Value =
-        result.rpc_call_internal("json_rpc", Some(BATCH_REQUEST.to_owned()), 0).await?;
-      if let Some(error) = response.get("error") {
-        /*
-          If the server failed to parse our valid JSON, we assume it's because it's expecting an
-          object (while we sent an array, as allowed under the JSON-RPC 2.0 specification).
+      let batch_probe = result.rpc_call_core("json_rpc", Some(BATCH_REQUEST.to_owned()), 0).await;
+      match batch_probe {
+        Ok(raw_response) => {
+          /*
+            Batch requests are an optimization, not a correctness requirement.
 
-          https://www.jsonrpc.org/specification#batch
-        */
-        if error.get("code") == Some(&serde_json::Value::from(-32700i32)) {
-          result.supports_json_rpc_batch_requests = false;
-        } else {
-          Err(InterfaceError::InvalidInterface(format!(
-            "interface returned error when attempting a batch request, code {:?}",
-            error.get("code").map(|code| code.as_number())
-          )))?;
+            Some compatible daemons reject batch JSON-RPC at the HTTP layer (for example by
+            returning a non-JSON body while still supporting normal single-request JSON-RPC).
+            Treat that as "batch unsupported" instead of rejecting the node outright.
+          */
+          if let Ok(response) = serde_json::from_str::<serde_json::Value>(&raw_response) {
+            if response.get("error").is_some() {
+              result.supports_json_rpc_batch_requests = false;
+            }
+          } else {
+            result.supports_json_rpc_batch_requests = false;
+          }
         }
+        Err(err) => return Err(err),
       }
     }
 
