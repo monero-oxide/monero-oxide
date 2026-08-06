@@ -1,6 +1,4 @@
-[![Documentation](https://docs.rs/monero-oxide/badge.svg)](https://docs.rs/monero-oxide)
-
-# monero-oxide
+# [monero-oxide](https://docs.rs/monero-oxide)
 
 A modern Monero transaction library. It provides a modern, Rust-friendly view of
 the Monero protocol.
