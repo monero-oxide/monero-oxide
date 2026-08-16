@@ -74,8 +74,8 @@ impl CompressedPoint {
   /// The `T` generator for the Monero protocol.
   #[rustfmt::skip]
   pub const T: Self = Self([
-     97, 183,  54, 206, 147, 182,  42,  61,  55, 120, 171,  32,  77, 168,  93,  59,
-     76, 220,   7,  37,  15,  93, 167, 227, 223,  38,  41, 146, 129,  52, 213,  38,
+    220, 66, 225, 211, 48, 123, 45, 75, 59,   2, 114, 154, 190,  87, 126,  35,
+     29, 121, 71, 129, 65, 203, 91, 49, 12, 169, 250, 110,  18, 118,  22, 163,
   ]);
 
   /// Read a [`CompressedPoint`] without checking if this point can be decompressed.
