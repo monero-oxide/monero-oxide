@@ -27,6 +27,7 @@ fn constants() {
     )
   );
 
+
   assert_eq!(
     CompressedPoint::T,
     Point::hash(Keccak256::digest(b"Monero Generator T").into()).compress(),
