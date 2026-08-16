@@ -11,15 +11,27 @@ use group::{prime::PrimeGroup, GroupEncoding};
 use helioselene::{HeliosPoint, SelenePoint, Helios, Selene};
 
 use monero_primitives::keccak256;
-use monero_ed25519::Point;
+use monero_ed25519::{CompressedPoint, Point};
 
 /// FCMP++s's key-image generator blinding generator `U`.
-pub static FCMP_PLUS_PLUS_U: LazyLock<Point> =
-  LazyLock::new(|| Point::hash(keccak256(b"Monero FCMP++ Generator U")));
+pub static FCMP_PLUS_PLUS_U: LazyLock<Point> = LazyLock::new(|| {
+  CompressedPoint::from([
+    138, 148, 142, 40, 84, 7, 58, 160, 188, 184, 47, 134, 60, 128, 134, 91, 92, 201, 190, 23, 151,
+    35, 252, 28, 191, 28, 37, 184, 133, 89, 126, 84,
+  ])
+  .decompress()
+  .expect("Failed to de-compress Monero FCMP++ Generator U")
+});
 
 /// FCMP++s's randomness commitment generator `V`.
-pub static FCMP_PLUS_PLUS_V: LazyLock<Point> =
-  LazyLock::new(|| Point::hash(keccak256(b"Monero FCMP++ Generator V")));
+pub static FCMP_PLUS_PLUS_V: LazyLock<Point> = LazyLock::new(|| {
+  CompressedPoint::from([
+    26, 66, 53, 9, 247, 103, 94, 145, 32, 17, 209, 75, 86, 16, 168, 87, 221, 213, 136, 115, 52, 19,
+    181, 21, 224, 3, 188, 64, 85, 133, 91, 241,
+  ])
+  .decompress()
+  .expect("Failed to de-compress Monero FCMP++ Generator V")
+});
 
 /// The maximum amount of input tuples provable for within a single FCMP.
 // https://github.com/seraphis-migration/monero
@@ -223,4 +235,18 @@ fn single_and_multithreaded_generators() {
   assert_eq!(single.generators.h(), multi.generators.h());
   assert_eq!(single.generators.g_bold_slice(), multi.generators.g_bold_slice());
   assert_eq!(single.generators.h_bold_slice(), multi.generators.h_bold_slice());
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn reproduce_U() {
+  let reproduced_U = Point::hash(keccak256(b"Monero FCMP++ Generator U"));
+  assert_eq!(*FCMP_PLUS_PLUS_U, reproduced_U);
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn reproduce_V() {
+  let reproduced_V = Point::hash(keccak256(b"Monero FCMP++ Generator V"));
+  assert_eq!(*FCMP_PLUS_PLUS_V, reproduced_V);
 }
