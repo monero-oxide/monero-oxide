@@ -19,29 +19,18 @@ use generalized_bulletproofs::{
 fn test_zero_arithmetic_circuit() {
   let generators = insecure_test_generators(&mut OsRng, 1).unwrap();
 
-  let value = <Ristretto as Ciphersuite>::F::random(&mut OsRng);
-  let gamma = <Ristretto as Ciphersuite>::F::random(&mut OsRng);
-  let commitment = (generators.g() * value) + (generators.h() * gamma);
-  let V = vec![commitment];
-
   let aL = vec![<Ristretto as Ciphersuite>::F::ZERO];
   let aR = aL.clone();
 
   let mut transcript = Transcript::new([0; 32]);
-  let commitments = transcript.write_commitments(vec![], V);
+  let commitments = transcript.write_commitments(vec![], vec![]);
   let statement = ArithmeticCircuitStatement::<Ristretto>::new(
     generators.reduce(1).unwrap(),
     vec![],
     commitments.clone(),
   )
   .unwrap();
-  let witness = ArithmeticCircuitWitness::<Ristretto>::new(
-    aL,
-    aR,
-    vec![],
-    vec![PedersenCommitment { value, mask: gamma }],
-  )
-  .unwrap();
+  let witness = ArithmeticCircuitWitness::<Ristretto>::new(aL, aR, vec![], vec![]).unwrap();
 
   let proof = {
     statement.clone().prove(&mut OsRng, &mut transcript, witness).unwrap();
@@ -50,7 +39,7 @@ fn test_zero_arithmetic_circuit() {
   let mut verifier = Generators::batch_verifier();
 
   let mut transcript = VerifierTranscript::new([0; 32], &proof);
-  let verifier_commmitments = transcript.read_commitments(0, 1);
+  let verifier_commmitments = transcript.read_commitments(0, 0);
   assert_eq!(commitments, verifier_commmitments.unwrap());
   statement.verify(&mut OsRng, &mut verifier, &mut transcript).unwrap();
   assert!(generators.verify(verifier));
@@ -138,6 +127,8 @@ fn fuzz_test_arithmetic_circuit() {
       });
     }
 
+    let mut constraints = vec![];
+
     // Create V
     let mut V = vec![];
     while V.len() < (OsRng.next_u64() % 4).try_into().unwrap() {
@@ -145,10 +136,15 @@ fn fuzz_test_arithmetic_circuit() {
         value: <Ristretto as Ciphersuite>::F::random(&mut OsRng),
         mask: <Ristretto as Ciphersuite>::F::random(&mut OsRng),
       });
+
+      // Ensure this has at least one constraint constraining it
+      let mut constraint = LinComb::empty();
+      constraint = constraint.term(-<Ristretto as Ciphersuite>::F::ONE, Variable::V(V.len() - 1));
+      constraint = constraint.constant(V[V.len() - 1].value);
+      constraints.push(constraint);
     }
 
     // Generate random constraints
-    let mut constraints = vec![];
     for _ in 0 .. (OsRng.next_u64() % 8).try_into().unwrap() {
       let mut eval = <Ristretto as Ciphersuite>::F::ZERO;
       let mut constraint = LinComb::empty();

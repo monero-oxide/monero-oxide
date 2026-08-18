@@ -39,7 +39,17 @@ the implementation, yielding [this audit](./Audit.pdf), yet also
 Unfortunately, the protocol had a flaw found in it by Brandon Goodell, while a
 researcher at Cypher Stack, who proceeded to publish a
 [drafted fix](https://github.com/cypherstack/generalized-bulletproofs-fix).
-This is the version currently in use which has not been audited.
+
+The drafted fix was reviewed, and the implementation audited again, by
+[zkSecurity](https://reports.zksecurity.xyz/reports/generalized-bulletproofs/).
+As part of this review, an improved proof was posited, but this has not been
+implemented at this time as part of a desire to be done with further changes.
+
+Independently, zkSecurity published a
+[repository of Lean proofs arguing the security of Generalized Bulletproofs](
+  https://github.com/zksecurity/bulletproofs-formal-verification
+), though these proofs are not claimed to directly correspond to the version
+implemented here.
 
 For provenance, please see the following links.
 - https://github.com/cypherstack/generalized-bulletproofs/releases
