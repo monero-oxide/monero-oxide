@@ -1,6 +1,6 @@
 [package]
 name = "monero-simple-request-rpc"
-version = "0.1.0"
+version = "0.1.1"
 description = "RPC connection to a Monero daemon via simple-request, built around monero-oxide"
 license = "MIT"
 repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/interface/daemon/simple-request"
