@@ -1,6 +1,6 @@
 [package]
 name = "monero-interface"
-version = "0.2.0"
+version = "0.2.1"
 description = "Traits for interfacing with the Monero network, built around monero-oxide"
 license = "MIT"
 repository = "https://github.com/monero-oxide/monero-oxide/tree/main/monero-oxide/interface"
