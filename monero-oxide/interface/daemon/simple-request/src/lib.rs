@@ -170,6 +170,7 @@ impl SimpleRequestTransport {
 
     let request_fn = |uri| {
       Request::post(uri)
+        .header("Content-Type", "application/json")
         .body(body.clone().into())
         .map_err(|e| InterfaceError::InterfaceError(format!("couldn't make request: {e:?}")))
     };
