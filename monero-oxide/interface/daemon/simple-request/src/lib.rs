@@ -169,8 +169,12 @@ impl SimpleRequestTransport {
     let _read_response_before_next_request = self.read_response_before_next_request.lock().await;
 
     let request_fn = |uri| {
-      Request::post(uri)
-        .header("Content-Type", "application/json")
+      let mut request = Request::post(uri);
+      #[expect(clippy::case_sensitive_file_extension_comparisons)]
+      if !route.ends_with(".bin") {
+        request = request.header("Content-Type", "application/json");
+      }
+      request
         .body(body.clone().into())
         .map_err(|e| InterfaceError::InterfaceError(format!("couldn't make request: {e:?}")))
     };
