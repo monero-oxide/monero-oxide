@@ -7,6 +7,28 @@ for documentation of these curves, and our
   https://github.com/monero-oxide/monero-oxide/tree/fcmp++/audits
 ).
 
+### Lifetime of Secrets
+
+If a secret (such as a private key) is represented as a scalar, it SHOULD be
+handled with care in order to not leave copies littered around the program's
+memory. The
+`helioselene::{Field25519, HelioseleneField, HeliosPoint, SelenePoint}` types
+support [`zeroize::Zeroize`], allowing callers to explicitly zero them out in
+memory.
+
+This library, internally, solely uses the stack for all variables _except_ when
+performing IO operations. This means the lifetimes for all variables SHOULD be
+limited to however long they're in use for, with the unfortunate
+acknowledgement the compiler MAY not immediately clean up stack frames. This is
+considered out of scope to `helioselene`, where the caller MAY make an effort
+to handle this via [`zeroize::zeroize_stack`]. The handling of any variables
+which cross an IO boundary are considered entirely out of scope to
+`helioselene`.
+
+`helioselene` MAY selectively zero out some intermediate variables at its
+discretion, yet makes no guarantees to do so, and will not consider the lack of
+inherent zeroization as a security issue.
+
 ### Bespoke Field Implementation
 
 The Helios, Selene curves use the `2**255-19` finite field used by Ed25519,

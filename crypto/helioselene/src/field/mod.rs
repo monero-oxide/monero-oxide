@@ -174,9 +174,15 @@ impl HelioseleneField {
     verified::pow(self, exp)
   }
 
-  /// Perform a wide reduction, presumably to obtain a non-biased Helioselene field element.
-  pub fn wide_reduce(bytes: [u8; 64]) -> HelioseleneField {
-    verified::red512((U256::from_le_slice(&bytes[.. 32]), U256::from_le_slice(&bytes[32 ..])))
+  /// Perform a wide reduction.
+  ///
+  /// This is suitable to obtain a (statistically-close-to-)unbiased Helioselene field element when
+  /// the input is uniformly distributed.
+  pub fn wide_reduce(mut bytes: [u8; 64]) -> HelioseleneField {
+    let result =
+      verified::red512((U256::from_le_slice(&bytes[.. 32]), U256::from_le_slice(&bytes[32 ..])));
+    bytes.zeroize();
+    result
   }
 }
 
@@ -194,7 +200,10 @@ impl Field for HelioseleneField {
     rng.fill_bytes(&mut a);
     let mut b = [0; 32];
     rng.fill_bytes(&mut b);
-    verified::red512((U256::from_le_slice(&a), U256::from_le_slice(&b)))
+    let result = verified::red512((U256::from_le_slice(&a), U256::from_le_slice(&b)));
+    a.zeroize();
+    b.zeroize();
+    result
   }
 
   #[inline(always)]
