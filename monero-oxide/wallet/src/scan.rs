@@ -190,14 +190,10 @@ impl InternalScanner {
           // Only compute shared_key once the view tag matches.
           let shared_key = SharedKeyDerivations::output_shared_key(uniqueness, ecdh, o);
 
-          SharedKeyDerivations { view_tag: expected_view_tag, shared_key }
+          Zeroizing::new(SharedKeyDerivations { view_tag: expected_view_tag, shared_key })
         } else {
           // No view tag available: fall back to deriving both values in one pass.
-          let derivations = SharedKeyDerivations::output_derivations(uniqueness, ecdh, o);
-          SharedKeyDerivations {
-            view_tag: derivations.view_tag,
-            shared_key: derivations.shared_key,
-          }
+          SharedKeyDerivations::output_derivations(uniqueness, ecdh, o)
         };
 
         // P - shared == spend

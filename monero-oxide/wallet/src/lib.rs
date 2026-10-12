@@ -99,18 +99,19 @@ impl SharedKeyDerivations {
       Self::encode_varint_u64(u64::try_from(o).expect("output index fits into u64"), &mut o_buf);
 
     // view_tag = keccak256("view_tag" || 8Ra || o_varint)[0] (allocation-free)
-    let view_tag = Self::compute_view_tag_from_parts(&ra_bytes, &o_buf[.. o_len]);
+    let view_tag = Self::compute_view_tag_from_parts(&ra_bytes[..], &o_buf[.. o_len]);
 
     // shared_key = Scalar::hash( (uniqueness?) || 8Ra || o_varint )
     //
     // NOTE: Scalar::hash still takes a slice, so we still build a minimal buffer here.
     // Avoid concat patterns and keep it tight.
-    let mut shared_key_input =
-      Vec::with_capacity(uniqueness.as_ref().map(|_| 32).unwrap_or(0) + ra_bytes.len() + o_len);
+    let mut shared_key_input = Zeroizing::new(
+      Vec::with_capacity(uniqueness.as_ref().map(|_| 32).unwrap_or(0) + ra_bytes.len() + o_len),
+    );
     if let Some(u) = uniqueness {
       shared_key_input.extend_from_slice(u.as_slice());
     }
-    shared_key_input.extend_from_slice(&ra_bytes);
+    shared_key_input.extend_from_slice(&ra_bytes[..]);
     shared_key_input.extend_from_slice(&o_buf[.. o_len]);
 
     Zeroizing::new(SharedKeyDerivations { view_tag, shared_key: Scalar::hash(&shared_key_input) })
@@ -127,9 +128,9 @@ impl SharedKeyDerivations {
   }
 
   #[inline]
-  fn compute_ra_bytes(ecdh: &Point) -> [u8; 32] {
+  fn compute_ra_bytes(ecdh: &Point) -> Zeroizing<[u8; 32]> {
     // 8Ra (32 bytes) - keep on stack to avoid heap allocation
-    (*ecdh).into().mul_by_cofactor().compress().to_bytes()
+    Zeroizing::new((*ecdh).into().mul_by_cofactor().compress().to_bytes())
   }
 
   #[inline]
@@ -159,7 +160,7 @@ impl SharedKeyDerivations {
     let o_len =
       Self::encode_varint_u64(u64::try_from(o).expect("output index fits into u64"), &mut o_buf);
 
-    Self::compute_view_tag_from_parts(&ra_bytes, &o_buf[.. o_len])
+    Self::compute_view_tag_from_parts(&ra_bytes[..], &o_buf[.. o_len])
   }
 
   // Compute only the shared key (for outputs that passed the view tag check).
@@ -171,12 +172,13 @@ impl SharedKeyDerivations {
     let o_len =
       Self::encode_varint_u64(u64::try_from(o).expect("output index fits into u64"), &mut o_buf);
 
-    let mut shared_key_input =
-      Vec::with_capacity(uniqueness.as_ref().map(|_| 32).unwrap_or(0) + ra_bytes.len() + o_len);
+    let mut shared_key_input = Zeroizing::new(
+      Vec::with_capacity(uniqueness.as_ref().map(|_| 32).unwrap_or(0) + ra_bytes.len() + o_len),
+    );
     if let Some(u) = uniqueness {
       shared_key_input.extend_from_slice(u.as_slice());
     }
-    shared_key_input.extend_from_slice(&ra_bytes);
+    shared_key_input.extend_from_slice(&ra_bytes[..]);
     shared_key_input.extend_from_slice(&o_buf[.. o_len]);
 
     Scalar::hash(&shared_key_input)
@@ -192,12 +194,12 @@ impl SharedKeyDerivations {
     );
 
     // Avoid allocating a concatenated Vec by appending the marker byte into a small buffer.
-    let mut buf = Vec::with_capacity(output_derivation.len() + 1);
+    let mut buf = Zeroizing::new(Vec::with_capacity(output_derivation.len() + 1));
     buf.extend_from_slice(output_derivation.as_slice());
     buf.push(0x8d);
 
     let mut payment_id_xor = [0; 8];
-    payment_id_xor.copy_from_slice(&keccak256(buf)[.. 8]);
+    payment_id_xor.copy_from_slice(&keccak256(&buf)[.. 8]);
     payment_id_xor
   }
 
