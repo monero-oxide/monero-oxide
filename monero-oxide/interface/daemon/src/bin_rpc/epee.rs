@@ -394,13 +394,37 @@ pub(super) fn extract_blocks_from_blocks_bin(
 pub(super) fn extract_output_indexes(epee: &[u8]) -> Result<Vec<u64>, InterfaceError> {
   let mut epee = Epee::new(epee).map_err(EpeeError)?;
   let mut epee = epee.entry().map_err(EpeeError)?.fields().map_err(EpeeError)?;
-  let Some(mut indexes) = optional_field!(epee, "o_indexes", EpeeEntry::iterate)? else {
+  let Some(indexes) = optional_field!(epee, "o_indexes", Ok)? else {
     return Ok(vec![]);
   };
 
-  let mut res = vec![];
-  while let Some(index) = indexes.next() {
-    res.push(index.map_err(EpeeError)?.to_u64().map_err(EpeeError)?);
+  match indexes.kind() {
+    Type::String => {
+      let bytes = indexes.to_str().map_err(EpeeError)?.consume();
+      if (bytes.len() % 8) != 0 {
+        return Err(InterfaceError::InvalidInterface(
+          "`get_o_indexes.bin` returned packed indexes with a non-u64 byte length".to_owned(),
+        ));
+      }
+      read_u64_array_from_epee(bytes.len() / 8, bytes)
+    }
+    Type::Int64 |
+    Type::Int32 |
+    Type::Int16 |
+    Type::Int8 |
+    Type::Uint64 |
+    Type::Uint32 |
+    Type::Uint16 |
+    Type::Uint8 |
+    Type::Double |
+    Type::Bool |
+    Type::Object => {
+      let mut indexes = indexes.iterate().map_err(EpeeError)?;
+      let mut res = vec![];
+      while let Some(index) = indexes.next() {
+        res.push(index.map_err(EpeeError)?.to_u64().map_err(EpeeError)?);
+      }
+      Ok(res)
+    }
   }
-  Ok(res)
 }

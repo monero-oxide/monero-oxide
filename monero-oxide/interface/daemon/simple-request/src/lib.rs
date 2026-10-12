@@ -21,6 +21,20 @@ use monero_daemon_rpc::{prelude::InterfaceError, HttpTransport, MoneroDaemon};
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
+type JsonRequest = Request<simple_request::Full<simple_request::hyper::body::Bytes>>;
+
+fn post_request(uri: String, route: &str, body: Vec<u8>) -> Result<JsonRequest, InterfaceError> {
+  let content_type = if route.ends_with(".bin") {
+    "application/octet-stream"
+  } else {
+    "application/json"
+  };
+  Request::post(uri)
+    .header("content-type", content_type)
+    .body(body.into())
+    .map_err(|e| InterfaceError::InterfaceError(format!("couldn't make request: {e:?}")))
+}
+
 #[derive(Clone)]
 enum Authentication {
   // If unauthenticated, use a single client
@@ -168,11 +182,7 @@ impl SimpleRequestTransport {
     */
     let _read_response_before_next_request = self.read_response_before_next_request.lock().await;
 
-    let request_fn = |uri| {
-      Request::post(uri)
-        .body(body.clone().into())
-        .map_err(|e| InterfaceError::InterfaceError(format!("couldn't make request: {e:?}")))
-    };
+    let request_fn = |uri| post_request(uri, route, body.clone());
 
     let apply_response_size_limit = |request: Request<_>| -> simple_request::Request {
       let mut request = simple_request::Request::from(request);
@@ -326,5 +336,35 @@ impl HttpTransport for SimpleRequestTransport {
         .await
         .map_err(|e| InterfaceError::InterfaceError(format!("timeout reached: {e:?}")))?
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::post_request;
+
+  #[test]
+  fn json_rpc_post_sets_application_json_content_type() {
+    let request = post_request(
+      "http://localhost/json_rpc".to_owned(),
+      "json_rpc",
+      b"{}".to_vec(),
+    )
+    .unwrap();
+    assert_eq!(request.headers().get("content-type").unwrap(), "application/json");
+  }
+
+  #[test]
+  fn binary_rpc_post_sets_application_octet_stream_content_type() {
+    let request = post_request(
+      "http://localhost/get_outs.bin".to_owned(),
+      "get_outs.bin",
+      vec![0; 8],
+    )
+    .unwrap();
+    assert_eq!(
+      request.headers().get("content-type").unwrap(),
+      "application/octet-stream"
+    );
   }
 }

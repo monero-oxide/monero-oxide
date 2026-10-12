@@ -206,7 +206,7 @@ impl SignableTransaction {
       let addr = payment.address();
       res.push(SharedKeyDerivations::output_derivations(
         addr.is_guaranteed().then_some(uniqueness),
-        ecdh,
+        &ecdh,
         i,
       ));
     }
