@@ -2,7 +2,7 @@ use core::{
   fmt,
   ops::{Add, Sub, Div},
 };
-use std_shims::{vec, vec::Vec};
+use std_shims::{vec, vec::Vec, alloc::boxed::Box};
 
 use generic_array::typenum::{Sum, Diff, Quot, U1, U2};
 
@@ -65,7 +65,7 @@ where
 /// A tabled generator for proving/verifying discrete logarithm claims.
 #[derive(Clone)]
 pub struct GeneratorTable<F: PrimeField, Parameters: DiscreteLogParameters>(
-  GenericArray<(F, F), Parameters::ScalarBits>,
+  Box<GenericArray<(F, F), Parameters::ScalarBits>>,
 );
 
 impl<F: PrimeField, Parameters: DiscreteLogParameters> fmt::Debug
@@ -110,7 +110,7 @@ impl<F: PrimeField, Parameters: DiscreteLogParameters> GeneratorTable<F, Paramet
       (x3, y3)
     }
 
-    let mut res = Self(GenericArray::default());
+    let mut res = Self(GenericArray::default_boxed());
     res.0[0] = (generator_x, generator_y);
     for i in 1 .. Parameters::ScalarBits::USIZE {
       let last = res.0[i - 1];
@@ -133,13 +133,13 @@ pub struct Divisor<Parameters: DiscreteLogParameters> {
   /// exceeding trivial complexity.
   pub y: Variable,
   /// The coefficients for the `y**1 x**i` terms of the polynomial.
-  pub yx: GenericArray<Variable, Parameters::YxCoefficients>,
+  pub yx: Box<GenericArray<Variable, Parameters::YxCoefficients>>,
   /// The coefficients for the `x**i` terms of the polynomial, skipping x**1.
   ///
   /// x**1 is skipped as it's expected to be normalized to 1, and therefore constant, in order to
   /// ensure the divisor is non-zero (as necessary for the proof to be complete).
   // Subtract 1 from the length due to skipping the coefficient for x**1
-  pub x_from_power_of_2: GenericArray<Variable, Parameters::XCoefficientsMinusOne>,
+  pub x_from_power_of_2: Box<GenericArray<Variable, Parameters::XCoefficientsMinusOne>>,
   /// The constant term in the polynomial (alternatively, the coefficient for y**0 x**0).
   pub zero: Variable,
 }
@@ -150,7 +150,7 @@ pub struct PointWithDlog<Parameters: DiscreteLogParameters> {
   /// The point which is supposedly the result of scaling the generator by the discrete logarithm.
   pub point: (Variable, Variable),
   /// The discrete logarithm, represented as coefficients of a polynomial of 2**i.
-  pub dlog: GenericArray<Variable, Parameters::ScalarBits>,
+  pub dlog: Box<GenericArray<Variable, Parameters::ScalarBits>>,
   /// The divisor interpolating the relevant doublings of generator with the inverse of the point.
   pub divisor: Divisor<Parameters>,
 }
@@ -161,10 +161,10 @@ pub struct PointWithDlog<Parameters: DiscreteLogParameters> {
 /// challenge points.
 struct ChallengePoint<F: PrimeField, Parameters: DiscreteLogParameters> {
   y: F,
-  yx: GenericArray<F, Parameters::YxCoefficients>,
-  x: GenericArray<F, Parameters::XCoefficients>,
+  yx: Box<GenericArray<F, Parameters::YxCoefficients>>,
+  x: Box<GenericArray<F, Parameters::XCoefficients>>,
   p_0_n_0: F,
-  x_p_0_n_0: GenericArray<F, Parameters::YxCoefficients>,
+  x_p_0_n_0: Box<GenericArray<F, Parameters::YxCoefficients>>,
   p_1_n: F,
   p_1_d: F,
 }
@@ -183,7 +183,7 @@ impl<F: PrimeField, Parameters: DiscreteLogParameters> ChallengePoint<F, Paramet
   ) -> Self {
     // Powers of x, skipping x**0
     let divisor_x_len = Parameters::XCoefficients::USIZE;
-    let mut x_pows = GenericArray::default();
+    let mut x_pows = GenericArray::default_boxed();
     x_pows[0] = x;
     for i in 1 .. divisor_x_len {
       let last = x_pows[i - 1];
@@ -192,7 +192,7 @@ impl<F: PrimeField, Parameters: DiscreteLogParameters> ChallengePoint<F, Paramet
 
     // Powers of x multiplied by y
     let divisor_yx_len = Parameters::YxCoefficients::USIZE;
-    let mut yx = GenericArray::default();
+    let mut yx = GenericArray::default_boxed();
     // Skips x**0
     yx[0] = y * x;
     for i in 1 .. divisor_yx_len {
@@ -207,7 +207,7 @@ impl<F: PrimeField, Parameters: DiscreteLogParameters> ChallengePoint<F, Paramet
 
     // p_0_n_0 from `DivisorChallenge`
     let p_0_n_0 = three_x_sq_plus_a * inv_two_y;
-    let mut x_p_0_n_0 = GenericArray::default();
+    let mut x_p_0_n_0 = GenericArray::default_boxed();
     // Since this iterates over x, which skips x**0, this also skips p_0_n_0 x**0
     for (i, x) in x_pows.iter().take(divisor_yx_len).enumerate() {
       x_p_0_n_0[i] = p_0_n_0 * x;
@@ -284,7 +284,7 @@ fn divisor_challenge_eval<C: Ciphersuite, Parameters: DiscreteLogParameters>(
   let p_0_d = {
     let mut p_0_d = LinComb::empty().term(challenge.y, divisor.y);
 
-    for (var, c_yx) in divisor.yx.iter().zip(&challenge.yx) {
+    for (var, c_yx) in divisor.yx.iter().zip(challenge.yx.iter()) {
       p_0_d = p_0_d.term(*c_yx, *var);
     }
 
@@ -330,7 +330,7 @@ pub struct DiscreteLogChallenge<F: PrimeField, Parameters: DiscreteLogParameters
 /// A generator which has been challenged and is ready for use in evaluating discrete logarithm
 /// claims.
 pub struct ChallengedGenerator<F: PrimeField, Parameters: DiscreteLogParameters>(
-  GenericArray<F, Parameters::ScalarBits>,
+  Box<GenericArray<F, Parameters::ScalarBits>>,
 );
 
 /// Gadgets for proving the discrete logarithm of points on an elliptic curve defined over the
@@ -487,7 +487,7 @@ where
     // Fill in the inverted values
     let mut challenged_generators = Vec::with_capacity(generators.len());
     for _ in 0 .. generators.len() {
-      let mut challenged_generator = GenericArray::default();
+      let mut challenged_generator = GenericArray::default_boxed();
       for i in 0 .. Parameters::ScalarBits::USIZE {
         challenged_generator[i] = inversions.next().unwrap();
       }
@@ -533,7 +533,7 @@ where
     let mut rhs_eval = LinComb::empty();
     // We call this `bit` yet it's not constrained to being a bit
     // It's presumed to be yet may be malleated
-    for (bit, weight) in dlog.into_iter().zip(&challenged_generator.0) {
+    for (bit, weight) in dlog.into_iter().zip(challenged_generator.0.iter()) {
       rhs_eval = rhs_eval.term(*weight, bit);
     }
 
