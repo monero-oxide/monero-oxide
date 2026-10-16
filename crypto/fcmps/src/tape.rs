@@ -108,12 +108,13 @@ impl<F: Zeroize + PrimeFieldBits> VectorCommitmentTape<F> {
   /// If the discrete logarithm is less than 255 bits, additional extra elements may be provided
   /// (`padding`), yet these are only accessible on certain curves. This function panics if more
   /// elements are provided in `padding` than free spaces remaining.
+  #[allow(clippy::type_complexity)]
   pub(crate) fn append_dlog<Parameters: DiscreteLogParameters>(
     &mut self,
     dlog: Option<&[u64]>,
     padding: Option<Vec<F>>,
     extra: Option<F>,
-  ) -> (GenericArray<Variable, Parameters::ScalarBits>, Vec<Variable>, Variable) {
+  ) -> (Box<GenericArray<Variable, Parameters::ScalarBits>>, Vec<Variable>, Variable) {
     assert!(Parameters::ScalarBits::USIZE <= 255);
     let dlog_bits = Parameters::ScalarBits::USIZE;
 
@@ -148,7 +149,7 @@ impl<F: Zeroize + PrimeFieldBits> VectorCommitmentTape<F> {
 
     let extra = variables.pop().unwrap();
     let padding = variables.drain(dlog_bits .. 255).collect::<Vec<_>>();
-    let dlog = GenericArray::from_slice(&variables).clone();
+    let dlog = GenericArray::try_from_vec(variables).unwrap();
     (dlog, padding, extra)
   }
 
@@ -209,11 +210,11 @@ impl<F: Zeroize + PrimeFieldBits> VectorCommitmentTape<F> {
 
     let mut cursor_start = 1;
     let mut cursor_end = cursor_start + Parameters::YxCoefficients::USIZE;
-    let yx = GenericArray::from_slice(&variables[cursor_start .. cursor_end]).clone();
+    let yx = GenericArray::try_from_vec(variables[cursor_start .. cursor_end].to_vec()).unwrap();
     cursor_start = cursor_end;
     cursor_end += Parameters::XCoefficientsMinusOne::USIZE;
     let x_from_power_of_2 =
-      GenericArray::from_slice(&variables[cursor_start .. cursor_end]).clone();
+      GenericArray::try_from_vec(variables[cursor_start .. cursor_end].to_vec()).unwrap();
     let divisor = Divisor { y: variables[0], yx, x_from_power_of_2, zero: variables[cursor_end] };
 
     (divisor, extra)
