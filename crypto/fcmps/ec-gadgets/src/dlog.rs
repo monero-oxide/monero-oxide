@@ -2,7 +2,7 @@ use core::{
   fmt,
   ops::{Add, Sub, Div},
 };
-use std_shims::{vec, vec::Vec, prelude::Box};
+use std_shims::{vec, vec::Vec, alloc::boxed::Box};
 
 use generic_array::typenum::{Sum, Diff, Quot, U1, U2};
 
