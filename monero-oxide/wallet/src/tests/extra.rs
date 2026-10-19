@@ -68,6 +68,11 @@ fn pub_key() -> CompressedPoint {
   CompressedPoint::from(<[u8; 32]>::try_from(&PUB_KEY_BYTES[1 .. PUB_KEY_BYTES.len()]).unwrap())
 }
 
+const MERKLE_ROOT: [u8; 32] = [
+  0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
+  0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+];
+
 fn test_write_buf(extra: &Extra, buf: &[u8]) {
   let mut w: Vec<u8> = vec![];
   Extra::write(extra, &mut w).unwrap();
@@ -205,6 +210,147 @@ fn extra_mysterious_minergate_and_pub_key() {
     vec![ExtraField::PublicKey(pub_key()), ExtraField::MysteriousMinergate(vec![42])]
   );
   test_write_buf(&extra, &buf);
+}
+
+// Why the merge-mining blob must be _exactly_ consumed is documented on the `3 =>` arm of
+// `ExtraField::read` in `extra.rs`. Each expectation below was established by running its exact
+// byte string through a verbatim copy of `cryptonote::parse_tx_extra`:
+// https://github.com/monero-project/monero/blob/02357fe53fbcab3f5102183f0837feed68cf5355
+//   /src/cryptonote_basic/cryptonote_format_utils.cpp#L534-L553
+
+// Case A: A well-formed depth-0 tag. `monerod` accepts this, yielding one field.
+#[test]
+fn merge_mining_only() {
+  // 03 21 00 <32-byte merkle root>
+  let buf: Vec<u8> = [[3, 0x21, 0x00].as_slice(), MERKLE_ROOT.as_slice()].concat();
+  assert_eq!(buf.len(), 35);
+  let extra = Extra::read(&mut buf.as_slice()).unwrap();
+  assert_eq!(extra.0, vec![ExtraField::MergeMining(0, MERKLE_ROOT)]);
+  test_write_buf(&extra, &buf);
+}
+
+// Case B: A trailing byte _inside_ the blob. `monerod` rejects this, yielding no fields.
+#[test]
+fn merge_mining_only_trailing_byte_within_blob() {
+  // 03 22 00 <32-byte merkle root> AA
+  let buf: Vec<u8> =
+    [[3, 0x22, 0x00].as_slice(), MERKLE_ROOT.as_slice(), [0xAA].as_slice()].concat();
+  assert_eq!(buf.len(), 36);
+  let extra = Extra::read(&mut buf.as_slice()).unwrap();
+  assert!(extra.0.is_empty());
+}
+
+// Case C: A blob length too small for the fields. `monerod` rejects this, yielding no fields.
+#[test]
+fn merge_mining_only_length_too_small() {
+  // 03 10 00 <32-byte merkle root>
+  let buf: Vec<u8> = [[3, 0x10, 0x00].as_slice(), MERKLE_ROOT.as_slice()].concat();
+  assert_eq!(buf.len(), 35);
+  let extra = Extra::read(&mut buf.as_slice()).unwrap();
+  assert!(extra.0.is_empty());
+}
+
+/*
+  Case D: A public key followed by an invalid merge-mining tag.
+
+  `monerod` keeps the one field which preceded the failure. Notably, the merge-mining tag must not
+  read past its own blob, else it'd consume bytes belonging to whatever follows it.
+*/
+#[test]
+fn pub_key_and_invalid_merge_mining() {
+  let buf: Vec<u8> = [
+    PUB_KEY_BYTES.as_slice(),
+    [3, 0x22, 0x00].as_slice(),
+    MERKLE_ROOT.as_slice(),
+    [0xAA].as_slice(),
+  ]
+  .concat();
+  assert_eq!(buf.len(), 69);
+  let extra = Extra::read(&mut buf.as_slice()).unwrap();
+  assert_eq!(extra.0, vec![ExtraField::PublicKey(pub_key())]);
+}
+
+// Case E: An invalid merge-mining tag followed by a public key. `monerod` yields no fields, as the
+// failure occurs before the public key is ever read.
+#[test]
+fn invalid_merge_mining_and_pub_key() {
+  let buf: Vec<u8> = [
+    [3, 0x22, 0x00].as_slice(),
+    MERKLE_ROOT.as_slice(),
+    [0xAA].as_slice(),
+    PUB_KEY_BYTES.as_slice(),
+  ]
+  .concat();
+  assert_eq!(buf.len(), 69);
+  let extra = Extra::read(&mut buf.as_slice()).unwrap();
+  assert!(extra.0.is_empty());
+}
+
+// Case F: A non-canonical VarInt for the depth. `monerod` rejects this, yielding no fields.
+#[test]
+fn merge_mining_only_non_canonical_depth() {
+  // 03 22 80 00 <32-byte merkle root>
+  let buf: Vec<u8> = [[3, 0x22, 0x80, 0x00].as_slice(), MERKLE_ROOT.as_slice()].concat();
+  assert_eq!(buf.len(), 36);
+  let extra = Extra::read(&mut buf.as_slice()).unwrap();
+  assert!(extra.0.is_empty());
+}
+
+// Case G: A depth requiring a multi-byte VarInt. `monerod` accepts this, yielding one field.
+#[test]
+fn merge_mining_only_multi_byte_depth() {
+  // 03 22 80 01 <32-byte merkle root>
+  let buf: Vec<u8> = [[3, 0x22, 0x80, 0x01].as_slice(), MERKLE_ROOT.as_slice()].concat();
+  assert_eq!(buf.len(), 36);
+  let extra = Extra::read(&mut buf.as_slice()).unwrap();
+  assert_eq!(extra.0, vec![ExtraField::MergeMining(128, MERKLE_ROOT)]);
+  test_write_buf(&extra, &buf);
+}
+
+/*
+  Case H: A blob length which overshoots into the field which follows it.
+
+  The blob declares 0x23 == 35 bytes, yet only 33 bytes of its own content exist (the depth's
+  `VarInt` and the merkle root), so the declared length reaches two bytes into the public key which
+  follows. `monerod` rejects this, yielding no fields.
+
+  This is the case which pins that the tag is read from within its own blob, as the divergence is
+  unobservable in every case above. An implementation reading the depth and merkle root directly
+  off the outer stream would find them well-formed and yield a `MergeMining` field, then resume
+  parsing from somewhere inside the public key.
+*/
+#[test]
+fn merge_mining_length_overshoots_into_next_field() {
+  // 03 23 00 <32-byte merkle root> 01 <32-byte public key>
+  let buf: Vec<u8> =
+    [[3, 0x23, 0x00].as_slice(), MERKLE_ROOT.as_slice(), PUB_KEY_BYTES.as_slice()].concat();
+  assert_eq!(buf.len(), 68);
+  let extra = Extra::read(&mut buf.as_slice()).unwrap();
+  assert!(extra.0.is_empty());
+}
+
+// Case I: A blob length which exceeds every remaining byte in the extra. The blob declares
+// 0x40 == 64 bytes with only 33 following. `monerod` rejects this, yielding no fields.
+#[test]
+fn merge_mining_length_exceeds_remaining_extra() {
+  // 03 40 00 <32-byte merkle root>
+  let buf: Vec<u8> = [[3, 0x40, 0x00].as_slice(), MERKLE_ROOT.as_slice()].concat();
+  assert_eq!(buf.len(), 35);
+  let extra = Extra::read(&mut buf.as_slice()).unwrap();
+  assert!(extra.0.is_empty());
+}
+
+// The depths used by
+// https://github.com/monero-project/monero/blob/02357fe53fbcab3f5102183f0837feed68cf5355
+//   /tests/unit_tests/cryptonote_format_utils.cpp
+#[test]
+fn merge_mining_round_trip() {
+  for depth in [0u64, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 63, 64, 127, 128, 16383, 16384] {
+    let extra = Extra(vec![ExtraField::MergeMining(depth, MERKLE_ROOT)]);
+    let buf = extra.serialize();
+    assert_eq!(Extra::read(&mut buf.as_slice()).unwrap(), extra, "depth {depth} didn't round-trip");
+    test_write_buf(&extra, &buf);
+  }
 }
 
 #[test]

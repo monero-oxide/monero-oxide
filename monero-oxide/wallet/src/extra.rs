@@ -213,17 +213,35 @@ impl ExtraField {
       1 => ExtraField::PublicKey(CompressedPoint::read(r)?),
       2 => ExtraField::Nonce(read_vec(read_byte, Some(MAX_TX_EXTRA_NONCE_SIZE), r)?),
       3 => {
-        let field_len = <usize as VarInt>::read(r)?;
-        let depth = <u64 as VarInt>::read(r)?;
-        let merkle_root = read_bytes(r)?;
+        /*
+          This is a VarInt-length-prefixed blob which is deserialized with an _inner_ archive
+          bounded to the blob:
 
-        match field_len.checked_sub(depth.varint_len() + merkle_root.len()) {
-          Some(remaining) => {
-            for _ in 0 .. remaining {
-              read_byte(r)?;
-            }
-          }
-          None => Err(io::Error::other("`MergeMining` tag had a length smaller than its fields"))?,
+          https://github.com/monero-project/monero/blob/02357fe53fbcab3f5102183f0837feed68cf5355
+            /src/cryptonote_basic/tx_extra.h#L141-L150
+
+          That inner deserialization is `::serialization::serialize`, not `do_serialize`, which is
+          `do_serialize(ar, v) && check_stream_state(ar, false)`:
+
+          https://github.com/monero-project/monero/blob/02357fe53fbcab3f5102183f0837feed68cf5355
+            /src/serialization/serialization.h#L362-L365
+
+          With `noeof` as `false`, `check_stream_state` for a loading archive is exactly
+          `ar.eof()`:
+
+          https://github.com/monero-project/monero/blob/02357fe53fbcab3f5102183f0837feed68cf5355
+            /src/serialization/serialization.h#L336-L343
+
+          The blob accordingly must be _fully_ consumed by the depth and the merkle root. We
+          accordingly read the blob, then read the fields from the blob alone, erroring if the blob
+          isn't exhausted.
+        */
+        let blob = read_vec(read_byte, None, r)?;
+        let mut blob = blob.as_slice();
+        let depth = <u64 as VarInt>::read(&mut blob)?;
+        let merkle_root = read_bytes(&mut blob)?;
+        if !blob.is_empty() {
+          Err(io::Error::other("`MergeMining` tag had a length greater than its fields"))?;
         }
         ExtraField::MergeMining(depth, merkle_root)
       }
