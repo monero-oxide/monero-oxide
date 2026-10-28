@@ -115,7 +115,7 @@ impl<T: HttpTransport> ProvidesUnvalidatedOutputs for MoneroDaemon<T> {
 
       let expected_request_header_len = 19;
       let expected_request_len =
-        expected_request_header_len + 8 + (indexes.len().min(MAX_OUTS) * 25);
+        expected_request_header_len + 8 + (indexes.len().min(MAX_OUTS) * 32);
       let mut request = Vec::with_capacity(expected_request_len);
       request.extend(epee::HEADER);
       request.push(epee::VERSION);
@@ -145,8 +145,8 @@ impl<T: HttpTransport> ProvidesUnvalidatedOutputs for MoneroDaemon<T> {
             request.push(epee_key_len!("amount"));
             request.extend("amount".as_bytes());
             #[expect(clippy::as_conversions)]
-            request.push(epee::Type::Uint8 as u8);
-            request.push(0);
+            request.push(epee::Type::Uint64 as u8);
+            request.extend(&0u64.to_le_bytes());
 
             request.push(epee_key_len!("index"));
             request.extend("index".as_bytes());
@@ -239,9 +239,9 @@ impl<T: HttpTransport> ProvidesUnvalidatedDecoys for MoneroDaemon<T> {
         &[0], // TODO: Use compression
         &[epee_key_len!("amounts")],
         "amounts".as_bytes(),
-        &[(epee::Type::Uint8 as u8) | (epee::Array::Array as u8)],
+        &[(epee::Type::Uint64 as u8) | (epee::Array::Array as u8)],
         &[1 << 2],
-        &[0],
+        &0u64.to_le_bytes(),
       ]
       .concat();
 
