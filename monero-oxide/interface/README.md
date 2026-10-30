@@ -24,6 +24,10 @@ with _when_ they make requests, as discussed in
   https://eprint.iacr.org/2020/220
 ).
 
+For a literal instantiation of these traits, please see
+[`monero-daemon-rpc`](https://docs.rs/monero-daemon-rpc) as one option premised
+on a remote Monero daemon.
+
 This library is usable under no-`std`, with `alloc`, when the `std` feature (on
 by default) is disabled.
 
