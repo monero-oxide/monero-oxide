@@ -31,9 +31,18 @@ enum Authentication {
   Authenticated {
     username: Zeroizing<String>,
     password: Zeroizing<String>,
-    #[expect(clippy::type_complexity)]
-    connection: Arc<Mutex<(Option<(WwwAuthenticateHeader, u64)>, TokioClient)>>,
+    connection: Arc<Mutex<(AuthenticationState, TokioClient)>>,
   },
+}
+
+#[derive(Debug)]
+enum AuthenticationState {
+  /// authentication required
+  Challenge(WwwAuthenticateHeader, u64),
+  /// no authentication required
+  NotRequired,
+  /// authentication state is unknown
+  Unknown,
 }
 
 impl core::fmt::Debug for Authentication {
@@ -137,7 +146,14 @@ impl SimpleRequestTransport {
       Authentication::Authenticated {
         username: Zeroizing::new(split_userpass[0].to_owned()),
         password: Zeroizing::new(split_userpass[1 ..].join(":")),
-        connection: Arc::new(Mutex::new((challenge, client))),
+        connection: Arc::new(Mutex::new((
+          if let Some((challenge, cnonce)) = challenge {
+            AuthenticationState::Challenge(challenge, cnonce)
+          } else {
+            AuthenticationState::NotRequired
+          },
+          client,
+        ))),
       }
     } else {
       Authentication::Unauthenticated(TokioClient::without_connection_pool(&url).map_err(|e| {
@@ -209,20 +225,28 @@ impl SimpleRequestTransport {
 
           let mut request = request_fn("/".to_owned() + route)?;
 
-          // If we don't have an auth challenge, obtain one
-          if connection_lock.0.is_none() {
-            connection_lock.0 = Self::digest_auth_challenge(
+          // If we don't have an auth challenge, obtain one with empty body
+          if matches!(connection_lock.0, AuthenticationState::Unknown) {
+            let probe = Request::post("/".to_owned() + route)
+              .header("Content-Type", "application/json")
+              .body(vec![].into())
+              .map_err(|e| {
+                InterfaceError::InterfaceError(format!("couldn't make request: {e:?}"))
+              })?;
+            connection_lock.0 = match Self::digest_auth_challenge(
               &connection_lock
                 .1
-                .request(apply_response_size_limit(request))
+                .request(apply_response_size_limit(probe))
                 .await
                 .map_err(|e| InterfaceError::InterfaceError(format!("{e:?}")))?,
-            )?;
-            request = request_fn("/".to_owned() + route)?;
+            )? {
+              Some((challenge, cnonce)) => AuthenticationState::Challenge(challenge, cnonce),
+              None => AuthenticationState::NotRequired,
+            };
           }
 
           // Insert the challenge response, if we have a challenge
-          if let Some((challenge, cnonce)) = connection_lock.0.as_mut() {
+          if let AuthenticationState::Challenge(challenge, cnonce) = &mut connection_lock.0 {
             // Update the cnonce
             // Overflow isn't a concern as this is a u64
             *cnonce += 1;
@@ -289,7 +313,7 @@ impl SimpleRequestTransport {
           // per-connection
           // We don't need to create a new connection as simple-request will for us
           if error.is_some() || is_stale {
-            connection_lock.0 = None;
+            connection_lock.0 = AuthenticationState::Unknown;
             // If we're not already on our second attempt, move to the next loop iteration
             // (retrying all of this once)
             if attempt == 0 {
