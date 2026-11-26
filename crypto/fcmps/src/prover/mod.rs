@@ -12,7 +12,6 @@ pub use blinds::*;
 /// The path information for a specific leaf in the tree.
 ///
 /// The caller MUST pad the non-leaf branches to the expected layer lengths.
-#[derive(Clone)]
 pub struct Path<C: FcmpCurves>
 where
   <C::OC as Ciphersuite>::G: DivisorCurve<FieldElement = <C::C1 as Ciphersuite>::F>,
@@ -33,7 +32,6 @@ where
 ///
 /// We do a multi-input proof where all inputs share a root. Accordingly, we don't need to
 /// represent the root for each input. We just need to represent the root for all inputs.
-#[derive(Clone)]
 pub(crate) struct BranchesWithoutRootBranch<C: FcmpCurves>
 where
   <C::OC as Ciphersuite>::G: DivisorCurve<FieldElement = <C::C1 as Ciphersuite>::F>,
@@ -47,7 +45,6 @@ where
 }
 
 /// The root branch.
-#[derive(Clone)]
 pub(crate) enum RootBranch<C: FcmpCurves>
 where
   <C::OC as Ciphersuite>::G: DivisorCurve<FieldElement = <C::C1 as Ciphersuite>::F>,
@@ -60,7 +57,6 @@ where
 }
 
 /// The branches for a multi-input FCMP proof.
-#[derive(Clone)]
 pub struct Branches<C: FcmpCurves>
 where
   <C::OC as Ciphersuite>::G: DivisorCurve<FieldElement = <C::C1 as Ciphersuite>::F>,
@@ -73,7 +69,6 @@ where
 }
 
 /// The proof data for a specific input.
-#[derive(Clone)]
 pub(crate) struct InputProofData<C: FcmpCurves>
 where
   <C::OC as Ciphersuite>::G: DivisorCurve<FieldElement = <C::C1 as Ciphersuite>::F>,

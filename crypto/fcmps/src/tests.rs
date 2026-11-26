@@ -527,7 +527,7 @@ fn verify_fn(
 fn test_single_input() {
   let (G, T, U, V, params) = random_params(1);
 
-  let output_blinds = random_output_blinds(G, T, U, V);
+  let output_blinds = || random_output_blinds(G, T, U, V);
 
   for layers in 1 ..= (TARGET_LAYERS + 1) {
     println!("Testing a proof with 1 input and {layers} layers");
@@ -537,14 +537,12 @@ fn test_single_input() {
 
     let branches = Branches::new(vec![path]).unwrap();
 
+    let output_blinds = output_blinds();
     let input = output_blinds.blind(&output).unwrap();
 
-    let proof = Fcmp::prove(
-      &mut OsRng,
-      &params,
-      blind_branches(&params, branches, vec![output_blinds.clone()]),
-    )
-    .unwrap();
+    let proof =
+      Fcmp::prove(&mut OsRng, &params, blind_branches(&params, branches, vec![output_blinds]))
+        .unwrap();
 
     verify_fn(1, 1, &proof, &params, root, layers, &[input]);
   }
@@ -602,19 +600,19 @@ fn test_malleated_proofs() {
 
   for paths in [1, 2] {
     for layers in [1, 2] {
-      let (paths, root) = random_paths(&params, layers, paths);
+      let (paths_points, root) = random_paths(&params, layers, paths);
 
       let mut output_blinds = vec![];
-      for _ in 0 .. paths.len() {
+      for _ in 0 .. paths {
         output_blinds.push(random_output_blinds(G, T, U, V));
       }
 
       let mut inputs = vec![];
-      for (path, output_blinds) in paths.iter().zip(&output_blinds) {
+      for (path, output_blinds) in paths_points.iter().zip(&output_blinds) {
         inputs.push(output_blinds.blind(&path.output).unwrap());
       }
 
-      let branches = Branches::new(paths.clone()).unwrap();
+      let branches = Branches::new(paths_points).unwrap();
 
       let mut buf = vec![];
       {
@@ -630,7 +628,7 @@ fn test_malleated_proofs() {
         while buf[i] == existing_byte {
           buf[i] = u8::try_from(OsRng.next_u64() & u64::from(u8::MAX)).unwrap();
         }
-        if let Ok(proof) = Fcmp::read(&mut buf.as_slice(), paths.len(), layers) {
+        if let Ok(proof) = Fcmp::read(&mut buf.as_slice(), paths, layers) {
           let mut verifier_1 = generalized_bulletproofs::Generators::batch_verifier();
           let mut verifier_2 = generalized_bulletproofs::Generators::batch_verifier();
 
@@ -655,8 +653,6 @@ fn prove_benchmark() {
   let (G, T, U, V, params) = random_params(8);
 
   for paths in 1 ..= 4 {
-    let (paths, _root) = random_paths(&params, TARGET_LAYERS, paths);
-
     let mut set_size = 1u64;
     for i in 0 .. TARGET_LAYERS {
       if i % 2 == 0 {
@@ -666,29 +662,35 @@ fn prove_benchmark() {
       }
     }
 
-    let branches = Branches::new(paths.clone()).unwrap();
-
-    let prove_start = std::time::Instant::now();
+    let mut total_time = 0;
     for _ in 0 .. 10 {
+      let (paths_points, _root) = random_paths(&params, TARGET_LAYERS, paths);
+
+      let branches = Branches::new(paths_points).unwrap();
+
+      let prove_start = std::time::Instant::now();
+
       let mut output_blinds = vec![];
-      for _ in 0 .. paths.len() {
+      for _ in 0 .. paths {
         output_blinds.push(random_output_blinds(G, T, U, V));
       }
 
       let proof =
-        Fcmp::prove(&mut OsRng, &params, blind_branches(&params, branches.clone(), output_blinds))
-          .unwrap();
+        Fcmp::prove(&mut OsRng, &params, blind_branches(&params, branches, output_blinds)).unwrap();
 
       core::hint::black_box(proof);
+
+      total_time += prove_start.elapsed().as_millis();
     }
+
     #[allow(clippy::print_literal)]
     {
       println!(
         "{} for {RUNS} {}-input FCMPs with a set size of {} took an average of {}ms each",
         "Sequentially proving",
-        paths.len(),
+        paths,
         set_size,
-        prove_start.elapsed().as_millis() / u128::try_from(RUNS).unwrap()
+        total_time / u128::try_from(RUNS).unwrap()
       );
     }
   }
