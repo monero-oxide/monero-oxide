@@ -3,6 +3,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(missing_docs)]
 #![allow(non_snake_case)]
+#![cfg_attr(test, recursion_limit = "256")]
 
 use core::{marker::PhantomData, borrow::Borrow};
 extern crate alloc;

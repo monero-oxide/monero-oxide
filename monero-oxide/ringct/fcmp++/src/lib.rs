@@ -3,6 +3,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(missing_docs)]
 #![allow(non_snake_case)]
+#![recursion_limit = "256"]
 
 use std_shims::{sync::LazyLock, vec, vec::Vec, io};
 
