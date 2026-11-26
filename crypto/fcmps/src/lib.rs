@@ -756,8 +756,6 @@ where
   /// This only queues the FCMP for batch verification. The BatchVerifiers MUST also be verified.
   ///
   /// If this function returns an error, the batch verifiers are corrupted and MUST be discarded.
-  // This may be collision resistant regardless of layer count thanks to the expected usage of a
-  // distinct curve for the leaves, yet the layer count is cheap to check and avoids the question.
   #[allow(clippy::too_many_arguments)]
   pub fn verify<R: RngCore + CryptoRng>(
     &self,
