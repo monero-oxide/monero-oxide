@@ -1,5 +1,5 @@
 use core::ops::{Add, Neg, Sub, Mul, Rem};
-use std_shims::{vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 
 use subtle::{Choice, ConstantTimeEq, ConstantTimeGreater, ConditionallySelectable};
 use zeroize::{Zeroize, ZeroizeOnDrop};

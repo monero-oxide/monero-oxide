@@ -345,7 +345,6 @@ dependencies = [
  "group",
  "hex",
  "rand_core",
- "std-shims",
  "subtle",
  "tap",
  "zeroize",

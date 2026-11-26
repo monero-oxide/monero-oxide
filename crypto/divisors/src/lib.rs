@@ -4,10 +4,8 @@
 #![deny(missing_docs)]
 #![allow(non_snake_case)]
 
-use core::{borrow::Borrow, ops::Add as _};
-#[allow(unused_imports)]
-use std_shims::prelude::*;
-use std_shims::{vec, vec::Vec};
+extern crate alloc;
+use alloc::{vec, vec::Vec};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, ConstantTimeGreater as _};
 use zeroize::{Zeroize, ZeroizeOnDrop};
