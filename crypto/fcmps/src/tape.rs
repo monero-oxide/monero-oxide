@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 #[allow(unused_imports)]
 use std_shims::prelude::*;
 use std_shims::{vec, vec::Vec};
@@ -164,7 +165,7 @@ impl<F: Zeroize + PrimeFieldBits> VectorCommitmentTape<F> {
       divisor_witness.push(*divisor.y_coefficients.first().unwrap_or(&F::ZERO));
 
       // Divisor yx
-      let empty_vec = vec![];
+      let empty_vec = Box::default();
       let yx = divisor.yx_coefficients.first().unwrap_or(&empty_vec);
       assert!(yx.len() <= Parameters::YxCoefficients::USIZE);
       for i in 0 .. Parameters::YxCoefficients::USIZE {

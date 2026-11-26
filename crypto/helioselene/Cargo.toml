@@ -7,7 +7,7 @@ repository = "https://github.com/monero-oxide/monero-oxide/tree/main/crypto/heli
 authors = ["Luke Parker <lukeparker5132@gmail.com>"]
 keywords = ["helios", "selene", "ed25519", "ff", "group"]
 edition = "2021"
-rust-version = "1.73"
+rust-version = "1.82"
 
 [package.metadata.docs.rs]
 all-features = true

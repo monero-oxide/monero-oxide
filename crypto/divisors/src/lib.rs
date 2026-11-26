@@ -5,7 +5,7 @@
 #![allow(non_snake_case)]
 
 extern crate alloc;
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, ConstantTimeGreater as _};
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -137,9 +137,9 @@ fn line<C: DivisorCurve>(a: C, b: C) -> Poly<C::FieldElement> {
   res = <_>::conditional_select(&res, &if_both_are_identity, both_are_identity);
 
   Poly {
-    y_coefficients: vec![res.y_coefficient],
+    y_coefficients: vec![res.y_coefficient].into_boxed_slice(),
     yx_coefficients: vec![],
-    x_coefficients: vec![res.x_coefficient],
+    x_coefficients: vec![res.x_coefficient].into_boxed_slice(),
     zero_coefficient: res.zero_coefficient,
   }
 }
@@ -150,7 +150,7 @@ fn line<C: DivisorCurve>(a: C, b: C) -> Poly<C::FieldElement> {
 fn divisor_modulus<C: DivisorCurve>() -> Poly<C::FieldElement> {
   Poly {
     // 0 y**1, 1 y*2
-    y_coefficients: vec![C::FieldElement::ZERO, C::FieldElement::ONE],
+    y_coefficients: vec![C::FieldElement::ZERO, C::FieldElement::ONE].into_boxed_slice(),
     yx_coefficients: vec![],
     x_coefficients: vec![
       // - A x
@@ -159,7 +159,8 @@ fn divisor_modulus<C: DivisorCurve>() -> Poly<C::FieldElement> {
       C::FieldElement::ZERO,
       // - x^3
       -C::FieldElement::ONE,
-    ],
+    ]
+    .into_boxed_slice(),
     // - B
     zero_coefficient: -C::b(),
   }
@@ -193,7 +194,7 @@ pub fn new_divisor<C: DivisorCurve>(points: &[C]) -> Option<Poly<C::FieldElement
 
   let points_len = points.len();
 
-  let modulus = divisor_modulus::<C>();
+  let mut modulus = divisor_modulus::<C>();
   // Create the initial set of divisors
   let mut divs = vec![];
   let mut iter = points.iter().copied();
@@ -220,14 +221,18 @@ pub fn new_divisor<C: DivisorCurve>(points: &[C]) -> Option<Poly<C::FieldElement
       for coeff in divisor.yx_coefficients[0].iter().skip(truncate_to) {
         debug_assert_eq!(*coeff, <C::FieldElement as Field>::ZERO);
       }
-      divisor.yx_coefficients[0].truncate(truncate_to);
+      let mut yx_coefficients = Box::from(&divisor.yx_coefficients[0][.. truncate_to]);
+      core::mem::swap(&mut divisor.yx_coefficients[0], &mut yx_coefficients);
+      yx_coefficients.zeroize();
     }
     {
       let truncate_to = points_len / 2;
       for coeff in divisor.x_coefficients.iter().skip(truncate_to) {
         debug_assert_eq!(*coeff, <C::FieldElement as Field>::ZERO);
       }
-      divisor.x_coefficients.truncate(truncate_to);
+      let mut x_coefficients = Box::from(&divisor.x_coefficients[.. truncate_to]);
+      core::mem::swap(&mut divisor.x_coefficients, &mut x_coefficients);
+      x_coefficients.zeroize();
     }
   };
 
@@ -244,18 +249,10 @@ pub fn new_divisor<C: DivisorCurve>(points: &[C]) -> Option<Poly<C::FieldElement
       let points = a_points + b_points;
 
       // Merge the two divisors
-      let numerator = a_div.mul_mod(&b_div, &modulus).mul_mod(&line::<C>(a, b), &modulus);
-      let denominator = line::<C>(a, -a).mul_mod(&line::<C>(b, -b), &modulus);
-      let (mut q, r) = numerator.div_rem(&denominator);
-      debug_assert!({
-        let Poly { y_coefficients, yx_coefficients, x_coefficients, zero_coefficient } = &r;
-        y_coefficients
-          .iter()
-          .chain(yx_coefficients.iter().flatten())
-          .chain(x_coefficients)
-          .chain(core::iter::once(zero_coefficient))
-          .all(|coeff| bool::from(coeff.is_zero()))
-      });
+      let numerator = a_div.mul_mod(&b_div, &mut modulus).mul_mod(&line::<C>(a, b), &mut modulus);
+      let mut denominator = line::<C>(a, -a).mul_mod(&line::<C>(b, -b), &mut modulus);
+      let (mut q, r) = numerator.div_rem(&mut denominator);
+      debug_assert!(bool::from(r.is_zero()));
       trim(&mut q, 1 + points);
       next_divs.push((points, a + b, q));
     }

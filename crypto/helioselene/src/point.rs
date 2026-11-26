@@ -423,16 +423,6 @@ macro_rules! curve {
     #[cfg(feature = "alloc")]
     impl ec_divisors::DivisorCurve for $Point {
       type FieldElement = $Field;
-      type XyPoint = ec_divisors::Projective<Self>;
-
-      type BorrowedInterpolator = &'static ec_divisors::Interpolator<Self::FieldElement>;
-      fn interpolator_for_scalar_mul() -> Self::BorrowedInterpolator {
-        static PRECOMPUTE: std_shims::sync::LazyLock<ec_divisors::Interpolator<$Field>> =
-          std_shims::sync::LazyLock::new(|| {
-            ec_divisors::Interpolator::new(usize::try_from(130).unwrap())
-          });
-        &*PRECOMPUTE
-      }
 
       fn a() -> Self::FieldElement {
         -$Field::from(3u64)

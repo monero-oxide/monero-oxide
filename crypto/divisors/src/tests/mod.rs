@@ -55,10 +55,10 @@ fn test_divisor<C: DivisorCurve>() {
     // with the result of its scalar multiplication against a fixed generator, the lengths of the
     // yx/x coefficients shouldn't supersede the following bounds
     assert!(C::Scalar::NUM_BITS < 256);
-    assert!((divisor.yx_coefficients.first().unwrap_or(&vec![]).len()) <= 126);
+    assert!((divisor.yx_coefficients.first().map(|slice| slice.len()).unwrap_or(0)) <= 126);
     assert!((divisor.x_coefficients.len() - 1) <= 127);
     assert!(
-      (1 + divisor.yx_coefficients.first().unwrap_or(&vec![]).len() +
+      (1 + divisor.yx_coefficients.first().map(|slice| slice.len()).unwrap_or(0) +
         (divisor.x_coefficients.len() - 1) +
         1) <=
         255
@@ -74,20 +74,20 @@ fn test_divisor<C: DivisorCurve>() {
     {
       let dx_over_dz = {
         let dx = Poly {
-          y_coefficients: vec![],
+          y_coefficients: Box::default(),
           yx_coefficients: vec![],
-          x_coefficients: vec![C::FieldElement::ZERO, C::FieldElement::from(3)],
+          x_coefficients: vec![C::FieldElement::ZERO, C::FieldElement::from(3)].into_boxed_slice(),
           zero_coefficient: C::a(),
         };
 
         let dy = Poly {
-          y_coefficients: vec![C::FieldElement::from(2)],
+          y_coefficients: vec![C::FieldElement::from(2)].into_boxed_slice(),
           yx_coefficients: vec![],
-          x_coefficients: vec![],
+          x_coefficients: Box::default(),
           zero_coefficient: C::FieldElement::ZERO,
         };
 
-        let dz = (dy.clone() * -slope) + &dx;
+        let dz = (dy.clone() * -slope) + dx;
 
         // We want dx/dz, and dz/dx is equal to dy/dx - slope
         // Sagemath claims this, dy / dz, is the proper inverse
@@ -142,7 +142,7 @@ fn test_divisor<C: DivisorCurve>() {
       };
       // Test the divisor and the divisor with a normalized x coefficient
       test(divisor.clone());
-      test(divisor.normalize_x_coefficient());
+      test(divisor.normalize_x_coefficient().unwrap());
     }
   }
 }

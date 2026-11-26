@@ -5,6 +5,7 @@
 #![allow(non_snake_case)]
 
 use core::{marker::PhantomData, borrow::Borrow};
+extern crate alloc;
 use std_shims::{prelude::*, io};
 
 use rand_core::{RngCore, CryptoRng};

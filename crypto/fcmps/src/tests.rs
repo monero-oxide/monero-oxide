@@ -441,20 +441,24 @@ fn random_output_blinds(
     OBlind::new(
       T,
       ScalarDecomposition::new(<Ed25519 as Ciphersuite>::F::random(&mut OsRng)).unwrap(),
-    ),
+    )
+    .unwrap(),
     IBlind::new(
       U,
       V,
       ScalarDecomposition::new(<Ed25519 as Ciphersuite>::F::random(&mut OsRng)).unwrap(),
-    ),
+    )
+    .unwrap(),
     IBlindBlind::new(
       T,
       ScalarDecomposition::new(<Ed25519 as Ciphersuite>::F::random(&mut OsRng)).unwrap(),
-    ),
+    )
+    .unwrap(),
     CBlind::new(
       G,
       ScalarDecomposition::new(<Ed25519 as Ciphersuite>::F::random(&mut OsRng)).unwrap(),
-    ),
+    )
+    .unwrap(),
   );
   println!("Output blinds took {}ms to calculate", output_blinds_start.elapsed().as_millis());
   res
@@ -468,18 +472,24 @@ fn blind_branches(
   let branch_blinds_start = std::time::Instant::now();
   let mut branches_1_blinds = vec![];
   for _ in 0 .. branches.necessary_c1_blinds() {
-    branches_1_blinds.push(BranchBlind::<<Selene as Ciphersuite>::G>::new(
-      params.curve_1_generators.h(),
-      ScalarDecomposition::new(<Selene as Ciphersuite>::F::random(&mut OsRng)).unwrap(),
-    ));
+    branches_1_blinds.push(
+      BranchBlind::<<Selene as Ciphersuite>::G>::new(
+        params.curve_1_generators.h(),
+        ScalarDecomposition::new(<Selene as Ciphersuite>::F::random(&mut OsRng)).unwrap(),
+      )
+      .unwrap(),
+    );
   }
 
   let mut branches_2_blinds = vec![];
   for _ in 0 .. branches.necessary_c2_blinds() {
-    branches_2_blinds.push(BranchBlind::<<Helios as Ciphersuite>::G>::new(
-      params.curve_2_generators.h(),
-      ScalarDecomposition::new(<Helios as Ciphersuite>::F::random(&mut OsRng)).unwrap(),
-    ));
+    branches_2_blinds.push(
+      BranchBlind::<<Helios as Ciphersuite>::G>::new(
+        params.curve_2_generators.h(),
+        ScalarDecomposition::new(<Helios as Ciphersuite>::F::random(&mut OsRng)).unwrap(),
+      )
+      .unwrap(),
+    );
   }
   println!(
     "{} C1 branch blinds and {} C2 branch blinds took {}ms to calculate",

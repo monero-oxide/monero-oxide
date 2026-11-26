@@ -25,11 +25,11 @@ impl<G: DivisorCurve> ScalarMulAndDivisor<G>
 where
   G::Scalar: Zeroize + PrimeFieldBits,
 {
-  fn new(A: G, scalar: &ScalarDecomposition<G::Scalar>) -> Self {
+  fn new(A: G, scalar: &ScalarDecomposition<G::Scalar>) -> Option<Self> {
     let point = Zeroizing::new(A * scalar.scalar());
     let (x, y) = G::to_xy(*point).expect("zero scalar was decomposed");
-    let divisor = scalar.scalar_mul_divisor(A).normalize_x_coefficient();
-    ScalarMulAndDivisor { point, x, y, divisor }
+    let divisor = scalar.scalar_mul_divisor(A).normalize_x_coefficient()?;
+    Some(ScalarMulAndDivisor { point, x, y, divisor })
   }
 }
 
@@ -47,9 +47,9 @@ impl<G: DivisorCurve> PreparedBlind<G>
 where
   G::Scalar: Zeroize + PrimeFieldBits,
 {
-  fn new(A: G, scalar: ScalarDecomposition<G::Scalar>) -> Self {
-    let scalar_mul_and_divisor = ScalarMulAndDivisor::new(A, &scalar);
-    PreparedBlind { scalar, scalar_mul_and_divisor }
+  fn new(A: G, scalar: ScalarDecomposition<G::Scalar>) -> Option<Self> {
+    let scalar_mul_and_divisor = ScalarMulAndDivisor::new(A, &scalar)?;
+    Some(PreparedBlind { scalar, scalar_mul_and_divisor })
   }
 }
 
@@ -67,11 +67,14 @@ where
   /// `scalar` MUST be consumed just once, for a single blind, across any/all contexts.
   ///
   /// This will calculate a divisor and is computationally non-trivial.
-  pub fn new(T: G, scalar: ScalarDecomposition<G::Scalar>) -> Self
+  ///
+  /// This will return `None` (in variable time) if the divisor wasn't usable. This function
+  /// otherwise executes in constant time.
+  pub fn new(T: G, scalar: ScalarDecomposition<G::Scalar>) -> Option<Self>
   where
     G::Scalar: Zeroize + PrimeFieldBits,
   {
-    Self(PreparedBlind::new(T, scalar))
+    PreparedBlind::new(T, scalar).map(Self)
   }
 }
 
@@ -95,10 +98,13 @@ where
   ///
   /// This will calculate two divisors (distinct from the other blinds which only calculate one
   /// each) and is computationally non-trivial.
-  pub fn new(U: G, V: G, scalar: ScalarDecomposition<G::Scalar>) -> Self {
-    let u = ScalarMulAndDivisor::new(U, &scalar);
-    let v = ScalarMulAndDivisor::new(V, &scalar);
-    IBlind { scalar, u, v }
+  ///
+  /// This will return `None` (in variable time) if either of the divisors weren't usable. This
+  /// function otherwise executes in constant time.
+  pub fn new(U: G, V: G, scalar: ScalarDecomposition<G::Scalar>) -> Option<Self> {
+    let u = ScalarMulAndDivisor::new(U, &scalar)?;
+    let v = ScalarMulAndDivisor::new(V, &scalar)?;
+    Some(IBlind { scalar, u, v })
   }
 }
 
@@ -116,8 +122,11 @@ where
   /// `scalar` MUST be consumed just once, for a single blind, across any/all contexts.
   ///
   /// This will calculate a divisor and is computationally non-trivial.
-  pub fn new(T: G, scalar: ScalarDecomposition<G::Scalar>) -> Self {
-    Self(PreparedBlind::new(T, scalar))
+  ///
+  /// This will return `None` (in variable time) if the divisor wasn't usable. This function
+  /// otherwise executes in constant time.
+  pub fn new(T: G, scalar: ScalarDecomposition<G::Scalar>) -> Option<Self> {
+    PreparedBlind::new(T, scalar).map(Self)
   }
 }
 
@@ -135,8 +144,11 @@ where
   /// `scalar` MUST be consumed just once, for a single blind, across any/all contexts.
   ///
   /// This will calculate a divisor and is computationally non-trivial.
-  pub fn new(G: G, scalar: ScalarDecomposition<G::Scalar>) -> Self {
-    Self(PreparedBlind::new(G, scalar))
+  ///
+  /// This will return `None` (in variable time) if the divisor wasn't usable. This function
+  /// otherwise executes in constant time.
+  pub fn new(G: G, scalar: ScalarDecomposition<G::Scalar>) -> Option<Self> {
+    PreparedBlind::new(G, scalar).map(Self)
   }
 }
 
@@ -202,7 +214,10 @@ where
   /// `scalar` MUST be consumed just once, for a single blind, across any/all contexts.
   ///
   /// This will calculate a divisor and is computationally non-trivial.
-  pub fn new(H: G, scalar: ScalarDecomposition<G::Scalar>) -> Self {
-    Self(PreparedBlind::new(H, scalar))
+  ///
+  /// This will return `None` (in variable time) if the divisor wasn't usable. This function
+  /// otherwise executes in constant time.
+  pub fn new(H: G, scalar: ScalarDecomposition<G::Scalar>) -> Option<Self> {
+    PreparedBlind::new(H, scalar).map(Self)
   }
 }

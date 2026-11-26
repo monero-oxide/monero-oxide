@@ -66,17 +66,20 @@ fn test() {
     let branches = Branches::new(vec![path]).unwrap();
 
     let output_blinds = OutputBlinds::new(
-      OBlind::new(*T, ScalarDecomposition::new(rerandomized_output.o_blind()).unwrap()),
+      OBlind::new(*T, ScalarDecomposition::new(rerandomized_output.o_blind()).unwrap()).unwrap(),
       IBlind::new(
         EdwardsPoint((*FCMP_PLUS_PLUS_U).into()),
         EdwardsPoint((*FCMP_PLUS_PLUS_V).into()),
         ScalarDecomposition::new(rerandomized_output.i_blind()).unwrap(),
-      ),
-      IBlindBlind::new(*T, ScalarDecomposition::new(rerandomized_output.i_blind_blind()).unwrap()),
+      )
+      .unwrap(),
+      IBlindBlind::new(*T, ScalarDecomposition::new(rerandomized_output.i_blind_blind()).unwrap())
+        .unwrap(),
       CBlind::new(
         EdwardsPoint::generator(),
         ScalarDecomposition::new(rerandomized_output.c_blind()).unwrap(),
-      ),
+      )
+      .unwrap(),
     );
 
     let blinded_branches = branches.blind(vec![output_blinds], vec![], vec![]).unwrap();
