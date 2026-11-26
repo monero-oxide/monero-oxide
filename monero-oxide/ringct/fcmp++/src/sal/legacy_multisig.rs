@@ -20,7 +20,7 @@ use monero_fcmp_plus_plus_generators::{FCMP_PLUS_PLUS_U, FCMP_PLUS_PLUS_V};
 
 use crate::{T, sal::*};
 
-#[derive(Clone, PartialEq, Eq, Zeroize)]
+#[derive(Clone, Zeroize)]
 struct PartialSpendAuthAndLinkability {
   P: <Ed25519 as Ciphersuite>::G,
   A: <Ed25519 as Ciphersuite>::G,
@@ -42,7 +42,7 @@ impl core::fmt::Debug for PartialSpendAuthAndLinkability {
 }
 
 /// Addendum produced during the signing process.
-#[derive(Clone, PartialEq, Eq, Zeroize, Debug)]
+#[derive(Clone, PartialEq, Eq, Zeroize, ZeroizeOnDrop, Debug)]
 pub struct SalLegacyAddendum {
   key_image_share: EdwardsPoint,
   x_U_share: EdwardsPoint,
@@ -68,12 +68,24 @@ impl WriteAddendum for SalLegacyAddendum {
 /// specified at initialization.
 ///
 /// This may panic if functions are not called in the expected order.
+///
+/// The `R: CryptoRng` is NOT zeroized by this algorithm's implementation of `Zeroize`, but reading
+/// its state after the protocol's completion does not compromise any properties of the protocol.
+///
+/// The `T: Transcript` is NOT zeroized by this algorithm's implementation of `Zeroize`. The caller
+/// MUST specify a `T: ZeroizeOnDrop + Transcript` to effect zeroization of the transcript. If the
+/// transcript is not zeroized, an adversary who is able to read its memory (after its use) MAY be
+/// able to recover the multisig's protocol transcript, where any observer of the multisig protocol
+/// can link the output being spent to the input being signed.
+///
+/// [`HashMap`]s present in this algorithm, keyed by the encodings of participants' verification
+/// shares, only have their values zeroized.
 #[derive(Clone)]
 pub struct SalLegacyAlgorithm<
   R: Send + Sync + Clone + RngCore + CryptoRng,
   T: Sync + Clone + Debug + Transcript,
 > {
-  rng: R,
+  batch_verification_rng: R,
   transcript: T,
   signable_tx_hash: [u8; 32],
   rerandomized_output: RerandomizedOutput,
@@ -85,6 +97,48 @@ pub struct SalLegacyAlgorithm<
   x_U: EdwardsPoint,
   partial: Option<PartialSpendAuthAndLinkability>,
   e: Option<Scalar>,
+}
+
+impl<R: Send + Sync + Clone + RngCore + CryptoRng, T: Sync + Clone + Debug + Transcript> Drop
+  for SalLegacyAlgorithm<R, T>
+{
+  fn drop(&mut self) {
+    let Self {
+      batch_verification_rng: _,
+      transcript: _,
+      signable_tx_hash,
+      rerandomized_output,
+      y,
+      I,
+      key_image_shares,
+      x_U_shares,
+      L,
+      x_U,
+      partial,
+      e,
+    } = self;
+    signable_tx_hash.zeroize();
+    rerandomized_output.zeroize();
+    y.zeroize();
+    I.zeroize();
+    #[expect(clippy::iter_over_hash_type)]
+    for key_image_share in key_image_shares.values_mut() {
+      key_image_share.zeroize();
+    }
+    #[expect(clippy::iter_over_hash_type)]
+    for x_U_share in x_U_shares.values_mut() {
+      x_U_share.zeroize();
+    }
+    L.zeroize();
+    x_U.zeroize();
+    partial.zeroize();
+    e.zeroize();
+  }
+}
+
+impl<R: Send + Sync + Clone + RngCore + CryptoRng, T: Sync + Clone + Debug + Transcript>
+  ZeroizeOnDrop for SalLegacyAlgorithm<R, T>
+{
 }
 
 impl<R: Send + Sync + Clone + RngCore + CryptoRng, T: Sync + Clone + Debug + Transcript>
@@ -326,7 +380,7 @@ impl<R: Send + Sync + Clone + RngCore + CryptoRng, T: Sync + Clone + Debug + Tra
     // Use the internal RNG for this
     let () = sig
       .verify(
-        &mut self.rng.clone(),
+        &mut self.batch_verification_rng.clone(),
         &mut verifier,
         self.signable_tx_hash,
         &self.rerandomized_output.input(),
@@ -430,7 +484,7 @@ impl<R: Send + Sync + Clone + RngCore + CryptoRng, T: Sync + Clone + Debug + Tra
       (EdwardsPoint((*FCMP_PLUS_PLUS_U).into()) * rerandomized_output.r_i);
 
     Self {
-      rng,
+      batch_verification_rng: rng,
       transcript,
       signable_tx_hash,
       rerandomized_output,
