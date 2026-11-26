@@ -9,22 +9,13 @@ use core::{borrow::Borrow, ops::Add as _};
 use std_shims::prelude::*;
 use std_shims::{vec, vec::Vec};
 
-use subtle::{Choice, CtOption, ConditionallySelectable, ConstantTimeEq, ConstantTimeGreater as _};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, ConstantTimeGreater as _};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use group::{
-  ff::{Field, PrimeField, PrimeFieldBits, BatchInvert as _},
+  ff::{Field, PrimeField, PrimeFieldBits},
   Group,
 };
-
-mod barycentric;
-pub use barycentric::Interpolator;
-
-mod divisor;
-use divisor::{SmallDivisor, Divisor};
-
-mod ec;
-pub use ec::{Projective, XyPoint};
 
 mod poly;
 pub use poly::Poly;
@@ -36,20 +27,11 @@ mod tests;
 pub trait DivisorCurve: Group + ConstantTimeEq + ConditionallySelectable + Zeroize {
   /// An element of the field this curve is defined over.
   type FieldElement: Zeroize + PrimeField + ConditionallySelectable;
-  /// A point for which it's sufficiently efficient to retrieve the affine coordinates.
-  type XyPoint: XyPoint<Self::FieldElement> + From<Self>;
 
   /// The A in the curve equation `y^2 = x^3 + A x + B`.
   fn a() -> Self::FieldElement;
   /// The B in the curve equation `y^2 = x^3 + A x + B`.
   fn b() -> Self::FieldElement;
-
-  /// The type representing an interpolator which has been borrowed.
-  // TODO: Remove with Rust 1.75
-  type BorrowedInterpolator: Borrow<Interpolator<Self::FieldElement>>;
-  /// Precomputed interpolator required for interpolating a divisor representing a scalar
-  /// multiplication.
-  fn interpolator_for_scalar_mul() -> Self::BorrowedInterpolator;
 
   /// Convert a point to its affine coordinates.
   ///
@@ -59,206 +41,130 @@ pub trait DivisorCurve: Group + ConstantTimeEq + ConditionallySelectable + Zeroi
   fn to_xy(point: Self) -> Option<(Self::FieldElement, Self::FieldElement)>;
 }
 
-type Xy<C> = (<C as DivisorCurve>::FieldElement, <C as DivisorCurve>::FieldElement);
-type Denom<C> =
-  (CtOption<<C as DivisorCurve>::FieldElement>, CtOption<<C as DivisorCurve>::FieldElement>);
-
-struct LineArgs<C: DivisorCurve> {
-  /// The `b` to use when calculating the line.
-  ///
-  /// This will be distinct if the points would otherwise share an `x` coordinate.
-  b: C::XyPoint,
-  /// If both points were the identity point.
-  both_are_identity: Choice,
-  /// If one point was the identity, or the points were additive inverses, and the single `x`
-  /// coordinate between the two if so.
-  one_is_identity_or_additive_inverses: (Choice, C::FieldElement),
+/// Calculate the slope and intercept between two points.
+///
+/// This function panics when `a @ infinity`, `b @ infinity`, `a == b`, or when `a == -b`.
+pub(crate) fn slope_intercept<C: DivisorCurve>(a: C, b: C) -> (C::FieldElement, C::FieldElement) {
+  let (ax, ay) = C::to_xy(a).unwrap();
+  debug_assert_eq!(divisor_modulus::<C>().eval(ax, ay), C::FieldElement::ZERO);
+  let (bx, by) = C::to_xy(b).unwrap();
+  debug_assert_eq!(divisor_modulus::<C>().eval(bx, by), C::FieldElement::ZERO);
+  let slope = (by - ay) *
+    Option::<C::FieldElement>::from((bx - ax).invert())
+      .expect("trying to get slope/intercept of points sharing an x coordinate");
+  let intercept = by - (slope * bx);
+  debug_assert!(bool::from((ay - (slope * ax) - intercept).is_zero()));
+  debug_assert!(bool::from((by - (slope * bx) - intercept).is_zero()));
+  (slope, intercept)
 }
 
-/// Prepare points to calculate their lines.
-fn line_args<C: DivisorCurve>(
-  a: C::XyPoint,
-  b: C::XyPoint,
-  a_x: C::FieldElement,
-  b_x: C::FieldElement,
-  gen: &C::XyPoint,
-) -> LineArgs<C> {
+// The line interpolating two points.
+fn line<C: DivisorCurve>(a: C, b: C) -> Poly<C::FieldElement> {
+  #[expect(clippy::struct_field_names)]
+  #[derive(Clone, Copy)]
+  struct LineRes<F: ConditionallySelectable> {
+    y_coefficient: F,
+    x_coefficient: F,
+    zero_coefficient: F,
+  }
+  impl<F: ConditionallySelectable> ConditionallySelectable for LineRes<F> {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+      Self {
+        y_coefficient: <_>::conditional_select(&a.y_coefficient, &b.y_coefficient, choice),
+        x_coefficient: <_>::conditional_select(&a.x_coefficient, &b.x_coefficient, choice),
+        zero_coefficient: <_>::conditional_select(&a.zero_coefficient, &b.zero_coefficient, choice),
+      }
+    }
+  }
+
   let a_is_identity = a.is_identity();
   let b_is_identity = b.is_identity();
 
+  // If they're both the point at infinity, we simply set the line to one
   let both_are_identity = a_is_identity & b_is_identity;
+  let if_both_are_identity = LineRes {
+    y_coefficient: C::FieldElement::ZERO,
+    x_coefficient: C::FieldElement::ZERO,
+    zero_coefficient: C::FieldElement::ONE,
+  };
 
+  // If either point is the point at infinity, or these are additive inverses, the line is
+  // `1 * x - x`. The first `x` is a term in the polynomial, the `x` is the `x` coordinate of these
+  // points (of which there is one, as the second point is either at infinity or has a matching `x`
+  // coordinate).
   let one_is_identity = a_is_identity | b_is_identity;
   let additive_inverses = a.ct_eq(&-b);
   let one_is_identity_or_additive_inverses = one_is_identity | additive_inverses;
-  let one_is_identity_or_additive_inverses =
-    (one_is_identity_or_additive_inverses, <_>::conditional_select(&a_x, &b_x, a.is_identity()));
+  let if_one_is_identity_or_additive_inverses = {
+    // If both are identity, set `a` to the generator so we can safely evaluate the following
+    // (which we won't select at the end of this function)
+    let a = <_>::conditional_select(&a, &C::generator(), both_are_identity);
+    // If `a` is identity, this selects `b`. If `a` isn't identity, this selects `a`
+    let non_identity = <_>::conditional_select(&a, &b, a.is_identity());
+    let (x, _) = C::to_xy(non_identity).unwrap();
+    LineRes {
+      y_coefficient: C::FieldElement::ZERO,
+      x_coefficient: C::FieldElement::ONE,
+      zero_coefficient: -x,
+    }
+  };
 
-  let a = <_>::conditional_select(&a, gen, a_is_identity);
-  let b = <_>::conditional_select(&b, gen, b_is_identity);
+  // The following calculation assumes neither point is the point at infinity
+  // If either are, we use a prior result
+  // To ensure we can calculcate a result here, set any points at infinity to the generator
+  let a = <_>::conditional_select(&a, &C::generator(), a_is_identity);
+  let b = <_>::conditional_select(&b, &C::generator(), b_is_identity);
+  // It also assumes a, b aren't additive inverses which is also covered by a prior result
   let b = <_>::conditional_select(&b, &a.double(), additive_inverses);
+
+  // If the points are equal, we use the line interpolating the sum of these points with the point
+  // at infinity
   let b = <_>::conditional_select(&b, &-a.double(), a.ct_eq(&b));
 
-  LineArgs { b, both_are_identity, one_is_identity_or_additive_inverses }
-}
+  let (slope, intercept) = slope_intercept::<C>(a, b);
 
-/// Computes all (slope, intercept) pairs, batching inverses.
-///
-/// This will have undefined behavior if two points sharing an `x` coordinate is passed in.
-fn slopes_and_intercepts<C: DivisorCurve>(
-  a: Vec<Xy<C>>,
-  b: &[C::XyPoint],
-) -> Vec<(C::FieldElement, C::FieldElement)> {
-  debug_assert_eq!(a.len(), b.len());
-  let b: Vec<Xy<C>> = C::XyPoint::batch_to_xy(b);
-  let mut diffs = a
-    .iter()
-    .zip(b.iter())
-    .map(|(a, b)| {
-      let (ax, bx) = (a.0, b.0);
-      bx - ax
-    })
-    .collect::<Vec<_>>();
+  // Section 4 of the proofs explicitly state the line `L = y - lambda * x - mu`
+  // y - (slope * x) - intercept
+  let mut res = LineRes {
+    y_coefficient: C::FieldElement::ONE,
+    x_coefficient: -slope,
+    zero_coefficient: -intercept,
+  };
 
-  (&mut diffs).batch_invert();
-
-  a.into_iter()
-    .zip(b)
-    .zip(diffs)
-    .map(|((a, b), inv_diff)| {
-      let (ax, ay) = a;
-      let (bx, by) = b;
-
-      let slope = (by - ay) * inv_diff;
-      let intercept = by - (slope * bx);
-      debug_assert!(bool::from((ay - (slope * ax) - intercept).is_zero()));
-      debug_assert!(bool::from((by - (slope * bx) - intercept).is_zero()));
-      (slope, intercept)
-    })
-    .collect()
-}
-
-/// Complete calculation of a line from its arguments and the (potentitally stubbed)
-/// slope/intercept.
-fn finish_line<F: PrimeField>(
-  slope: F,
-  intercept: F,
-  both_are_identity: Choice,
-  one_is_identity_or_additive_inverses: (Choice, F),
-) -> SmallDivisor<F> {
-  // y - slope x - intercept
-  let mut res = SmallDivisor::new(-slope, -intercept, F::ONE);
-  // `x - x`, where the first `x` is the coefficient and the second `x` is a constant of the `x`
-  // coordinate present within this pair of points
-  let (one_is_identity_or_additive_inverses, constant_term) = one_is_identity_or_additive_inverses;
   res = <_>::conditional_select(
     &res,
-    &SmallDivisor::new(F::ONE, -constant_term, F::ZERO),
+    &if_one_is_identity_or_additive_inverses,
     one_is_identity_or_additive_inverses,
   );
-  // 1
-  <_>::conditional_select(&res, &SmallDivisor::new(F::ZERO, F::ONE, F::ZERO), both_are_identity)
+  res = <_>::conditional_select(&res, &if_both_are_identity, both_are_identity);
+
+  Poly {
+    y_coefficients: vec![res.y_coefficient],
+    yx_coefficients: vec![],
+    x_coefficients: vec![res.x_coefficient],
+    zero_coefficient: res.zero_coefficient,
+  }
 }
 
-/// Computes all lines required to construct a divisor, batching expensive operations.
-fn lines_and_denoms<C: DivisorCurve>(
-  points: &[C::XyPoint],
-) -> Vec<(SmallDivisor<C::FieldElement>, Denom<C>)> {
-  // All the pairs of points from which lines will be created
-  let pairs = {
-    let mut pairs = Vec::<[C::XyPoint; 2]>::with_capacity(points.len());
-    let mut divs = Vec::<C::XyPoint>::with_capacity(points.len().div_ceil(2));
-
-    let mut iter = points.iter().copied();
-    while let Some(a) = iter.next() {
-      let b = iter.next();
-      pairs.push([a, b.unwrap_or(C::XyPoint::IDENTITY)]);
-      let div = match b {
-        Some(b) => a + b,
-        None => a,
-      };
-      divs.push(div);
-    }
-
-    while divs.len() > 1 {
-      let mut next_divs = Vec::with_capacity((divs.len() / 2) + 1);
-      // If there's an odd amount of divisors, carry the odd one out to the next iteration
-      if (divs.len() % 2) == 1 {
-        next_divs.push(divs.pop().unwrap());
-      }
-
-      while let Some(a) = divs.pop() {
-        let b = divs.pop().unwrap();
-        pairs.push([a, b]);
-        next_divs.push(a + b);
-      }
-      divs = next_divs;
-    }
-    pairs
-  };
-
-  let gen = C::XyPoint::from(C::generator());
-  let (a_xy, b_xy) = {
-    let mut points = pairs
-      .iter()
-      .map(|[a, _]| {
-        let is_identity = a.is_identity();
-        <_>::conditional_select(a, &gen, is_identity)
-      })
-      .collect::<Vec<_>>();
-    let a = points.len();
-    points.extend(pairs.iter().map(|[_, b]| {
-      let is_identity = b.is_identity();
-      <_>::conditional_select(b, &gen, is_identity)
-    }));
-    let mut xy = C::XyPoint::batch_to_xy(&points);
-    let b_xy = xy.split_off(a);
-    let a_xy = xy;
-    (a_xy, b_xy)
-  };
-
-  let (line_args_and_denom, b): (Vec<_>, Vec<_>) = pairs
-    .into_iter()
-    .zip(a_xy.iter().zip(b_xy))
-    .map(|(pair, (a_xy, b_xy))| {
-      let (a_x, _) = a_xy;
-      let ax = CtOption::new(*a_x, !pair[0].is_identity());
-      let (b_x, _) = b_xy;
-      let bx = CtOption::new(b_x, !pair[1].is_identity());
-      let denom = (ax, bx);
-      let [a, b] = pair;
-      let args = line_args::<C>(a, b, *a_x, b_x, &gen);
-      let LineArgs { b, both_are_identity, one_is_identity_or_additive_inverses } = args;
-      (((both_are_identity, one_is_identity_or_additive_inverses), denom), b)
-    })
-    .unzip();
-
-  let slopes_and_intercepts = slopes_and_intercepts::<C>(a_xy, &b);
-
-  line_args_and_denom
-    .into_iter()
-    .zip(slopes_and_intercepts)
-    .map(
-      |(((both_are_identity, one_is_identity_or_additive_inverses), denom), (slope, intercept))| {
-        let line =
-          finish_line(slope, intercept, both_are_identity, one_is_identity_or_additive_inverses);
-        (line, denom)
-      },
-    )
-    .collect()
-}
-
-/// Convert divisor from univariate to bivariate representation.
-fn divisor_to_poly<C: DivisorCurve>(
-  divisor: &Divisor<C::FieldElement>,
-  interpolator: &Interpolator<C::FieldElement>,
-) -> Option<Poly<C::FieldElement>> {
-  let [a, b] = divisor.interpolate(interpolator)?;
-  let zero_coefficient = a[0];
-  let x_coefficients = a[1 ..].to_vec();
-  let yx_coefficients = vec![b[1 ..].to_vec()];
-  let y_coefficients = vec![b[0]];
-  Some(Poly { y_coefficients, yx_coefficients, x_coefficients, zero_coefficient })
+/// y^2 - x^3 - A x - B
+///
+/// Section 2 of Eagen's security proofs define this modulus.
+fn divisor_modulus<C: DivisorCurve>() -> Poly<C::FieldElement> {
+  Poly {
+    // 0 y**1, 1 y*2
+    y_coefficients: vec![C::FieldElement::ZERO, C::FieldElement::ONE],
+    yx_coefficients: vec![],
+    x_coefficients: vec![
+      // - A x
+      -C::a(),
+      // 0 x^2
+      C::FieldElement::ZERO,
+      // - x^3
+      -C::FieldElement::ONE,
+    ],
+    // - B
+    zero_coefficient: -C::b(),
+  }
 }
 
 /// Create a divisor interpolating the following points.
@@ -267,21 +173,17 @@ fn divisor_to_poly<C: DivisorCurve>(
 ///   - No points were passed in
 ///   - The points don't sum to the point at infinity
 ///   - A passed in point was the point at infinity
-///   - If too small of an interpolator was passed in
 ///
 /// If the arguments were valid, this function executes in an amount of time constant to the amount
 /// of points.
 #[allow(clippy::new_ret_no_self)]
-pub fn new_divisor<C: DivisorCurve>(
-  points: &[C::XyPoint],
-  interpolator: &Interpolator<C::FieldElement>,
-) -> Option<Poly<C::FieldElement>> {
+pub fn new_divisor<C: DivisorCurve>(points: &[C]) -> Option<Poly<C::FieldElement>> {
   // No points were passed in, this is the point at infinity, or the single point isn't infinity
   // and accordingly doesn't sum to infinity. All three cause us to return None
   // Checks a bit other than the first bit is set, meaning this is >= 2
   let mut invalid_args = (points.len() & (!1)).ct_eq(&0);
   // The points don't sum to the point at infinity
-  let sum = points.iter().copied().reduce(C::XyPoint::add).unwrap_or(C::XyPoint::IDENTITY);
+  let sum = points.iter().copied().sum::<C>();
   invalid_args |= !sum.is_identity();
   // A point was the point at identity
   for point in points {
@@ -293,13 +195,20 @@ pub fn new_divisor<C: DivisorCurve>(
 
   let points_len = points.len();
 
-  let modulus = Divisor::compute_modulus(C::a(), C::b(), interpolator.required_evaluations());
+  let modulus = divisor_modulus::<C>();
   // Create the initial set of divisors
   let mut divs = vec![];
-  let mut all_lines = lines_and_denoms::<C>(points).into_iter();
-  for _ in 0 .. ((points_len / 2) + (points_len % 2)) {
-    let (line, _) = all_lines.next().unwrap();
-    divs.push(Divisor::<C::FieldElement>::from_small(line, &modulus));
+  let mut iter = points.iter().copied();
+  while let Some(a) = iter.next() {
+    let b = iter.next();
+
+    /*
+      Draw the line between these points.
+
+      These `unwrap`s are branching on the length of the iterator, without violating the desired
+      constant-time properties.
+    */
+    divs.push((2, a + b.unwrap_or_else(C::identity), line::<C>(a, b.unwrap_or(-a))));
   }
 
   // Our Poly algorithm is leaky and will create an excessive amount of y x**j and x**j
@@ -310,15 +219,15 @@ pub fn new_divisor<C: DivisorCurve>(
     debug_assert!(divisor.yx_coefficients.len() <= 1);
     if divisor.yx_coefficients.len() == 1 {
       let truncate_to = points_len.div_ceil(2).saturating_sub(2);
-      for p in truncate_to .. divisor.yx_coefficients[0].len() {
-        debug_assert_eq!(divisor.yx_coefficients[0][p], <C::FieldElement as Field>::ZERO);
+      for coeff in divisor.yx_coefficients[0].iter().skip(truncate_to) {
+        debug_assert_eq!(*coeff, <C::FieldElement as Field>::ZERO);
       }
       divisor.yx_coefficients[0].truncate(truncate_to);
     }
     {
       let truncate_to = points_len / 2;
-      for p in truncate_to .. divisor.x_coefficients.len() {
-        debug_assert_eq!(divisor.x_coefficients[p], <C::FieldElement as Field>::ZERO);
+      for coeff in divisor.x_coefficients.iter().skip(truncate_to) {
+        debug_assert_eq!(*coeff, <C::FieldElement as Field>::ZERO);
       }
       divisor.x_coefficients.truncate(truncate_to);
     }
@@ -332,21 +241,32 @@ pub fn new_divisor<C: DivisorCurve>(
       next_divs.push(divs.pop().unwrap());
     }
 
-    while let Some(a_div) = divs.pop() {
-      let b_div = divs.pop().unwrap();
+    while let Some((a_points, a, a_div)) = divs.pop() {
+      let (b_points, b, b_div) = divs.pop().unwrap();
+      let points = a_points + b_points;
 
       // Merge the two divisors
-      let (line, denom) = all_lines.next().unwrap();
-      let merged = Divisor::merge([a_div, b_div], line, denom, &modulus);
-      next_divs.push(merged);
+      let numerator = a_div.mul_mod(&b_div, &modulus).mul_mod(&line::<C>(a, b), &modulus);
+      let denominator = line::<C>(a, -a).mul_mod(&line::<C>(b, -b), &modulus);
+      let (mut q, r) = numerator.div_rem(&denominator);
+      debug_assert!({
+        let Poly { y_coefficients, yx_coefficients, x_coefficients, zero_coefficient } = &r;
+        y_coefficients
+          .iter()
+          .chain(yx_coefficients.iter().flatten())
+          .chain(x_coefficients)
+          .chain(core::iter::once(zero_coefficient))
+          .all(|coeff| bool::from(coeff.is_zero()))
+      });
+      trim(&mut q, 1 + points);
+      next_divs.push((points, a + b, q));
     }
 
     divs = next_divs;
   }
 
   // Return the unified divisor
-  let divisor = divs.remove(0);
-  let mut divisor = divisor_to_poly::<C>(&divisor, interpolator)?;
+  let (_points, _point, mut divisor) = divs.remove(0);
   trim(&mut divisor, points_len);
   Some(divisor)
 }
@@ -520,8 +440,7 @@ impl<F: Zeroize + PrimeFieldBits> ScalarDecomposition<F> {
   ///
   /// This function executes in constant time with regards to the scalar.
   ///
-  /// This function MAY panic on integer overflow, if the generator is the point at infinity, or if
-  /// `C::interpolator_for_scalar_mul` is insufficient.
+  /// This function MAY panic on integer overflow or if the generator is the point at infinity.
   pub fn scalar_mul_divisor<C: Zeroize + DivisorCurve<Scalar = F>>(
     &self,
     generator: C,
@@ -531,11 +450,11 @@ impl<F: Zeroize + PrimeFieldBits> ScalarDecomposition<F> {
     let _ = usize::try_from(<C::Scalar as PrimeField>::NUM_BITS + 2)
       .expect("NUM_BITS + 2 didn't fit in usize");
     let mut divisor_points =
-      vec![C::XyPoint::IDENTITY; usize::try_from(<C::Scalar as PrimeField>::NUM_BITS + 1).unwrap()];
+      vec![C::identity(); usize::try_from(<C::Scalar as PrimeField>::NUM_BITS + 1).unwrap()];
 
     // Write the inverse of the resulting point
-    divisor_points[0] = C::XyPoint::from(-generator * self.scalar);
-    let mut generator = C::XyPoint::from(generator);
+    divisor_points[0] = -generator * self.scalar;
+    let mut generator = generator;
 
     // Write the decomposition
     let mut write_above: u64 = 0;
@@ -552,7 +471,7 @@ impl<F: Zeroize + PrimeFieldBits> ScalarDecomposition<F> {
     }
 
     // Create a divisor out of the points
-    let res = new_divisor::<C>(&divisor_points, C::interpolator_for_scalar_mul().borrow()).unwrap();
+    let res = new_divisor::<C>(&divisor_points).unwrap();
     divisor_points.zeroize();
     res
   }
@@ -560,8 +479,6 @@ impl<F: Zeroize + PrimeFieldBits> ScalarDecomposition<F> {
 
 #[cfg(any(test, feature = "ed25519"))]
 mod ed25519 {
-  use std_shims::sync::LazyLock;
-
   use subtle::{Choice, ConditionallySelectable as _};
   use group::{
     ff::{Field as _, PrimeField as _},
@@ -570,11 +487,8 @@ mod ed25519 {
 
   use dalek_ff_group::{FieldElement, EdwardsPoint};
 
-  use crate::{Projective, Interpolator};
-
   impl crate::DivisorCurve for EdwardsPoint {
     type FieldElement = FieldElement;
-    type XyPoint = Projective<Self>;
 
     // Wei25519 a/b
     // https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.3
@@ -589,13 +503,6 @@ mod ed25519 {
       Self::FieldElement::from_u256(&U256::from_be_hex(
         "7b425ed097b425ed097b425ed097b425ed097b425ed097b4260b5e9c7710c864",
       ))
-    }
-
-    type BorrowedInterpolator = &'static Interpolator<Self::FieldElement>;
-    fn interpolator_for_scalar_mul() -> Self::BorrowedInterpolator {
-      static PRECOMPUTE: LazyLock<Interpolator<FieldElement>> =
-        LazyLock::new(|| Interpolator::new(128));
-      &*PRECOMPUTE
     }
 
     // https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.2
