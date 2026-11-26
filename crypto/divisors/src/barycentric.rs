@@ -1,7 +1,5 @@
-use core::{
-  ops::{AddAssign, Mul},
-  iter::successors,
-};
+use core::ops::{AddAssign, Mul};
+use alloc::boxed::Box;
 use std_shims::{vec, vec::Vec};
 
 use ff::{Field, PrimeField, BatchInvert as _};
@@ -69,7 +67,7 @@ impl<F: Field> UnivariatePoly<F> {
 }
 
 struct Weights<F: Field> {
-  inverted_weights: Vec<F>,
+  inverted_weights: Box<[F]>,
   l: UnivariatePoly<F>,
 }
 
@@ -89,28 +87,41 @@ impl<F: PrimeField> Weights<F> {
   fn new(domain_size: usize) -> Self {
     assert_ne!(domain_size, 0);
 
-    let start = Some(-F::ONE);
-    let diffs = successors(start, |prev| Some(*prev - F::ONE));
-    let diff_products = diffs.scan(F::ONE, |product, diff| {
-      *product *= diff;
-      Some(*product)
-    });
-    let mut diff_products: Vec<F> = diff_products.take(domain_size - 1).collect();
-    diff_products.reverse();
-    diff_products.push(F::ONE);
-    let diff_products_right = diff_products.into_iter();
+    let diffs = core::iter::successors(Some(F::ONE), |prev| Some(*prev + F::ONE));
+    let diff_products = diffs
+      .scan(F::ONE, |product, diff| {
+        *product *= diff;
+        Some(*product)
+      })
+      .take(domain_size - 1)
+      .collect::<Box<[_]>>();
+    if let Some(product) = diff_products.last() {
+      assert!(!bool::from(product.is_zero()), "domain exceeded field's size");
+    }
 
-    let diffs = successors(Some(F::ONE), |prev| Some(*prev + F::ONE));
-    let diff_products_left = diffs.scan(F::ONE, |product, diff| {
-      *product *= diff;
-      Some(*product)
-    });
-    let diff_products_left = [F::ONE].into_iter().chain(diff_products_left);
+    let one = F::ONE;
+    let diff_products_left = core::iter::once(&one).chain(diff_products.iter());
+    let diff_products_right = diff_products
+      .iter()
+      .rev()
+      .enumerate()
+      .map(|(i, value)| {
+        let original_i = (diff_products.len() - 1) - i;
+        if (original_i % 2) == 0 {
+          -*value
+        } else {
+          *value
+        }
+      })
+      .chain(core::iter::once(one));
 
-    let weights: Vec<F> =
-      diff_products_left.zip(diff_products_right).map(|(left, right)| left * right).collect();
+    let weights = diff_products_left
+      .into_iter()
+      .zip(diff_products_right)
+      .map(|(left, right)| *left * right)
+      .collect::<Box<[_]>>();
 
-    let mut inverted_weights = weights.clone();
+    let mut inverted_weights = weights;
     (&mut inverted_weights).batch_invert();
     Weights { inverted_weights, l: Self::l(domain_size) }
   }
@@ -139,7 +150,8 @@ pub struct Interpolator<F: Field> {
 impl<F: PrimeField> Interpolator<F> {
   /// Create a new box eligible for Lagrange interpolation.
   ///
-  /// This may panic if the degree is `usize::MAX`.
+  /// This may panic if the degree is `usize::MAX` or if the degree is greater than the amount of
+  /// non-zero elements of the field.
   pub fn new(degree: usize) -> Self {
     let domain_size = degree + 1;
     let weights = Weights::new(domain_size);
